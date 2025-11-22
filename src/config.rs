@@ -64,6 +64,9 @@ pub const PRUNE_DIRS: &[&str] = &[
     "coverage",
     "vendor",
     "third_party",
+    "package-lock.json", // <--- ADD THIS HERE
+    "yarn.lock",         // <--- MIGHT AS WELL ADD THIS TOO
+    "pnpm-lock.yaml",    // <--- AND THIS
 ];
 
 pub const BIN_EXT_PATTERN: &str = r"(?i)\.(png|jpe?g|gif|svg|ico|icns|webp|woff2?|ttf|otf|pdf|mp4|mov|mkv|avi|mp3|wav|flac|zip|gz|bz2|xz|7z|rar|jar|csv|tsv|parquet|sqlite|db|bin|exe|dll|so|dylib|pkl|onnx|torch|tgz|zst|lock)$";
