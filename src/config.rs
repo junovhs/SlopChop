@@ -124,7 +124,11 @@ impl Config {
 
 // Constants for automatic pruning (Smart Defaults)
 pub const PRUNE_DIRS: &[&str] = &[
+    // Version Control
     ".git",
+    ".svn",
+    ".hg",
+    // Dependencies & Build Artifacts
     "node_modules",
     "target",
     "dist",
@@ -137,6 +141,24 @@ pub const PRUNE_DIRS: &[&str] = &[
     "__pycache__",
     "coverage",
     "vendor",
+    // Lockfiles (The fix for your specific problem)
+    "Cargo.lock",
+    "package-lock.json",
+    "pnpm-lock.yaml",
+    "yarn.lock",
+    "bun.lockb",
+    "go.sum",
+    "Gemfile.lock",
+    // Context Noise (Tests, Docs, Assets)
+    "tests",
+    "test",
+    "spec",
+    "docs",
+    "examples",
+    "samples",
+    "fixtures",
+    "assets",
+    "public",
 ];
 
 pub const BIN_EXT_PATTERN: &str =
