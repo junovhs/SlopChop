@@ -1,6 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
 use colored::Colorize;
+use std::fs;
 use std::process;
 
 use warden_core::config::{Config, GitMode};
@@ -9,6 +10,18 @@ use warden_core::enumerate::FileEnumerator;
 use warden_core::filter::FileFilter;
 use warden_core::heuristics::HeuristicFilter;
 use warden_core::rules::RuleEngine;
+
+const DEFAULT_TOML: &str = r#"# warden.toml
+[rules]
+# The Law of Atomicity: Keep files small.
+max_file_tokens = 2000
+
+# The Law of Bluntness: Keep names simple.
+max_function_words = 3
+
+# Exclusions for naming rules (e.g. tests often have long names)
+ignore_naming_on = ["tests", "spec"]
+"#;
 
 #[derive(Parser)]
 #[command(name = "warden")]
@@ -23,12 +36,27 @@ struct Cli {
     no_git: bool,
     #[arg(long)]
     code_only: bool,
+
+    /// Initialize a default warden.toml configuration file
+    #[arg(long)]
+    init: bool,
 }
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    // Strict initialization
+    // 0. Init Mode
+    if cli.init {
+        if std::path::Path::new("warden.toml").exists() {
+            println!("{}", "⚠️ warden.toml already exists.".yellow());
+            return Ok(());
+        }
+        fs::write("warden.toml", DEFAULT_TOML)?;
+        println!("{}", "✅ Created warden.toml".green());
+        return Ok(());
+    }
+
+    // 1. Setup & Validation
     let mut config = Config::new();
     config.verbose = cli.verbose;
     config.code_only = cli.code_only;

@@ -29,7 +29,7 @@ Warden checks if your code is **maintainable**. It enforces the "3 Laws" of this
     *   **Rule:** Function names must be **≤ 3 words** (e.g., `fetchUser` ✅, `fetchUserAndSaveToDb` ❌).
     *   **Goal:** Enforces Single Responsibility Principle (SRP).
 3.  **The Law of Paranoia (Safety)**
-    *   **Rule:** Logic bodies must contain explicit error handling (`Result`, `try/catch`, `match`, `unwrap_or`).
+    *   **Rule:** Logic bodies must contain explicit error handling (`Result`, `try/catch`, `match`, `unwrap_or`, `?`).
     *   **Goal:** Prevents "Silent Failures." Warden uses **Tree-sitter** to verify that safety exists structurally within the AST.
 
 ### Usage
@@ -92,7 +92,7 @@ THE 3 LAWS (Non-Negotiable):
    - If a file grows too large, split it immediately.
 
 2. LAW OF PARANOIA (Scope Safety):
-   - Logic Blocks MUST contain explicit error handling (Result, try/catch, Option) INSIDE the function body.
+   - Logic Blocks MUST contain explicit error handling (Result, try/catch, Option, ?) INSIDE the function body.
    - No unwrap() allowed.
 
 3. LAW OF BLUNTNESS (Naming):
@@ -107,9 +107,4 @@ OPERATIONAL PROTOCOL:
 ---
 
 **License:** MIT
-```
-
-**MANUAL ACTION REQUIRED:**
-```bash
-rm src/main.rs
 ```

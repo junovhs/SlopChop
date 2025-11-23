@@ -133,17 +133,21 @@ fn pack_xml(files: &[std::path::PathBuf], out: &mut String) {
     writeln!(out, "<documents>").unwrap();
     for path in files {
         let path_str = normalize_path(path);
-        writeln!(out, "  <document path=\"{path_str}\">").unwrap();
+        // Security: Open CDATA tag
+        writeln!(out, "  <document path=\"{path_str}\"><![CDATA[").unwrap();
 
         match fs::read_to_string(path) {
             Ok(content) => {
-                out.push_str(&content);
+                // Security: Sanitize CDATA closing tags in content to prevent injection
+                let safe_content = content.replace("]]>", "]]]]><![CDATA[>");
+                out.push_str(&safe_content);
             }
             Err(e) => {
-                writeln!(out, "    <!-- ERROR READING FILE: {e} -->").unwrap();
+                writeln!(out, "ERROR READING FILE: {e}").unwrap();
             }
         }
-        writeln!(out, "\n  </document>").unwrap();
+        // Security: Close CDATA tag
+        writeln!(out, "]]></document>").unwrap();
     }
     writeln!(out, "</documents>").unwrap();
 }

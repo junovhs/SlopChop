@@ -130,7 +130,7 @@ FILE: README.md
 
 Warden is a local toolchain designed to enforce **Code With Intent (POT)**. It solves the "Context Drift" and "Hallucination" problems common in AI coding by enforcing strict structural discipline (Atomicity, Naming, Safety) before code is committed.
 
-**v0.2.0 Update:** Warden now uses **Tree-sitter** for structural AST analysis and **Tiktoken** for LLM-native limits. It no longer parses text; it parses logic.
+**v0.3.0 Update:** Warden now uses **Tree-sitter** for structural AST analysis and **Tiktoken** for LLM-native limits. Logic checks are now semantic, not just text-based.
 
 ## The Ecosystem
 
@@ -143,97 +143,61 @@ This repository contains two binaries that share a single logic core:
 
 ## 1. The Warden (Linter)
 
-Warden does not check if your code works. It checks if your code is **maintainable**. It enforces the "3 Laws" of this architecture:
+Warden checks if your code is **maintainable**. It enforces the "3 Laws" of this architecture:
 
 ### The 3 Laws
 1.  **The Law of Atomicity (Anti-Bloat)**
     *   **Rule:** No file may exceed **2000 Tokens** (approx. 200-250 lines of dense code).
-    *   **Goal:** Forces modularity based on **Attention Span**, not line count. LLMs degrade rapidly when context is flooded. Warden uses `cl100k_base` (GPT-4) tokenization to measure true cognitive load.
+    *   **Goal:** Forces modularity based on **Attention Span**.
 2.  **The Law of Bluntness (Naming)**
     *   **Rule:** Function names must be **≤ 3 words** (e.g., `fetchUser` ✅, `fetchUserAndSaveToDb` ❌).
-    *   **Goal:** Enforces Single Responsibility Principle (SRP). If you can't name it simply, split it. *Now uses AST analysis to ignore comments and strings.*
+    *   **Goal:** Enforces Single Responsibility Principle (SRP).
 3.  **The Law of Paranoia (Safety)**
-    *   **Rule:** Logic bodies must contain explicit error handling (`Result`, `try/catch`, `Option`, `match`).
-    *   **Goal:** Prevents "Silent Failures." *Warden verifies that safety mechanisms exist inside the function scope, not just in file comments.*
+    *   **Rule:** Logic bodies must contain explicit error handling (`Result`, `try/catch`, `match`, `unwrap_or`, `?`).
+    *   **Goal:** Prevents "Silent Failures." Warden uses **Tree-sitter** to verify that safety exists structurally within the AST.
 
 ### Usage
 ```bash
 # Run inside any Git repo
 warden
-
-# Force scan ignored files
-warden --no-git
-
-# Verbose mode (see exactly what it checks)
-warden -v
 ```
 
-**Bypass:** To intentionally skip a file (e.g., a UI component with no logic), add this comment to the top of the file:
-```rust
-// warden:ignore
-```
+**Bypass:** To intentionally skip a file, add `// warden:ignore` to the top.
 
 ---
 
 ## 2. Knit (Context Packer)
 
-Knit is the bridge between your filesystem and the LLM. It stitches your "Atomic" files into a single text stream with clear headers and **calculates the token cost** of your context.
-
-### Features
-*   **Token Aware:** Reports exactly how many tokens your context consumes (e.g., `9487 tokens`), so you never exceed your model's window.
-*   **Smart Defaults:** Automatically strips noise (`node_modules`, `target`, `_assets`, `lockfiles`, `tests`, `docs`). You get the **Kernel** of the code, not the fluff.
-*   **Entropy Filtering:** Detects and rejects minified code or binary blobs disguised as text.
-*   **Security:** Filters out secrets (`.env`, keys) and binaries (`.png`, `.exe`) automatically.
+Knit stitches your "Atomic" files into a single stream for LLMs.
 
 ### Usage
 ```bash
-# Generates a clean 'context.txt' in the current folder
+# Standard Text Output
 knit
 
-# Pipe directly to clipboard (Mac)
-knit --stdout | pbcopy
-
-# Pipe directly to clipboard (Linux)
-knit --stdout | xclip -selection c
+# XML Output (Optimized for Claude 3.5 / Newer Models)
+knit --format xml
 ```
 
 ---
 
 ## ⚙️ Configuration
 
-Warden and Knit work out-of-the-box with "Smart Defaults" (ignoring `dist`, `build`, `assets`, etc).
+Warden works out-of-the-box, but you can customize the "3 Laws" via `warden.toml` in your project root.
 
-To add custom excludes for a specific project, create a `.wardenignore` file in the project root:
+```toml
+# warden.toml
+[rules]
+max_file_tokens = 2500      # Default: 2000
+max_function_words = 4      # Default: 3
+ignore_naming_on = ["tests"] # paths containing this string skip naming checks
+```
 
+To ignore specific files/folders, create a `.wardenignore` file:
 ```text
 # .wardenignore
 legacy_code/
-experiment.rs
-scripts/
-```
-
----
-
-## 🚀 Installation
-
-Requires Rust (`cargo`).
-
-```bash
-# Clone and install globally
-git clone https://github.com/yourusername/warden.git
-cd warden
-cargo install --path . --force
-```
-
-**Recommended Shell Aliases:**
-Add these to your `.zshrc` or `.bashrc` for the full workflow:
-
-```bash
-# Mac
-alias gcp="knit --stdout | pbcopy && echo '📋 Context copied.'"
-
-# Linux
-# alias gcp="knit --stdout | xclip -selection c && echo '📋 Context copied.'"
+experiments/
 ```
 
 ---
@@ -250,25 +214,247 @@ THE 3 LAWS (Non-Negotiable):
 1. LAW OF ATOMICITY (Token Limits):
    - Files MUST be < 2000 Tokens (~200 lines).
    - If a file grows too large, split it immediately.
-   - React/UI: Split VIEW (Component.tsx) from LOGIC (useComponent.ts).
 
 2. LAW OF PARANOIA (Scope Safety):
-   - Logic Blocks MUST contain explicit error handling (Result, try/catch, Option) INSIDE the function body.
-   - If a component is pure UI (visuals only), add "// warden:ignore" at the top.
+   - Logic Blocks MUST contain explicit error handling (Result, try/catch, Option, ?) INSIDE the function body.
+   - No unwrap() allowed.
 
 3. LAW OF BLUNTNESS (Naming):
    - Function names Max 3 words (e.g., `fetchData` is good; `fetchDataAndProcess` is bad).
 
 OPERATIONAL PROTOCOL:
 1. Scan: Read the provided context.
-2. Generate: Output WHOLE FILES with the filename in a header. Do not use diffs.
+2. Generate: Output WHOLE FILES with the filename in a header.
 3. Verify: Ask yourself: "Will Warden reject this?" before printing.
 ```
 
 ---
 
-**License:** MIT  
-**Philosophy:** Code With Intent (POT)
+**License:** MIT
+```
+
+
+================================================================================
+FILE: src/analysis.rs
+================================================================================
+use crate::config::RuleConfig;
+use tree_sitter::{Node, Parser, Query, QueryCursor};
+
+pub struct Analyzer {
+    rust_naming: Query,
+    rust_safety: Query,
+    rust_banned: Query,
+    js_naming: Query,
+    js_safety: Query,
+    py_naming: Query,
+    py_safety: Query,
+}
+
+impl Default for Analyzer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Analyzer {
+    /// Compiles Tree-sitter queries.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the internal hardcoded queries are invalid. This implies a development error.
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            rust_naming: Query::new(tree_sitter_rust::language(), "(function_item name: (identifier) @name)").unwrap(),
+            // Safety: Includes match, if let, while let, ?, and specific safety methods
+            rust_safety: Query::new(tree_sitter_rust::language(), r#"
+                (match_expression) @safe
+                (if_expression condition: (let_condition)) @safe
+                (while_expression condition: (let_condition)) @safe
+                (try_expression) @safe
+                (call_expression function: (field_expression field: (field_identifier) @m (#match? @m "^(expect|unwrap_or|unwrap_or_else|unwrap_or_default|ok|err|map_err|any|all|find|is_some|is_none|is_ok|is_err)$"))) @safe
+                (call_expression function: (identifier) @f (#match? @f "^(Ok|Err)$")) @safe
+            "#).unwrap(),
+            // Banned: Explicitly hunt for unwrap() calls
+            rust_banned: Query::new(tree_sitter_rust::language(), r#"
+                (call_expression function: (field_expression field: (field_identifier) @m (#eq? @m "unwrap"))) @banned
+            "#).unwrap(),
+
+            js_naming: Query::new(tree_sitter_javascript::language(), r"
+                (function_declaration name: (identifier) @name)
+                (method_definition name: (property_identifier) @name)
+                (variable_declarator name: (identifier) @name value: [(arrow_function) (function_expression)])
+            ").unwrap(),
+            js_safety: Query::new(tree_sitter_javascript::language(), r#"
+                (try_statement) @safe
+                (call_expression function: (member_expression property: (property_identifier) @m (#eq? @m "catch"))) @safe
+            "#).unwrap(),
+
+            py_naming: Query::new(tree_sitter_python::language(), "(function_definition name: (identifier) @name)").unwrap(),
+            // Python Safety: Specific checks for 'try', 'not ...', and comparisons against 'None'
+            py_safety: Query::new(tree_sitter_python::language(), r"
+                (try_statement) @safe
+                (if_statement condition: (unary_operator operator: (not_operator))) @safe
+                (if_statement condition: (comparison_operator (_) (none))) @safe
+            ").unwrap(),
+        }
+    }
+
+    /// Analyzes the content for violations.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the Tree-sitter parser fails to initialize the language.
+    #[must_use]
+    pub fn analyze(
+        &self,
+        lang: &str,
+        filename: &str,
+        content: &str,
+        config: &RuleConfig,
+    ) -> Vec<Violation> {
+        let (language, naming_q, safety_q, banned_q) = match lang {
+            "rs" => (
+                tree_sitter_rust::language(),
+                &self.rust_naming,
+                &self.rust_safety,
+                Some(&self.rust_banned),
+            ),
+            "js" | "jsx" | "ts" | "tsx" => (
+                tree_sitter_typescript::language_typescript(),
+                &self.js_naming,
+                &self.js_safety,
+                None,
+            ),
+            "py" => (
+                tree_sitter_python::language(),
+                &self.py_naming,
+                &self.py_safety,
+                None,
+            ),
+            _ => return vec![],
+        };
+
+        let mut parser = Parser::new();
+        parser
+            .set_language(language)
+            .expect("Failed to load language");
+        let tree = parser.parse(content, None).expect("Failed to parse");
+        let root = tree.root_node();
+
+        let mut violations = Vec::new();
+        Self::check_naming(root, content, filename, naming_q, config, &mut violations);
+        Self::check_safety(root, content, safety_q, &mut violations);
+
+        if let Some(bq) = banned_q {
+            Self::check_banned(root, content, bq, &mut violations);
+        }
+
+        violations
+    }
+
+    fn check_naming(
+        root: Node,
+        source: &str,
+        filename: &str,
+        query: &Query,
+        config: &RuleConfig,
+        out: &mut Vec<Violation>,
+    ) {
+        let mut cursor = QueryCursor::new();
+        for m in cursor.matches(query, root, source.as_bytes()) {
+            let node = m.captures[0].node;
+            let name = node.utf8_text(source.as_bytes()).unwrap_or("?");
+
+            let word_count = if name.contains('_') {
+                name.split('_').count()
+            } else {
+                name.chars().filter(|c| c.is_uppercase()).count() + 1
+            };
+
+            let should_ignore = config.ignore_naming_on.iter().any(|p| filename.contains(p));
+
+            if word_count > config.max_function_words && !should_ignore {
+                out.push(Violation {
+                    row: node.start_position().row,
+                    message: format!(
+                        "Function '{name}' has {word_count} words (Max: {})",
+                        config.max_function_words
+                    ),
+                    law: "LAW OF BLUNTNESS",
+                });
+            }
+        }
+    }
+
+    fn check_safety(root: Node, source: &str, safety_query: &Query, out: &mut Vec<Violation>) {
+        let mut cursor = root.walk();
+        loop {
+            let node = cursor.node();
+            let kind = node.kind();
+
+            if (kind.contains("function") || kind.contains("method"))
+                && !Self::is_lifecycle(node, source)
+            {
+                let mut func_cursor = QueryCursor::new();
+                if func_cursor
+                    .matches(safety_query, node, source.as_bytes())
+                    .next()
+                    .is_none()
+                {
+                    let rows = node.end_position().row - node.start_position().row;
+                    if rows > 5 {
+                        out.push(Violation {
+                            row: node.start_position().row,
+                            message:
+                                "Logic block lacks structural safety (try/catch, match, Result, ?)."
+                                    .into(),
+                            law: "LAW OF PARANOIA",
+                        });
+                    }
+                }
+            }
+
+            if !cursor.goto_first_child() {
+                while !cursor.goto_next_sibling() {
+                    if !cursor.goto_parent() {
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    fn check_banned(root: Node, source: &str, banned_query: &Query, out: &mut Vec<Violation>) {
+        let mut cursor = QueryCursor::new();
+        for m in cursor.matches(banned_query, root, source.as_bytes()) {
+            let node = m.captures[0].node;
+            out.push(Violation {
+                row: node.start_position().row,
+                message: "Explicit 'unwrap()' call detected. Use 'expect', 'unwrap_or', or '?'."
+                    .into(),
+                law: "LAW OF PARANOIA",
+            });
+        }
+    }
+
+    fn is_lifecycle(node: Node, source: &str) -> bool {
+        if let Some(name_node) = node.child_by_field_name("name") {
+            let name = name_node.utf8_text(source.as_bytes()).unwrap_or("");
+            return matches!(
+                name,
+                "new" | "default" | "init" | "__init__" | "constructor" | "render" | "main"
+            );
+        }
+        false
+    }
+}
+
+pub struct Violation {
+    pub row: usize,
+    pub message: String,
+    pub law: &'static str,
+}
 
 
 ================================================================================
@@ -279,6 +465,7 @@ use clap::{Parser, ValueEnum};
 use colored::Colorize;
 use std::fmt::Write;
 use std::fs;
+use std::path::Path;
 
 use warden_core::config::{Config, GitMode};
 use warden_core::enumerate::FileEnumerator;
@@ -373,9 +560,13 @@ fn main() -> Result<()> {
     Ok(())
 }
 
+fn normalize_path(path: &Path) -> String {
+    path.to_string_lossy().replace('\\', "/")
+}
+
 fn pack_text(files: &[std::path::PathBuf], out: &mut String) {
     for path in files {
-        let path_str = path.to_string_lossy();
+        let path_str = normalize_path(path);
         writeln!(
             out,
             "================================================================================"
@@ -403,20 +594,22 @@ fn pack_text(files: &[std::path::PathBuf], out: &mut String) {
 fn pack_xml(files: &[std::path::PathBuf], out: &mut String) {
     writeln!(out, "<documents>").unwrap();
     for path in files {
-        let path_str = path.to_string_lossy();
-        writeln!(out, "  <document path=\"{path_str}\">").unwrap();
+        let path_str = normalize_path(path);
+        // Security: Open CDATA tag
+        writeln!(out, "  <document path=\"{path_str}\"><![CDATA[").unwrap();
 
         match fs::read_to_string(path) {
             Ok(content) => {
-                // We do not escape content to preserve code integrity for LLMs.
-                // They are smart enough to handle unescaped code blocks usually.
-                out.push_str(&content);
+                // Security: Sanitize CDATA closing tags in content to prevent injection
+                let safe_content = content.replace("]]>", "]]]]><![CDATA[>");
+                out.push_str(&safe_content);
             }
             Err(e) => {
-                writeln!(out, "    <!-- ERROR READING FILE: {e} -->").unwrap();
+                writeln!(out, "ERROR READING FILE: {e}").unwrap();
             }
         }
-        writeln!(out, "\n  </document>").unwrap();
+        // Security: Close CDATA tag
+        writeln!(out, "]]></document>").unwrap();
     }
     writeln!(out, "</documents>").unwrap();
 }
@@ -428,6 +621,7 @@ FILE: src/bin/warden.rs
 use anyhow::Result;
 use clap::Parser;
 use colored::Colorize;
+use std::fs;
 use std::process;
 
 use warden_core::config::{Config, GitMode};
@@ -436,6 +630,18 @@ use warden_core::enumerate::FileEnumerator;
 use warden_core::filter::FileFilter;
 use warden_core::heuristics::HeuristicFilter;
 use warden_core::rules::RuleEngine;
+
+const DEFAULT_TOML: &str = r#"# warden.toml
+[rules]
+# The Law of Atomicity: Keep files small.
+max_file_tokens = 2000
+
+# The Law of Bluntness: Keep names simple.
+max_function_words = 3
+
+# Exclusions for naming rules (e.g. tests often have long names)
+ignore_naming_on = ["tests", "spec"]
+"#;
 
 #[derive(Parser)]
 #[command(name = "warden")]
@@ -450,12 +656,27 @@ struct Cli {
     no_git: bool,
     #[arg(long)]
     code_only: bool,
+
+    /// Initialize a default warden.toml configuration file
+    #[arg(long)]
+    init: bool,
 }
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    // Strict initialization
+    // 0. Init Mode
+    if cli.init {
+        if std::path::Path::new("warden.toml").exists() {
+            println!("{}", "⚠️ warden.toml already exists.".yellow());
+            return Ok(());
+        }
+        fs::write("warden.toml", DEFAULT_TOML)?;
+        println!("{}", "✅ Created warden.toml".green());
+        return Ok(());
+    }
+
+    // 1. Setup & Validation
     let mut config = Config::new();
     config.verbose = cli.verbose;
     config.code_only = cli.code_only;
@@ -1040,36 +1261,23 @@ impl FileFilter {
     }
 
     fn is_excluded(&self, path: &str) -> bool {
-        // Paranoia: Explicitly match on the Option result of find()
-        // This ensures structural safety is present even if formatting expands the lines
-        match self
-            .config
+        self.config
             .exclude_patterns
             .iter()
-            .find(|p| p.is_match(path))
-        {
-            Some(_) => true,
-            None => false,
-        }
+            .any(|p| p.is_match(path))
     }
 
     fn is_included(&self, path: &str) -> bool {
-        if self.config.include_patterns.is_empty() {
-            return true;
-        }
-        // Paranoia: Explicitly match on the Option result
-        match self
-            .config
-            .include_patterns
-            .iter()
-            .find(|p| p.is_match(path))
-        {
-            Some(_) => true,
-            None => false,
-        }
+        self.config.include_patterns.is_empty()
+            || self
+                .config
+                .include_patterns
+                .iter()
+                .any(|p| p.is_match(path))
     }
 
     fn is_code(&self, path: &str) -> bool {
+        // Explicit structural safety for mixed option/regex logic
         match (&self.code_ext_re, &self.code_bare_re) {
             (Some(ext), Some(bare)) => ext.is_match(path) || bare.is_match(path),
             _ => true,
@@ -1202,134 +1410,6 @@ pub mod tokens;
 
 
 ================================================================================
-FILE: src/main.rs
-================================================================================
-use anyhow::Result;
-use clap::Parser;
-use colored::*;
-use std::process;
-
-// Module declarations
-mod config;
-mod detection;
-mod enumerate;
-mod error;
-mod filter;
-mod heuristics;
-mod rules;
-
-use crate::config::{Config, GitMode};
-use crate::detection::Detector;
-use crate::enumerate::FileEnumerator;
-use crate::filter::FileFilter;
-use crate::heuristics::HeuristicFilter;
-use crate::rules::RuleEngine;
-
-#[derive(Parser)]
-#[command(name = "warden")]
-#[command(about = "Structural linter for Code With Intent")]
-struct Cli {
-    /// Enable verbose logging
-    #[arg(long, short)]
-    verbose: bool,
-
-    /// Force git-only mode (respect .gitignore)
-    #[arg(long)]
-    git_only: bool,
-
-    /// Force no-git mode (scan everything)
-    #[arg(long)]
-    no_git: bool,
-
-    /// Only scan code files (ignore configs/docs)
-    #[arg(long)]
-    code_only: bool,
-}
-
-fn main() -> Result<()> {
-    let cli = Cli::parse();
-
-    // 1. Setup & Validation
-    let mut config = Config::new();
-    config.verbose = cli.verbose;
-    config.code_only = cli.code_only;
-
-    // Wire up the GitMode enum variants (Resolves "Variant never constructed" warning)
-    if cli.git_only {
-        config.git_mode = GitMode::Yes;
-    } else if cli.no_git {
-        config.git_mode = GitMode::No;
-    }
-
-    // Call validate (Resolves "method never used" warning)
-    config.validate()?;
-
-    if config.verbose {
-        println!("🔧 Config loaded: GitMode::{:?}", config.git_mode);
-    }
-
-    // 2. Enumerate Files
-    let enumerator = FileEnumerator::new(config.clone());
-    let raw_files = enumerator.enumerate()?;
-
-    // 3. Detection Layer (Resolves "Detector never constructed" warnings)
-    // We use the detector to give context to the user about what we think this project is.
-    let detector = Detector::new();
-    let systems = detector.detect_build_systems(&raw_files)?;
-    if !systems.is_empty() {
-        let sys_list: Vec<String> = systems.iter().map(|s| s.to_string()).collect();
-        println!("🔎 Detected Ecosystem: [{}]", sys_list.join(", ").cyan());
-    }
-
-    // 4. Heuristics Layer (Resolves "HeuristicFilter never used" warnings)
-    // Filters out high-entropy files (likely binaries/obfuscated code)
-    let heuristic_filter = HeuristicFilter::new();
-    let heuristics_files = heuristic_filter.filter(raw_files);
-
-    // 5. Standard Filter Layer (Extension & Secrets)
-    let filter = FileFilter::new(config)?;
-    let target_files = filter.filter(heuristics_files);
-
-    if target_files.is_empty() {
-        println!("No files to scan.");
-        return Ok(());
-    }
-
-    println!("👮 Warden scanning {} files...", target_files.len());
-
-    // 6. Logic Engine (The Rules)
-    let engine = RuleEngine::new();
-    let mut total_failures = 0;
-
-    for path in target_files {
-        // We ignore the result error here (read failures) and just count logic failures
-        if let Ok(passed) = engine.check_file(&path) {
-            if !passed {
-                total_failures += 1;
-            }
-        }
-    }
-
-    println!("---------------------------------------------------");
-    if total_failures > 0 {
-        println!(
-            "{}",
-            format!("❌ Warden found {} violations.", total_failures)
-                .red()
-                .bold()
-        );
-        process::exit(1);
-    } else {
-        println!(
-            "{}",
-            "✅ All Clear. Code structure is clean.".green().bold()
-        );
-        process::exit(0);
-    }
-}
-
-
-================================================================================
 FILE: src/rules.rs
 ================================================================================
 use crate::analysis::Analyzer;
@@ -1390,7 +1470,8 @@ impl RuleEngine {
 
         // 2. AST ANALYSIS (Paranoia + Bluntness)
         if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
-            let violations = ANALYZER.analyze(ext, &content, &self.config.rules);
+            // Pass filename for rule config matching (ignore_naming_on)
+            let violations = ANALYZER.analyze(ext, &filename, &content, &self.config.rules);
 
             for v in violations {
                 Self::print_violation(

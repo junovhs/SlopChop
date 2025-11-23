@@ -56,7 +56,8 @@ impl RuleEngine {
 
         // 2. AST ANALYSIS (Paranoia + Bluntness)
         if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
-            let violations = ANALYZER.analyze(ext, &content, &self.config.rules);
+            // Pass filename for rule config matching (ignore_naming_on)
+            let violations = ANALYZER.analyze(ext, &filename, &content, &self.config.rules);
 
             for v in violations {
                 Self::print_violation(
