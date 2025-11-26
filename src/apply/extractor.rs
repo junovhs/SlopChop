@@ -10,7 +10,6 @@ use std::collections::HashMap;
 /// Returns error if regex compilation fails.
 pub fn extract_files(response: &str) -> Result<HashMap<String, FileContent>> {
     let mut files = HashMap::new();
-
     let open_tag_re = Regex::new(r"(?i)<file\s+([^>]+)>")?;
     let path_attr_re = Regex::new(r#"(?i)path\s*=\s*(?:"([^"]*)"|'([^']*)'|([^>\s]+))"#)?;
     let close_tag_re = Regex::new(r"(?i)</file>")?;
@@ -18,47 +17,56 @@ pub fn extract_files(response: &str) -> Result<HashMap<String, FileContent>> {
     let mut current_pos = 0;
 
     while let Some(cap) = open_tag_re.find_at(response, current_pos) {
-        let _tag_start = cap.start();
-        let tag_end = cap.end();
-        let attributes_str = cap.as_str();
-
-        let path = if let Some(captures) = path_attr_re.captures(attributes_str) {
-            captures
-                .get(1)
-                .or_else(|| captures.get(2))
-                .or_else(|| captures.get(3))
-                .map(|m| m.as_str().to_string())
-        } else {
-            current_pos = tag_end;
-            continue;
-        };
-
-        if let Some(file_path) = path {
-            if let Some(close_match) = close_tag_re.find_at(response, tag_end) {
-                let content_end = close_match.start();
-                let raw_content = &response[tag_end..content_end];
-
-                let clean_content = clean_file_content(raw_content);
-                let line_count = clean_content.lines().count();
-
-                files.insert(
-                    file_path,
-                    FileContent {
-                        content: clean_content,
-                        line_count,
-                    },
-                );
-
-                current_pos = close_match.end();
-            } else {
-                break;
-            }
-        } else {
-            current_pos = tag_end;
-        }
+        current_pos = process_tag_match(response, cap, &path_attr_re, &close_tag_re, &mut files);
     }
 
     Ok(files)
+}
+
+fn process_tag_match(
+    response: &str,
+    cap: regex::Match,
+    path_re: &Regex,
+    close_re: &Regex,
+    files: &mut HashMap<String, FileContent>,
+) -> usize {
+    let tag_end = cap.end();
+    let attributes_str = cap.as_str();
+
+    let Some(path) = extract_path(path_re, attributes_str) else {
+        return tag_end;
+    };
+
+    if let Some(close_match) = close_re.find_at(response, tag_end) {
+        let content_end = close_match.start();
+        let raw_content = &response[tag_end..content_end];
+
+        let clean_content = clean_file_content(raw_content);
+        let line_count = clean_content.lines().count();
+
+        files.insert(
+            path,
+            FileContent {
+                content: clean_content,
+                line_count,
+            },
+        );
+
+        close_match.end()
+    } else {
+        // Stop parsing if no closing tag found
+        response.len()
+    }
+}
+
+fn extract_path(re: &Regex, attrs: &str) -> Option<String> {
+    re.captures(attrs).and_then(|captures| {
+        captures
+            .get(1)
+            .or_else(|| captures.get(2))
+            .or_else(|| captures.get(3))
+            .map(|m| m.as_str().to_string())
+    })
 }
 
 fn clean_file_content(raw: &str) -> String {

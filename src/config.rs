@@ -116,39 +116,45 @@ impl Config {
             return;
         }
 
-        let is_windows = cfg!(windows);
-        let npx_command = if is_windows { "npx.cmd" } else { "npx" };
-        let npm_command = if is_windows { "npm.cmd" } else { "npm" };
-
         if Path::new("Cargo.toml").exists() {
             self.set_default(
                 "check",
                 "cargo clippy --all-targets -- -D warnings -D clippy::pedantic",
             );
-        } else if Path::new("package.json").exists() {
-            // Intelligent Auto-Configuration for JS/TS
-            let use_biome = Self::should_use_biome(npx_command);
+            return;
+        }
 
-            if use_biome {
-                self.set_default(
-                    "check",
-                    &format!("{npx_command} @biomejs/biome check --write src/"),
-                );
-            } else {
-                self.set_default("check", &format!("{npm_command} run lint -- --fix"));
-            }
-        } else if Path::new("pyproject.toml").exists() || Path::new("requirements.txt").exists() {
+        if Path::new("package.json").exists() {
+            self.configure_js_defaults();
+            return;
+        }
+
+        if Path::new("pyproject.toml").exists() || Path::new("requirements.txt").exists() {
             self.set_default("check", "ruff check --fix .");
         }
     }
 
+    fn configure_js_defaults(&mut self) {
+        let is_windows = cfg!(windows);
+        // Distinct names to avoid clippy::similar_names
+        let npx_executor = if is_windows { "npx.cmd" } else { "npx" };
+        let npm_manager = if is_windows { "npm.cmd" } else { "npm" };
+
+        let use_biome = Self::should_use_biome(npx_executor);
+        if use_biome {
+            self.set_default(
+                "check",
+                &format!("{npx_executor} @biomejs/biome check --write src/"),
+            );
+        } else {
+            self.set_default("check", &format!("{npm_manager} run lint -- --fix"));
+        }
+    }
+
     fn should_use_biome(npx: &str) -> bool {
-        // 1. If biome.json exists, definitely yes
         if Path::new("biome.json").exists() {
             return true;
         }
-
-        // 2. If package.json has biome dependency, but config is missing -> Auto Init
         if let Ok(content) = fs::read_to_string("package.json") {
             if content.contains("@biomejs/biome") {
                 println!("⚙️  Detected Biome dependency but missing config. Initializing...");
@@ -156,7 +162,6 @@ impl Config {
                 return true;
             }
         }
-
         false
     }
 

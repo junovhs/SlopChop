@@ -4,58 +4,63 @@ use colored::Colorize;
 
 pub fn print_outcome(outcome: &ApplyOutcome) {
     match outcome {
-        ApplyOutcome::Success { written, backed_up } => {
-            println!("{}", "✅ Apply successful!".green().bold());
-            if *backed_up {
-                println!("   (Backup created in .warden_apply_backup/)");
-            }
-            println!();
-            for file in written {
-                println!("   {} {file}", "✓".green());
-            }
-            println!();
-            println!("Run {} to verify.", "warden check".yellow());
-        }
+        ApplyOutcome::Success { written, backed_up } => print_success(written, *backed_up),
         ApplyOutcome::ValidationFailure {
             errors,
             missing,
             ai_message,
         } => {
-            println!("{}", "❌ Validation Failed".red().bold());
-
-            if !missing.is_empty() {
-                println!(
-                    "{}",
-                    "\nMissing Files (Declared but not provided):".yellow()
-                );
-                for f in missing {
-                    println!("   - {f}");
-                }
-            }
-
-            if !errors.is_empty() {
-                println!("{}", "\nContent Errors:".yellow());
-                for e in errors {
-                    println!("   - {e}");
-                }
-            }
-
-            println!();
-            println!("{}", "📋 Paste this back to the AI:".cyan().bold());
-            println!("{}", "─".repeat(60).black());
-            println!("{ai_message}");
-            println!("{}", "─".repeat(60).black());
-
-            if crate::clipboard::copy_to_clipboard(ai_message).is_ok() {
-                println!("{}", "✓ Copied to clipboard".green());
-            }
+            print_validation_errors(errors, missing);
+            print_ai_feedback(ai_message);
         }
-        ApplyOutcome::ParseError(e) => {
-            println!("{}: {e}", "⚠️  Parse Error".red());
+        ApplyOutcome::ParseError(e) => println!("{}: {e}", "⚠️  Parse Error".red()),
+        ApplyOutcome::WriteError(e) => println!("{}: {e}", "💥 Write Error".red()),
+    }
+}
+
+fn print_success(written: &[String], backed_up: bool) {
+    println!("{}", "✅ Apply successful!".green().bold());
+    if backed_up {
+        println!("   (Backup created in .warden_apply_backup/)");
+    }
+    println!();
+    for file in written {
+        println!("   {} {file}", "✓".green());
+    }
+    println!();
+    println!("Run {} to verify.", "warden check".yellow());
+}
+
+fn print_validation_errors(errors: &[String], missing: &[String]) {
+    println!("{}", "❌ Validation Failed".red().bold());
+
+    if !missing.is_empty() {
+        println!(
+            "{}",
+            "\nMissing Files (Declared but not provided):".yellow()
+        );
+        for f in missing {
+            println!("   - {f}");
         }
-        ApplyOutcome::WriteError(e) => {
-            println!("{}: {e}", "💥 Write Error".red());
+    }
+
+    if !errors.is_empty() {
+        println!("{}", "\nContent Errors:".yellow());
+        for e in errors {
+            println!("   - {e}");
         }
+    }
+}
+
+fn print_ai_feedback(ai_message: &str) {
+    println!();
+    println!("{}", "📋 Paste this back to the AI:".cyan().bold());
+    println!("{}", "─".repeat(60).black());
+    println!("{ai_message}");
+    println!("{}", "─".repeat(60).black());
+
+    if crate::clipboard::copy_to_clipboard(ai_message).is_ok() {
+        println!("{}", "✓ Copied to clipboard".green());
     }
 }
 

@@ -9,7 +9,7 @@ use crossterm::{
 };
 use std::fs;
 use std::io;
-use std::process::{self, Command};
+use std::process::{self, Command, ExitStatus};
 
 use warden_core::apply;
 use warden_core::clipboard;
@@ -38,6 +38,7 @@ enum Commands {
         #[arg(long)]
         dry_run: bool,
     },
+    Fix,
 }
 
 #[derive(Parser)]
@@ -89,7 +90,6 @@ fn init_config() -> Result<()> {
     if std::path::Path::new("warden.toml").exists() {
         println!("{}", "⚠️ warden.toml already exists.".yellow());
     } else {
-        // Default template now suggests auto-detection
         let default_toml = r#"# warden.toml
 [rules]
 max_file_tokens = 2000
@@ -137,6 +137,10 @@ fn exec_subcommand(cmd: &Commands, config: &Config) -> Result<()> {
             run_apply(*dry_run);
             Ok(())
         }
+        Commands::Fix => {
+            run_alias(config, "fix");
+            Ok(())
+        }
     }
 }
 
@@ -173,35 +177,41 @@ fn run_alias(config: &Config, name: &str) {
 fn execute_command_string(cmd_str: &str) {
     let mut parts = cmd_str.split_whitespace();
     if let Some(prog) = parts.next() {
-        // Verbose error handling for command execution
         let result = Command::new(prog).args(parts).status();
-
-        match result {
-            Ok(status) => {
-                if !status.success() {
-                    println!(
-                        "{}",
-                        format!(
-                            "❌ Command failed with exit code {}",
-                            status.code().unwrap_or(1)
-                        )
-                        .red()
-                    );
-                    process::exit(status.code().unwrap_or(1));
-                }
-            }
-            Err(e) => {
-                println!("{}", format!("❌ Failed to execute '{prog}': {e}").red());
-                if cfg!(windows) {
-                    println!(
-                        "{}",
-                        "💡 Tip: On Windows, npm commands need '.cmd' (e.g., 'npx.cmd').".yellow()
-                    );
-                }
-                process::exit(1);
-            }
-        }
+        handle_command_result(result, prog);
     }
+}
+
+fn handle_command_result(result: std::io::Result<ExitStatus>, prog: &str) {
+    match result {
+        Ok(status) => check_status_code(status),
+        Err(e) => handle_exec_error(e, prog),
+    }
+}
+
+fn check_status_code(status: ExitStatus) {
+    if !status.success() {
+        println!(
+            "{}",
+            format!(
+                "❌ Command failed with exit code {}",
+                status.code().unwrap_or(1)
+            )
+            .red()
+        );
+        process::exit(status.code().unwrap_or(1));
+    }
+}
+
+fn handle_exec_error(e: std::io::Error, prog: &str) {
+    println!("{}", format!("❌ Failed to execute '{prog}': {e}").red());
+    if cfg!(windows) {
+        println!(
+            "{}",
+            "💡 Tip: On Windows, npm commands need '.cmd' (e.g., 'npx.cmd').".yellow()
+        );
+    }
+    process::exit(1);
 }
 
 fn run_apply(dry_run: bool) {
@@ -212,11 +222,9 @@ fn run_apply(dry_run: bool) {
     match apply::run_apply(dry_run) {
         Ok(outcome) => {
             apply::print_result(&outcome);
-            match outcome {
-                apply::types::ApplyOutcome::Success { .. } => {}
-                _ => {
-                    process::exit(1);
-                }
+            if let apply::types::ApplyOutcome::Success { .. } = outcome {
+            } else {
+                process::exit(1);
             }
         }
         Err(e) => {
