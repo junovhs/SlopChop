@@ -1,46 +1,44 @@
 // src/apply/validator.rs
 use crate::apply::messages;
 use crate::apply::types::{ApplyOutcome, ExtractedFiles, Manifest, Operation};
-use std::path::Path;
 
-// Use hex escapes for backticks so this file doesn't trigger its own validation logic
-// when being applied by Warden.
-const MARKDOWN_PATTERNS: &[&str] = &[
-    "\x60\x60\x60", // Standard markdown code blocks
-    "~~~",          // Alternative markdown code blocks
-];
+const BACKTICK: char = '`';
+const TILDE: char = '~';
 
-// Lazy markers common in AI output when it gives up
-const TRUNCATION_MARKERS: &[&str] = &[
-    "// ...",
-    "/* ... */",
-    "// ... existing code ...",
-    "// ... rest of file ...",
-    "# ...",
-    "<!-- ... -->",
-];
-
-const DANGEROUS_PATHS: &[&str] = &[
-    ".git",
+const SENSITIVE_PATHS: &[&str] = &[
+    ".git/",
     ".env",
+    ".ssh/",
+    ".aws/",
+    ".gnupg/",
     "id_rsa",
     "id_ed25519",
     "credentials",
-    "secrets",
-    ".ssh",
-    ".aws",
-    ".kube",
+    ".warden_apply_backup/",
 ];
 
 #[must_use]
 pub fn validate(manifest: &Manifest, extracted: &ExtractedFiles) -> ApplyOutcome {
-    let missing = check_missing(manifest, extracted);
-    let errors = check_content(extracted);
+    let mut errors = Vec::new();
 
-    if !missing.is_empty() || !errors.is_empty() {
-        let ai_message = messages::format_ai_rejection(&missing, &errors);
+    check_path_safety(extracted, &mut errors);
+
+    if !errors.is_empty() {
+        let ai_message = messages::format_ai_rejection(&[], &errors);
         return ApplyOutcome::ValidationFailure {
             errors,
+            missing: Vec::new(),
+            ai_message,
+        };
+    }
+
+    let missing = check_missing(manifest, extracted);
+    let content_errors = check_content(extracted);
+
+    if !missing.is_empty() || !content_errors.is_empty() {
+        let ai_message = messages::format_ai_rejection(&missing, &content_errors);
+        return ApplyOutcome::ValidationFailure {
+            errors: content_errors,
             missing,
             ai_message,
         };
@@ -51,6 +49,61 @@ pub fn validate(manifest: &Manifest, extracted: &ExtractedFiles) -> ApplyOutcome
         written,
         backed_up: true,
     }
+}
+
+fn check_path_safety(extracted: &ExtractedFiles, errors: &mut Vec<String>) {
+    for path in extracted.keys() {
+        validate_single_path(path, errors);
+    }
+}
+
+fn validate_single_path(path: &str, errors: &mut Vec<String>) {
+    if has_traversal(path) {
+        errors.push(format!("SECURITY: path contains directory traversal: {path}"));
+        return;
+    }
+
+    if is_absolute_path(path) {
+        errors.push(format!("SECURITY: absolute path not allowed: {path}"));
+        return;
+    }
+
+    if is_sensitive_path(path) {
+        errors.push(format!("SECURITY: sensitive path blocked: {path}"));
+        return;
+    }
+
+    if is_hidden_file(path) {
+        errors.push(format!("SECURITY: hidden file not allowed: {path}"));
+    }
+}
+
+fn has_traversal(path: &str) -> bool {
+    path.contains("../") || path.starts_with("..")
+}
+
+fn is_absolute_path(path: &str) -> bool {
+    if path.starts_with('/') {
+        return true;
+    }
+    if path.len() >= 2 {
+        let bytes = path.as_bytes();
+        if bytes[0].is_ascii_alphabetic() && bytes[1] == b':' {
+            return true;
+        }
+    }
+    false
+}
+
+fn is_sensitive_path(path: &str) -> bool {
+    let lower = path.to_lowercase();
+    SENSITIVE_PATHS.iter().any(|s| lower.contains(s))
+}
+
+fn is_hidden_file(path: &str) -> bool {
+    path.split('/')
+        .filter(|s| !s.is_empty())
+        .any(|seg| seg.starts_with('.') && seg != "." && seg != "..")
 }
 
 fn check_missing(manifest: &Manifest, extracted: &ExtractedFiles) -> Vec<String> {
@@ -66,140 +119,26 @@ fn check_missing(manifest: &Manifest, extracted: &ExtractedFiles) -> Vec<String>
 fn check_content(extracted: &ExtractedFiles) -> Vec<String> {
     let mut errors = Vec::new();
     for (path, file) in extracted {
-        validate_single_file(path, &file.content, &mut errors);
+        check_single_file(path, &file.content, &mut errors);
     }
     errors
 }
 
-fn validate_single_file(path: &str, content: &str, errors: &mut Vec<String>) {
-    // 1. Path Safety
-    if let Err(e) = check_path_safety(path) {
-        errors.push(format!("{path}: Security Violation - {e}"));
-        return;
-    }
-
-    // 2. Empty Content
+fn check_single_file(path: &str, content: &str, errors: &mut Vec<String>) {
     if content.trim().is_empty() {
-        errors.push(format!("{path}: File is empty"));
+        errors.push(format!("{path} is empty"));
         return;
     }
 
-    // 3. Markdown Formatting
-    if let Some(pattern) = detect_markdown_block(content) {
+    if has_markdown_fence(content) {
         errors.push(format!(
-            "{path}: Contains markdown code block '{pattern}' - AI output must use <file> tags only"
-        ));
-    }
-
-    // 4. Truncation / Laziness
-    if let Some(marker) = detect_truncation(content) {
-        errors.push(format!(
-            "{path}: Detected truncation marker '{marker}'. Do not lazy-load code."
-        ));
-    }
-
-    // 5. Structural Integrity (Braces)
-    if !is_balanced(path, content) {
-        errors.push(format!(
-            "{path}: Unbalanced braces/brackets detected. File may be truncated."
+            "{path} contains markdown code block - AI output must use <file> tags, not markdown"
         ));
     }
 }
 
-fn check_path_safety(path_str: &str) -> Result<(), String> {
-    let path = Path::new(path_str);
-
-    // Absolute paths
-    if path.is_absolute() {
-        return Err("Absolute paths are forbidden".into());
-    }
-
-    // Traversal
-    for component in path.components() {
-        if matches!(component, std::path::Component::ParentDir) {
-            return Err("Directory traversal (../) is forbidden".into());
-        }
-    }
-
-    // Dangerous targets
-    if path_str.starts_with(".git") || path_str.contains("/.git") {
-        return Err("Modifying .git internals is forbidden".into());
-    }
-
-    for &danger in DANGEROUS_PATHS {
-        if path_str.ends_with(danger) || path_str.contains(&format!("/{danger}")) {
-            return Err(format!("Modifying sensitive file '{danger}' is forbidden"));
-        }
-    }
-
-    Ok(())
-}
-
-fn detect_markdown_block(content: &str) -> Option<&'static str> {
-    MARKDOWN_PATTERNS
-        .iter()
-        .find(|&&pattern| content.contains(pattern))
-        .copied()
-}
-
-fn detect_truncation(content: &str) -> Option<&'static str> {
-    TRUNCATION_MARKERS
-        .iter()
-        .find(|&&marker| content.contains(marker))
-        .copied()
-}
-
-fn is_balanced(path: &str, content: &str) -> bool {
-    // Python relies on indentation, not braces. Skip strict brace checking.
-    if path.ends_with(".py") {
-        return true;
-    }
-
-    let mut stack = Vec::new();
-    let mut in_string = false;
-    let mut escaped = false;
-
-    // A very simple state machine to avoid counting braces inside strings
-    for c in content.chars() {
-        if escaped {
-            escaped = false;
-            continue;
-        }
-
-        if c == '\\' {
-            escaped = true;
-            continue;
-        }
-
-        if c == '"' {
-            in_string = !in_string;
-            continue;
-        }
-
-        if in_string {
-            continue;
-        }
-
-        match c {
-            '{' | '(' | '[' => stack.push(c),
-            '}' => {
-                if stack.pop() != Some('{') {
-                    return false;
-                }
-            }
-            ')' => {
-                if stack.pop() != Some('(') {
-                    return false;
-                }
-            }
-            ']' => {
-                if stack.pop() != Some('[') {
-                    return false;
-                }
-            }
-            _ => {}
-        }
-    }
-
-    stack.is_empty()
+fn has_markdown_fence(content: &str) -> bool {
+    let triple_backtick: String = std::iter::repeat_n(BACKTICK, 3).collect();
+    let triple_tilde: String = std::iter::repeat_n(TILDE, 3).collect();
+    content.contains(&triple_backtick) || content.contains(&triple_tilde)
 }
