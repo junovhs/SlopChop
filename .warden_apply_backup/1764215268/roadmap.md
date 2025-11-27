@@ -1,13 +1,8 @@
 # Warden Protocol Roadmap
 
-## Current State: v0.4.0 ✓
+## Current State: v0.4.0
 
-The core loop works:
-- Generate context with `knit --prompt`
-- Chat with AI
-- Apply responses with `warden apply`
-- Verify with `warden` and `warden check`
-- **Self-hosting:** Warden enforces its own rules on its own codebase
+The core loop works. You can generate context, chat with AI, apply responses, and verify.
 
 ---
 
@@ -35,30 +30,26 @@ The core loop works:
   
   *Enterprise-grade paranoia.*
 
-- [x] **Strict format enforcement**  
+- [ ] **Strict format enforcement**  
   If AI doesn't use `<file path="...">` tags, reject immediately with clear error message explaining the required format. No fallback parsing. No guessing. Garbage in = garbage out.
-
-- [x] **Markdown block rejection**  
-  Rejects files containing fenced code blocks to prevent AI formatting artifacts from corrupting source.
 
 ### Workflow Enhancement
 
 - [ ] **Error injection in knit**  
   When `knit --prompt` runs:
   1. Run `warden` scan internally
-  2. If violations exist, append them to context
+  2. If violations exist, append them to context:
+  ```
+  ═══════════════════════════════════════════════════════════════════
+  CURRENT VIOLATIONS (FIX THESE)
+  ═══════════════════════════════════════════════════════════════════
   
-  Example output appended:
-
-      ═══════════════════════════════════════════════════════════════════
-      CURRENT VIOLATIONS (FIX THESE)
-      ═══════════════════════════════════════════════════════════════════
-      
-      src/apply/validator.rs:42 [LAW OF COMPLEXITY]
-        High Complexity: Score is 12 (Max: 5). Hard to test.
-      
-      src/lib.rs:156 [LAW OF ATOMICITY]  
-        File is 2,341 tokens (Max: 2,000). Split it.
+  src/apply/validator.rs:42 [LAW OF COMPLEXITY]
+    High Complexity: Score is 12 (Max: 10). Hard to test.
+  
+  src/lib.rs:156 [LAW OF ATOMICITY]  
+    File is 2,341 tokens (Max: 2,000). Split it.
+  ```
   
   *AI sees what's broken. AI fixes it. You don't have to explain.*
 
@@ -71,22 +62,20 @@ The core loop works:
   3. Commit (no push by default)
   
   Example commit message:
-
-      warden: update src/apply/validator.rs, add src/apply/safety.rs
-      
-      Applied via warden apply
+  ```
+  warden: update src/apply/validator.rs, add src/apply/safety.rs
+  
+  Applied via warden apply
+  ```
 
 - [ ] **`warden apply --commit --push`**  
   Same as above, but also pushes.
 
 *Philosophy: If it passes validation, commit it. Use git as your undo. Atomic commits per apply.*
 
-### Implemented (Keep for Now)
-
-- [x] **Backup system** — Creates `.warden_apply_backup/TIMESTAMP/` before writes. Simple insurance until git workflow is muscle memory.
-
 ### Cut from v0.5
 
+- ~~Backup system~~ — Use git. If you applied broken code, that's on you. `git checkout .` exists.
 - ~~Markdown fallback parsing~~ — If AI can't follow format instructions, use a different AI.
 
 ---
@@ -98,22 +87,23 @@ The core loop works:
 ### Smarter Analysis
 
 - [ ] **Function-level violation reporting**  
-  Not just "file has violations" but detailed breakdown:
-
-      src/engine.rs
-      
-        fn process_batch() [Line 45]
-        ├─ Complexity: 14 (max 5)
-        ├─ Nesting depth: 5 (max 2)  
-        ├─ Contributing factors:
-        │   ├─ 3 nested if statements (lines 52, 58, 61)
-        │   ├─ 2 match arms with complex guards (lines 67, 89)
-        │   └─ while loop with break conditions (line 94)
-        └─ Suggestion: Extract inner match to separate function
-      
-        fn validate_input() [Line 142]
-        ├─ Arity: 7 arguments (max 5)
-        └─ Suggestion: Group into ValidateOptions struct
+  Not just "file has violations" but:
+  ```
+  src/engine.rs
+  
+    fn process_batch() [Line 45]
+    ├─ Complexity: 14 (max 10)
+    ├─ Nesting depth: 5 (max 4)  
+    ├─ Contributing factors:
+    │   ├─ 3 nested if statements (lines 52, 58, 61)
+    │   ├─ 2 match arms with complex guards (lines 67, 89)
+    │   └─ while loop with break conditions (line 94)
+    └─ Suggestion: Extract inner match to separate function
+  
+    fn validate_input() [Line 142]
+    ├─ Arity: 7 arguments (max 5)
+    └─ Suggestion: Group into ValidateOptions struct
+  ```
   
   *Learn from the patterns. Understand WHY it's complex.*
 
@@ -137,16 +127,17 @@ The core loop works:
 
 - [ ] **Import graph visualization**  
   `warden deps` or `warden deps src/main.rs`:
-
-      src/main.rs
-      ├─ src/config.rs
-      │  └─ src/types.rs
-      ├─ src/engine.rs
-      │  ├─ src/types.rs
-      │  └─ src/analysis.rs
-      └─ src/tui/mod.rs
-         ├─ src/tui/state.rs
-         └─ src/tui/view.rs
+  ```
+  src/main.rs
+  ├─ src/config.rs
+  │  └─ src/types.rs
+  ├─ src/engine.rs
+  │  ├─ src/types.rs
+  │  └─ src/analysis.rs
+  └─ src/tui/mod.rs
+     ├─ src/tui/state.rs
+     └─ src/tui/view.rs
+  ```
 
 ---
 
@@ -224,6 +215,7 @@ Instead of per-function limits, allocate complexity budget per file that can be 
 ## Not Doing
 
 - **VS Code Extension** — IDE lock-in, maintenance burden
+- **Undo/backup system** — Use git
 - **Markdown fallback parsing** — Enforce format discipline
 - **Watch mode** — Adds complexity, unclear benefit
 
@@ -242,6 +234,3 @@ Instead of per-function limits, allocate complexity budget per file that can be 
 
 4. **Learn from violations**  
    Error messages should teach, not just complain.
-
-5. **Eat your own dogfood**  
-   Warden must pass its own rules.

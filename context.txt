@@ -1,52 +1,3 @@
-🛡️ SYSTEM MANDATE: THE WARDEN PROTOCOL
-ROLE: High-Integrity Systems Architect (NASA/JPL Standard).
-CONTEXT: You are coding inside a strict environment enforced by Warden.
-
-THE 3 LAWS (Non-Negotiable):
-
-1. LAW OF ATOMICITY
-   - Files: MUST be < 2000 tokens.
-   - Action: Split immediately if larger.
-
-2. LAW OF COMPLEXITY
-   - Cyclomatic Complexity: MUST be ≤ 5 per function.
-   - Nesting Depth: MUST be ≤ 2 levels.
-   - Function Arguments: MUST be ≤ 5 parameters.
-
-3. LAW OF PARANOIA
-   - Use Result<T, E> for I/O and fallible operations.
-   - NO .unwrap() or .expect() calls.
-
-OUTPUT FORMAT (MANDATORY):
-
-When providing code files, use this exact format:
-
-1. Declare ALL files first:
-
-<delivery>
-path/to/file1.rs
-path/to/file2.rs [NEW]
-</delivery>
-
-2. Provide EACH file:
-
-<file path='path/to/file1.rs'>
-[complete file contents]
-</file>
-
-RULES:
-- Every file in <delivery> MUST have a matching <file> block
-- Do NOT use markdown code blocks - use <file> tags only
-- Do NOT truncate files
-- Paths must match exactly
-
-The `warden apply` command will REJECT incomplete deliveries.
-
-
-═══════════════════════════════════════════════════════════════════
-BEGIN CODEBASE
-═══════════════════════════════════════════════════════════════════
-
 <file path=".gitignore">
 # Rust build artifacts
 /target/
@@ -1693,10 +1644,11 @@ use colored::Colorize;
 use std::fs;
 use std::io;
 use std::path::Path;
+use std::path::PathBuf;
 use std::process::{self, Command};
 
 use warden_core::apply;
-use warden_core::config::{Config, GitMode};
+use warden_core::config::Config;
 use warden_core::enumerate::FileEnumerator;
 use warden_core::filter::FileFilter;
 use warden_core::heuristics::HeuristicFilter;
@@ -1748,15 +1700,37 @@ fn run() -> Result<()> {
     }
 
     ensure_config_exists();
+    dispatch_command(&cli)
+}
 
-    match cli.command {
-        Some(Commands::Prompt { copy }) => handle_prompt(copy),
-        Some(Commands::Check) => run_command("check"),
-        Some(Commands::Fix) => run_command("fix"),
-        Some(Commands::Apply { dry_run }) => apply::run(dry_run),
-        None if cli.ui => run_tui(),
-        None => run_scan(),
+fn dispatch_command(cli: &Cli) -> Result<()> {
+    match &cli.command {
+        Some(cmd) => dispatch_subcommand(cmd),
+        None => dispatch_default(cli.ui),
     }
+}
+
+fn dispatch_subcommand(cmd: &Commands) -> Result<()> {
+    match cmd {
+        Commands::Prompt { copy } => handle_prompt(*copy),
+        Commands::Check => run_command("check"),
+        Commands::Fix => run_command("fix"),
+        Commands::Apply { dry_run } => handle_apply(*dry_run),
+    }
+}
+
+fn dispatch_default(ui: bool) -> Result<()> {
+    if ui {
+        run_tui()
+    } else {
+        run_scan()
+    }
+}
+
+fn handle_apply(dry_run: bool) -> Result<()> {
+    let outcome = apply::run_apply(dry_run)?;
+    apply::print_result(&outcome);
+    Ok(())
 }
 
 fn ensure_config_exists() {
@@ -1777,7 +1751,10 @@ fn init_config() -> Result<()> {
 }
 
 fn handle_prompt(copy: bool) -> Result<()> {
-    let prompt = PromptGenerator::generate();
+    let mut config = Config::new();
+    config.load_local_config();
+    let gen = PromptGenerator::new(config.rules.clone());
+    let prompt = gen.generate()?;
     if copy {
         warden_core::clipboard::copy_to_clipboard(&prompt)?;
         println!("{}", "✓ Copied to clipboard".green());
@@ -1787,6 +1764,7 @@ fn handle_prompt(copy: bool) -> Result<()> {
     Ok(())
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn run_command(name: &str) -> Result<()> {
     let mut config = Config::new();
     config.load_local_config();
@@ -1809,16 +1787,17 @@ fn run_command(name: &str) -> Result<()> {
 
     match status {
         Ok(s) if s.success() => Ok(()),
-        Ok(s) => {
-            let code = s.code().unwrap_or(1);
-            eprintln!("{} Command failed with exit code {code}", "❌".red());
-            process::exit(code);
-        }
+        Ok(s) => exit_with_code(s.code().unwrap_or(1)),
         Err(e) => {
             handle_exec_error(&e, prog);
             process::exit(1);
         }
     }
+}
+
+fn exit_with_code(code: i32) -> Result<()> {
+    eprintln!("{} Command failed with exit code {code}", "❌".red());
+    process::exit(code);
 }
 
 fn handle_exec_error(e: &std::io::Error, prog: &str) {
@@ -1831,17 +1810,11 @@ fn handle_exec_error(e: &std::io::Error, prog: &str) {
 }
 
 fn run_scan() -> Result<()> {
-    let mut config = Config::new();
-    config.load_local_config();
+    let config = load_config();
+    let files = discover_files(&config)?;
+    let report = scan_files(&config, files);
 
-    let files = FileEnumerator::new(config.clone()).enumerate()?;
-    let files = FileFilter::new(&config).filter(files);
-    let files = HeuristicFilter::new(&config).filter(files);
-
-    let engine = RuleEngine::new(config.rules.clone());
-    let report = engine.analyze(&files)?;
-
-    reporting::print_report(&report);
+    reporting::print_report(&report)?;
 
     if report.has_errors() {
         process::exit(1);
@@ -1850,17 +1823,26 @@ fn run_scan() -> Result<()> {
 }
 
 fn run_tui() -> Result<()> {
+    let config = load_config();
+    let files = discover_files(&config)?;
+    let report = scan_files(&config, files);
+    run_tui_with_report(report)
+}
+
+fn load_config() -> Config {
     let mut config = Config::new();
     config.load_local_config();
+    config
+}
 
+fn discover_files(config: &Config) -> Result<Vec<PathBuf>> {
     let files = FileEnumerator::new(config.clone()).enumerate()?;
-    let files = FileFilter::new(&config).filter(files);
-    let files = HeuristicFilter::new(&config).filter(files);
+    let files = FileFilter::new(config)?.filter(files);
+    Ok(HeuristicFilter::new().filter(files))
+}
 
-    let engine = RuleEngine::new(config.rules.clone());
-    let report = engine.analyze(&files)?;
-
-    run_tui_with_report(report)
+fn scan_files(config: &Config, files: Vec<PathBuf>) -> ScanReport {
+    RuleEngine::new(config.clone()).scan(files)
 }
 
 fn run_tui_with_report(report: ScanReport) -> Result<()> {
@@ -1890,8 +1872,7 @@ fn run_tui_with_report(report: ScanReport) -> Result<()> {
     terminal.show_cursor()?;
 
     res
-}
-</file>
+}</file>
 
 <file path="src/checks.rs">
 // src/checks.rs
@@ -2355,6 +2336,58 @@ fn project_defaults(project: ProjectType) -> HashMap<String, String> {
 }
 </file>
 
+<file path="src/constants.rs">
+// src/constants.rs
+//! Shared constants for file filtering and pattern matching.
+
+pub const PRUNE_DIRS: &[&str] = &[
+    ".git",
+    ".svn",
+    ".hg",
+    "node_modules",
+    "target",
+    "dist",
+    "build",
+    "out",
+    "gen",
+    ".venv",
+    "venv",
+    ".tox",
+    "__pycache__",
+    "coverage",
+    "vendor",
+    ".warden_apply_backup",
+];
+
+pub const PRUNE_FILES: &[&str] = &[
+    "Cargo.lock",
+    "package-lock.json",
+    "pnpm-lock.yaml",
+    "yarn.lock",
+    "bun.lockb",
+    "go.sum",
+    "Gemfile.lock",
+];
+
+pub const SKIP_DIRS: &[&str] = &["tests", "test", "spec", "docs", "examples", "fixtures"];
+
+pub const BIN_EXT_PATTERN: &str =
+    r"(?i)\.(png|jpg|gif|svg|ico|webp|woff2?|ttf|pdf|mp4|zip|gz|tar|exe|dll|so|dylib|class|pyc)$";
+
+pub const SECRET_PATTERN: &str =
+    r"(?i)(^\.?env(\..*)?$|/\.?env(\..*)?$|(^|/)(id_rsa|id_ed25519|.*\.(pem|p12|key|pfx))$)";
+
+pub const CODE_EXT_PATTERN: &str = r"(?i)\.(rs|go|py|js|jsx|ts|tsx|java|c|cpp|h|hpp|cs|php|rb|sh|sql|html|css|scss|json|toml|yaml|md)$";
+
+pub const CODE_BARE_PATTERN: &str = r"(?i)(Makefile|Dockerfile|CMakeLists\.txt)$";
+
+/// Checks if a directory name should be pruned during traversal.
+#[must_use]
+pub fn should_prune(name: &str) -> bool {
+    PRUNE_DIRS.contains(&name) || PRUNE_FILES.contains(&name) || SKIP_DIRS.contains(&name)
+}
+</file>
+
 <file path="src/detection.rs">
 // src/detection.rs
 use crate::error::Result;
@@ -2545,27 +2578,41 @@ fn collect_files<I>(walker: I, verbose: bool) -> Vec<PathBuf>
 where
     I: Iterator<Item = walkdir::Result<walkdir::DirEntry>>,
 {
+    let (paths, error_count) = accumulate_files(walker);
+    log_errors_if_verbose(error_count, verbose);
+    paths
+}
+
+fn accumulate_files<I>(walker: I) -> (Vec<PathBuf>, usize)
+where
+    I: Iterator<Item = walkdir::Result<walkdir::DirEntry>>,
+{
     let mut paths = Vec::new();
     let mut error_count = 0;
 
     for item in walker {
         match item {
-            Ok(entry) if entry.file_type().is_file() => {
-                let p = entry.path().strip_prefix(".").unwrap_or(entry.path());
-                paths.push(p.to_path_buf());
-            }
+            Ok(entry) => try_add_file(&entry, &mut paths),
             Err(_) => error_count += 1,
-            _ => {}
         }
     }
 
+    (paths, error_count)
+}
+
+fn try_add_file(entry: &walkdir::DirEntry, paths: &mut Vec<PathBuf>) {
+    if !entry.file_type().is_file() {
+        return;
+    }
+    let p = entry.path().strip_prefix(".").unwrap_or(entry.path());
+    paths.push(p.to_path_buf());
+}
+
+fn log_errors_if_verbose(error_count: usize, verbose: bool) {
     if error_count > 0 && verbose {
         eprintln!("WARN: Encountered {error_count} errors during file walk");
     }
-
-    paths
-}
-</file>
+}</file>
 
 <file path="src/error.rs">
 // src/error.rs
@@ -2905,6 +2952,129 @@ pub fn count_arguments(node: Node) -> usize {
         }
     }
     0
+}
+</file>
+
+<file path="src/project.rs">
+// src/project.rs
+//! Project type detection and configuration generation.
+
+use std::path::Path;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProjectType {
+    Rust,
+    Node,
+    Python,
+    Unknown,
+}
+
+impl ProjectType {
+    /// Detects the project type from current directory.
+    #[must_use]
+    pub fn detect() -> Self {
+        if Path::new("Cargo.toml").exists() {
+            return Self::Rust;
+        }
+        if Path::new("package.json").exists() {
+            return Self::Node;
+        }
+        if Path::new("pyproject.toml").exists() || Path::new("requirements.txt").exists() {
+            return Self::Python;
+        }
+        Self::Unknown
+    }
+}
+
+/// Returns the npx command for the current platform.
+#[must_use]
+pub fn npx_cmd() -> &'static str {
+    if cfg!(windows) {
+        "npx.cmd"
+    } else {
+        "npx"
+    }
+}
+
+/// Returns the npm command for the current platform.
+#[must_use]
+pub fn npm_cmd() -> &'static str {
+    if cfg!(windows) {
+        "npm.cmd"
+    } else {
+        "npm"
+    }
+}
+
+/// Returns the cargo command for the current platform.
+#[must_use]
+pub fn cargo_cmd() -> &'static str {
+    if cfg!(windows) {
+        "cargo.exe"
+    } else {
+        "cargo"
+    }
+}
+
+/// Generates warden.toml content based on detected project type.
+#[must_use]
+pub fn generate_toml() -> String {
+    let project = ProjectType::detect();
+    let commands = generate_commands_section(project);
+
+    format!(
+        r#"# warden.toml
+[rules]
+max_file_tokens = 2000
+max_cyclomatic_complexity = 5
+max_nesting_depth = 2
+max_function_args = 5
+max_function_words = 5
+ignore_naming_on = ["tests", "spec"]
+
+{commands}
+"#
+    )
+}
+
+fn generate_commands_section(project: ProjectType) -> String {
+    match project {
+        ProjectType::Rust => rust_commands(),
+        ProjectType::Node => node_commands(),
+        ProjectType::Python => python_commands(),
+        ProjectType::Unknown => unknown_commands(),
+    }
+}
+
+fn rust_commands() -> String {
+    r#"[commands]
+check = "cargo clippy --all-targets -- -D warnings -D clippy::pedantic"
+fix = "cargo fmt""#
+        .to_string()
+}
+
+fn node_commands() -> String {
+    let npx = npx_cmd();
+    format!(
+        r#"[commands]
+check = "{npx} @biomejs/biome check src/"
+fix = "{npx} @biomejs/biome check --write src/""#
+    )
+}
+
+fn python_commands() -> String {
+    r#"[commands]
+check = "ruff check ."
+fix = "ruff check --fix .""#
+        .to_string()
+}
+
+fn unknown_commands() -> String {
+    r#"# No project type detected. Configure commands manually:
+# [commands]
+# check = "your-lint-command"
+# fix = "your-fix-command""#
+        .to_string()
 }
 </file>
 
@@ -3706,37 +3876,38 @@ pub fn draw(f: &mut Frame, app: &App) {
 
 <file path="src/types.rs">
 use std::path::PathBuf;
-
 #[derive(Debug, Clone)]
 pub struct Violation {
-    pub row: usize,
-    pub message: String,
-    pub law: &'static str,
+pub row: usize,
+pub message: String,
+pub law: &'static str,
 }
-
 #[derive(Debug, Clone)]
 pub struct FileReport {
-    pub path: PathBuf,
-    pub token_count: usize,
-    pub complexity_score: usize,
-    pub violations: Vec<Violation>,
+pub path: PathBuf,
+pub token_count: usize,
+pub complexity_score: usize,
+pub violations: Vec<Violation>,
 }
-
 impl FileReport {
-    #[must_use]
-    pub fn is_clean(&self) -> bool {
-        self.violations.is_empty()
-    }
+#[must_use]
+pub fn is_clean(&self) -> bool {
+self.violations.is_empty()
 }
-
+}
 #[derive(Debug, Clone, Default)]
 pub struct ScanReport {
-    pub files: Vec<FileReport>,
-    pub total_tokens: usize,
-    pub total_violations: usize,
-    pub duration_ms: u128,
+pub files: Vec<FileReport>,
+pub total_tokens: usize,
+pub total_violations: usize,
+pub duration_ms: u128,
 }
-</file>
+impl ScanReport {
+#[must_use]
+pub fn has_errors(&self) -> bool {
+self.total_violations > 0
+}
+}</file>
 
 <file path="warden.toml">
 # warden.toml
@@ -3753,15 +3924,3 @@ check = "cargo clippy --all-targets -- -D warnings -D clippy::pedantic"
 fix = "cargo fmt"
 </file>
 
-
-═══════════════════════════════════════════════════════════════════
-END CODEBASE
-═══════════════════════════════════════════════════════════════════
-
-WARDEN CONSTRAINTS:
-□ Files < 2000 tokens
-□ Complexity ≤ 5
-□ Nesting ≤ 2
-□ Args ≤ 5
-□ No .unwrap()
-□ Use <delivery> + <file> tags
