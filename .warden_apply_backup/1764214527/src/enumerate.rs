@@ -98,38 +98,23 @@ fn collect_files<I>(walker: I, verbose: bool) -> Vec<PathBuf>
 where
     I: Iterator<Item = walkdir::Result<walkdir::DirEntry>>,
 {
-    let (paths, error_count) = accumulate_files(walker);
-    log_errors_if_verbose(error_count, verbose);
-    paths
-}
-
-fn accumulate_files<I>(walker: I) -> (Vec<PathBuf>, usize)
-where
-    I: Iterator<Item = walkdir::Result<walkdir::DirEntry>>,
-{
     let mut paths = Vec::new();
     let mut error_count = 0;
 
     for item in walker {
         match item {
-            Ok(entry) => try_add_file(&entry, &mut paths),
+            Ok(entry) if entry.file_type().is_file() => {
+                let p = entry.path().strip_prefix(".").unwrap_or(entry.path());
+                paths.push(p.to_path_buf());
+            }
             Err(_) => error_count += 1,
+            _ => {}
         }
     }
 
-    (paths, error_count)
-}
-
-fn try_add_file(entry: &walkdir::DirEntry, paths: &mut Vec<PathBuf>) {
-    if !entry.file_type().is_file() {
-        return;
-    }
-    let p = entry.path().strip_prefix(".").unwrap_or(entry.path());
-    paths.push(p.to_path_buf());
-}
-
-fn log_errors_if_verbose(error_count: usize, verbose: bool) {
     if error_count > 0 && verbose {
         eprintln!("WARN: Encountered {error_count} errors during file walk");
     }
+
+    paths
 }

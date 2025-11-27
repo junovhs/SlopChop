@@ -5,7 +5,6 @@ use colored::Colorize;
 use std::fs;
 use std::io;
 use std::path::Path;
-use std::path::PathBuf;
 use std::process::{self, Command};
 
 use warden_core::apply;
@@ -61,30 +60,14 @@ fn run() -> Result<()> {
     }
 
     ensure_config_exists();
-    dispatch_command(&cli)
-}
 
-fn dispatch_command(cli: &Cli) -> Result<()> {
-    match &cli.command {
-        Some(cmd) => dispatch_subcommand(cmd),
-        None => dispatch_default(cli.ui),
-    }
-}
-
-fn dispatch_subcommand(cmd: &Commands) -> Result<()> {
-    match cmd {
-        Commands::Prompt { copy } => handle_prompt(*copy),
-        Commands::Check => run_command("check"),
-        Commands::Fix => run_command("fix"),
-        Commands::Apply { dry_run } => handle_apply(*dry_run),
-    }
-}
-
-fn dispatch_default(ui: bool) -> Result<()> {
-    if ui {
-        run_tui()
-    } else {
-        run_scan()
+    match cli.command {
+        Some(Commands::Prompt { copy }) => handle_prompt(copy),
+        Some(Commands::Check) => run_command("check"),
+        Some(Commands::Fix) => run_command("fix"),
+        Some(Commands::Apply { dry_run }) => handle_apply(dry_run),
+        None if cli.ui => run_tui(),
+        None => run_scan(),
     }
 }
 
@@ -148,17 +131,16 @@ fn run_command(name: &str) -> Result<()> {
 
     match status {
         Ok(s) if s.success() => Ok(()),
-        Ok(s) => exit_with_code(s.code().unwrap_or(1)),
+        Ok(s) => {
+            let code = s.code().unwrap_or(1);
+            eprintln!("{} Command failed with exit code {code}", "❌".red());
+            process::exit(code);
+        }
         Err(e) => {
             handle_exec_error(&e, prog);
             process::exit(1);
         }
     }
-}
-
-fn exit_with_code(code: i32) -> Result<()> {
-    eprintln!("{} Command failed with exit code {code}", "❌".red());
-    process::exit(code);
 }
 
 fn handle_exec_error(e: &std::io::Error, prog: &str) {
@@ -171,9 +153,15 @@ fn handle_exec_error(e: &std::io::Error, prog: &str) {
 }
 
 fn run_scan() -> Result<()> {
-    let config = load_config();
-    let files = discover_files(&config)?;
-    let report = scan_files(&config, files);
+    let mut config = Config::new();
+    config.load_local_config();
+
+    let files = FileEnumerator::new(config.clone()).enumerate()?;
+    let files = FileFilter::new(&config)?.filter(files);
+    let files = HeuristicFilter::new().filter(files);
+
+    let engine = RuleEngine::new(config.clone());
+    let report = engine.scan(files);
 
     reporting::print_report(&report)?;
 
@@ -184,26 +172,17 @@ fn run_scan() -> Result<()> {
 }
 
 fn run_tui() -> Result<()> {
-    let config = load_config();
-    let files = discover_files(&config)?;
-    let report = scan_files(&config, files);
-    run_tui_with_report(report)
-}
-
-fn load_config() -> Config {
     let mut config = Config::new();
     config.load_local_config();
-    config
-}
 
-fn discover_files(config: &Config) -> Result<Vec<PathBuf>> {
     let files = FileEnumerator::new(config.clone()).enumerate()?;
-    let files = FileFilter::new(config)?.filter(files);
-    Ok(HeuristicFilter::new().filter(files))
-}
+    let files = FileFilter::new(&config)?.filter(files);
+    let files = HeuristicFilter::new().filter(files);
 
-fn scan_files(config: &Config, files: Vec<PathBuf>) -> ScanReport {
-    RuleEngine::new(config.clone()).scan(files)
+    let engine = RuleEngine::new(config.clone());
+    let report = engine.scan(files);
+
+    run_tui_with_report(report)
 }
 
 fn run_tui_with_report(report: ScanReport) -> Result<()> {
