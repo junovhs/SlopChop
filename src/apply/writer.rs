@@ -11,12 +11,12 @@ const BACKUP_DIR: &str = ".warden_apply_backup";
 ///
 /// # Errors
 /// Returns error if file system operations fail.
-pub fn write_files(files: &ExtractedFiles) -> Result<ApplyOutcome> {
-    let backup_path = create_backup(files)?;
+pub fn write_files(files: &ExtractedFiles, root: Option<&Path>) -> Result<ApplyOutcome> {
+    let backup_path = create_backup(files, root)?;
     let mut written_paths = Vec::new();
 
     for (path_str, file_data) in files {
-        write_single_file(path_str, &file_data.content)?;
+        write_single_file(path_str, &file_data.content, root)?;
         written_paths.push(path_str.clone());
     }
 
@@ -26,14 +26,22 @@ pub fn write_files(files: &ExtractedFiles) -> Result<ApplyOutcome> {
     })
 }
 
-fn write_single_file(path_str: &str, content: &str) -> Result<()> {
-    let path = Path::new(path_str);
+fn write_single_file(path_str: &str, content: &str, root: Option<&Path>) -> Result<()> {
+    let path = resolve_path(path_str, root);
+    
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)
             .map_err(|e| anyhow!("Failed to create directory {}: {e}", parent.display()))?;
     }
-    fs::write(path, content).map_err(|e| anyhow!("Failed to write {path_str}: {e}"))?;
+    fs::write(&path, content).map_err(|e| anyhow!("Failed to write {}: {e}", path.display()))?;
     Ok(())
+}
+
+fn resolve_path(path_str: &str, root: Option<&Path>) -> PathBuf {
+    match root {
+        Some(r) => r.join(path_str),
+        None => PathBuf::from(path_str),
+    }
 }
 
 /// Restores files from the latest backup.
@@ -84,33 +92,37 @@ fn restore_single_file_entry(entry: &walkdir::DirEntry, restore_source: &Path) -
     Ok(rel_path.to_path_buf())
 }
 
-fn create_backup(files: &ExtractedFiles) -> Result<Option<PathBuf>> {
-    let files_to_backup: Vec<&String> = files.keys().filter(|p| Path::new(p).exists()).collect();
+fn create_backup(files: &ExtractedFiles, root: Option<&Path>) -> Result<Option<PathBuf>> {
+    // Only backup files that exist
+    let files_to_backup: Vec<&String> = files.keys()
+        .filter(|p| resolve_path(p, root).exists())
+        .collect();
 
     if files_to_backup.is_empty() {
         return Ok(None);
     }
 
     let timestamp = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
-    let backup_folder = Path::new(BACKUP_DIR).join(timestamp.to_string());
+    let root_path = root.map_or_else(|| PathBuf::from("."), Path::to_path_buf);
+    let backup_folder = root_path.join(BACKUP_DIR).join(timestamp.to_string());
 
     fs::create_dir_all(&backup_folder).context("Failed to create backup directory")?;
 
     for path_str in files_to_backup {
-        backup_single_file(path_str, &backup_folder)?;
+        backup_single_file(path_str, &backup_folder, root)?;
     }
 
     Ok(Some(backup_folder))
 }
 
-fn backup_single_file(path_str: &str, backup_folder: &Path) -> Result<()> {
-    let src = Path::new(path_str);
+fn backup_single_file(path_str: &str, backup_folder: &Path, root: Option<&Path>) -> Result<()> {
+    let src = resolve_path(path_str, root);
     let dest = backup_folder.join(path_str);
 
     if let Some(parent) = dest.parent() {
         fs::create_dir_all(parent)?;
     }
 
-    fs::copy(src, dest).with_context(|| format!("Failed to backup {path_str}"))?;
+    fs::copy(&src, &dest).with_context(|| format!("Failed to backup {}", src.display()))?;
     Ok(())
 }

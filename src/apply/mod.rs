@@ -8,20 +8,60 @@ pub mod writer;
 
 use crate::clipboard;
 use anyhow::{Context, Result};
+use colored::Colorize;
+use std::io::{self, Write};
+use std::path::Path;
 use types::{ApplyOutcome, ExtractedFiles, Manifest};
 
 /// Runs the apply command logic.
 ///
 /// # Errors
 /// Returns error if clipboard access fails or extraction fails.
-pub fn run_apply(dry_run: bool) -> Result<ApplyOutcome> {
+pub fn run_apply(dry_run: bool, force: bool) -> Result<ApplyOutcome> {
     let content = clipboard::read_clipboard().context("Failed to read clipboard")?;
+    process_input(&content, dry_run, force, None)
+}
 
+pub fn print_result(outcome: &ApplyOutcome) {
+    messages::print_outcome(outcome);
+}
+
+/// Processes input content directly.
+///
+/// # Errors
+/// Returns error if extraction or writing fails.
+pub fn process_input(
+    content: &str,
+    dry_run: bool,
+    force: bool,
+    root: Option<&Path>,
+) -> Result<ApplyOutcome> {
     if content.trim().is_empty() {
-        return Ok(ApplyOutcome::ParseError("Clipboard is empty".to_string()));
+        return Ok(ApplyOutcome::ParseError("Clipboard/Input is empty".to_string()));
     }
 
-    let validation = parse_and_validate(&content);
+    // 1. Extract and display the plan (if any)
+    if let Some(plan) = extractor::extract_plan(content) {
+        println!("{}", "📋 PROPOSED PLAN:".cyan().bold());
+        println!("{}", "─".repeat(50).dimmed());
+        println!("{}", plan.trim());
+        println!("{}", "─".repeat(50).dimmed());
+        
+        if !force && !dry_run {
+            print!("Apply these changes? [y/N] ");
+            io::stdout().flush()?;
+            
+            let mut input = String::new();
+            io::stdin().read_line(&mut input)?;
+            
+            if !input.trim().eq_ignore_ascii_case("y") {
+                return Ok(ApplyOutcome::ParseError("Operation cancelled by user.".to_string()));
+            }
+            println!();
+        }
+    }
+
+    let validation = parse_and_validate(content);
 
     match validation {
         ApplyOutcome::Success { .. } => {
@@ -31,14 +71,12 @@ pub fn run_apply(dry_run: bool) -> Result<ApplyOutcome> {
                     backed_up: false,
                 });
             }
-            writer::write_files(&extractor::extract_files(&content)?)
+            // Extract again (inefficient but safe separation of concerns)
+            let extracted = extractor::extract_files(content)?;
+            writer::write_files(&extracted, root)
         }
         _ => Ok(validation),
     }
-}
-
-pub fn print_result(outcome: &ApplyOutcome) {
-    messages::print_outcome(outcome);
 }
 
 fn parse_and_validate(content: &str) -> ApplyOutcome {

@@ -43,6 +43,8 @@ enum Commands {
     Apply {
         #[arg(long)]
         dry_run: bool,
+        #[arg(long, short)]
+        force: bool,
     },
 }
 
@@ -76,7 +78,7 @@ fn dispatch_subcommand(cmd: &Commands) -> Result<()> {
         Commands::Prompt { copy } => handle_prompt(*copy),
         Commands::Check => run_command("check"),
         Commands::Fix => run_command("fix"),
-        Commands::Apply { dry_run } => handle_apply(*dry_run),
+        Commands::Apply { dry_run, force } => handle_apply(*dry_run, *force),
     }
 }
 
@@ -88,8 +90,8 @@ fn dispatch_default(ui: bool) -> Result<()> {
     }
 }
 
-fn handle_apply(dry_run: bool) -> Result<()> {
-    let outcome = apply::run_apply(dry_run)?;
+fn handle_apply(dry_run: bool, force: bool) -> Result<()> {
+    let outcome = apply::run_apply(dry_run, force)?;
     apply::print_result(&outcome);
     Ok(())
 }

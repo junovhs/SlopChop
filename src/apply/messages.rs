@@ -70,7 +70,7 @@ pub fn format_ai_rejection(missing: &[String], errors: &[String]) -> String {
     let mut msg = String::from("The previous output was rejected by the Warden Protocol.\n\n");
 
     if !missing.is_empty() {
-        msg.push_str("MISSING FILES (Declared in <delivery> but not found in <file> blocks):\n");
+        msg.push_str("MISSING FILES (Declared in MANIFEST but not found in Nabla blocks):\n");
         for f in missing {
             let _ = writeln!(msg, "- {f}");
         }
@@ -86,7 +86,7 @@ pub fn format_ai_rejection(missing: &[String], errors: &[String]) -> String {
     }
 
     msg.push_str(
-        "Please provide the missing or corrected files using the <file path=\"...\"> format.",
+        "Please provide the missing or corrected files using the NABLA PROTOCOL (∇∇∇ ... ∆∆∆).",
     );
     msg
 }

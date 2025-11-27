@@ -4,21 +4,45 @@ use anyhow::Result;
 use regex::Regex;
 
 /// Parses the delivery manifest block.
+/// Supports both Legacy XML and Nabla Protocol.
 ///
 /// # Errors
 /// Returns error if regex compilation fails.
 pub fn parse_manifest(response: &str) -> Result<Option<Vec<ManifestEntry>>> {
-    let Some((start, end)) = find_manifest_block(response)? else {
+    if let Some((start, end)) = find_nabla_manifest(response)? {
+        let block = &response[start..end];
+        let entries = parse_manifest_lines(block)?;
+        return Ok(Some(entries));
+    }
+
+    if let Some((start, end)) = find_legacy_manifest(response)? {
+        let block = &response[start..end];
+        let entries = parse_manifest_lines(block)?;
+        return Ok(Some(entries));
+    }
+
+    Ok(None)
+}
+
+fn find_nabla_manifest(response: &str) -> Result<Option<(usize, usize)>> {
+    // ∇∇∇ MANIFEST ∇∇∇
+    let open_re = Regex::new(r"∇∇∇\s*MANIFEST\s*∇∇∇")?;
+    // ∆∆∆
+    let close_re = Regex::new(r"∆∆∆")?;
+
+    let Some(start_match) = open_re.find(response) else {
+        return Ok(None);
+    };
+    
+    // Search for closer AFTER the opener
+    let Some(end_match) = close_re.find_at(response, start_match.end()) else {
         return Ok(None);
     };
 
-    let block = &response[start..end];
-    let entries = parse_manifest_lines(block)?;
-
-    Ok(Some(entries))
+    Ok(Some((start_match.end(), end_match.start())))
 }
 
-fn find_manifest_block(response: &str) -> Result<Option<(usize, usize)>> {
+fn find_legacy_manifest(response: &str) -> Result<Option<(usize, usize)>> {
     let open_re = Regex::new(r"(?i)<delivery>")?;
     let close_re = Regex::new(r"(?i)</delivery>")?;
 

@@ -15,7 +15,7 @@ impl PromptGenerator {
     /// Generates the full system prompt.
     ///
     /// # Errors
-    /// This function does not currently error but returns Result for API consistency.
+    /// This function returns `Ok` always, but returns `Result` for API consistency.
     pub fn generate(&self) -> Result<String> {
         Ok(self.build_system_prompt())
     }
@@ -23,7 +23,7 @@ impl PromptGenerator {
     /// Wraps the header for context packs.
     ///
     /// # Errors
-    /// This function does not currently error but returns Result for API consistency.
+    /// This function returns `Ok` always, but returns `Result` for API consistency.
     pub fn wrap_header(&self) -> Result<String> {
         Ok(self.build_system_prompt())
     }
@@ -31,7 +31,7 @@ impl PromptGenerator {
     /// Generates a short reminder prompt.
     ///
     /// # Errors
-    /// This function does not currently error but returns Result for API consistency.
+    /// This function returns `Ok` always, but returns `Result` for API consistency.
     pub fn generate_reminder(&self) -> Result<String> {
         Ok(self.build_reminder())
     }
@@ -86,33 +86,56 @@ THE 3 LAWS (Non-Negotiable):
     }
 }
 
-fn build_output_format() -> &'static str {
-    r#"OUTPUT FORMAT (MANDATORY):
+fn build_output_format() -> String {
+    // We construct the delimiters dynamically to avoid confusing the Warden parser
+    // if it scans this file. "Parser Inception" prevention.
+    let nabla = "∇";
+    let delta = "∆";
+    let open = format!("{nabla}{nabla}{nabla}");
+    let close = format!("{delta}{delta}{delta}");
 
-1. Declare the plan (Manifest):
+    format!(r#"OUTPUT FORMAT (MANDATORY):
 
-<delivery>
+1. Explain the changes (Plan) using NABLA PROTOCOL:
+
+{open} PLAN {open}
+I will refactor the apply module to include user confirmation...
+{close}
+
+2. Declare the plan (Manifest) using NABLA PROTOCOL:
+
+{open} MANIFEST {open}
 path/to/file1.rs
 path/to/file2.rs [NEW]
-</delivery>
+{close}
 
-2. Provide EACH file using the NABLA PROTOCOL:
-   - Start: ∇∇∇ path/to/file ∇∇∇
-   - End:   ∆∆∆
+3. Provide EACH file using NABLA PROTOCOL:
+
+{open} path/to/file1.rs {open}
+[file content]
+{close}
 
 Example:
 
-∇∇∇ src/main.rs ∇∇∇
-fn main() {
+{open} PLAN {open}
+Adding hello world feature.
+{close}
+
+{open} MANIFEST {open}
+src/main.rs
+{close}
+
+{open} src/main.rs {open}
+fn main() {{
     println!("Hello World");
-}
-∆∆∆
+}}
+{close}
 
 RULES:
-- Do NOT use markdown code blocks (e.g. triple backticks) to wrap the file. The ∇∇∇ delimiters ARE the fence.
+- Do NOT use markdown code blocks (e.g. triple backticks) to wrap the file. The {open} delimiters ARE the fence.
 - You MAY use markdown inside the file content.
-- Every file in <delivery> MUST have a matching ∇∇∇ block.
+- Every file in the manifest MUST have a matching {open} block.
 - Paths must match exactly.
-- Do NOT truncate files.
-"#
+- Do NOT truncate files (No "// ...").
+"#)
 }

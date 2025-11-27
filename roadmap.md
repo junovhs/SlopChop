@@ -52,14 +52,17 @@ The core loop works:
   When `knit --prompt` runs, it scans the files being packed. If violations exist, they are appended to the context header.
   *AI sees what's broken. AI fixes it.*
 
-- [ ] **Smart Clipboard Protocol** (Refinement)
-  - Currently implemented but needs validation of the "Garbage Man" (auto-cleanup).
-  - Ensure it handles Unicode correctly on all OSs.
+- [x] **Smart Clipboard Protocol**
+  - Auto-detect content size.
+  - If < 1500 tokens: Copy as raw text.
+  - If > 1500 tokens: Save to temp file, copy *file handle* to clipboard.
+  - **The Garbage Man:** Auto-cleanup temp files older than 15 mins.
 
 - [ ] **The "Plan" Protocol** (Prompt Update)
   Update system prompt to enforce a `<plan>` block before `<delivery>`.
   - AI must explain *why* it is making changes in natural language first.
   - `warden apply` extracts the plan and displays it to the user for confirmation before writing files.
+  - *Mitigates "coding without thinking".*
 
 ### Git Integration (Experimental)
 
@@ -128,17 +131,6 @@ The core loop works:
 
 - [ ] **Function-level violation reporting**  
   Not just "file has violations" but detailed breakdown:
-
-      src/engine.rs
-      
-        fn process_batch() [Line 45]
-        ├─ Complexity: 14 (max 5)
-        ├─ Nesting depth: 5 (max 2)  
-        ├─ Contributing factors:
-        │   ├─ 3 nested if statements (lines 52, 58, 61)
-        │   ├─ 2 match arms with complex guards (lines 67, 89)
-        │   └─ while loop with break conditions (line 94)
-        └─ Suggestion: Extract inner match to separate function
   
   *Learn from the patterns. Understand WHY it's complex.*
 
@@ -157,54 +149,20 @@ The core loop works:
 - [ ] **Test suite**
   - Unit tests for each module
   - Integration tests: knit → apply → verify flow
-  - Fixture files for each language (Rust, TS, Python)
-  - Edge cases: malformed input, huge files, unicode
 
 - [ ] **Performance benchmarks**
   - Scan time vs file count
-  - Token counting speed
-  - Memory usage on large codebases
 
 - [ ] **CLI stability guarantee**
   - Document all flags and subcommands
-  - Semantic versioning discipline
-  - Deprecation warnings before removal
 
 ---
 
 ## v1.0.0 — Release
 
 - [ ] Published to **crates.io**
-- [ ] **Homebrew**: `brew install warden` (Mac/Linux package manager)
-- [ ] **Scoop/Winget**: Windows package managers
-- [ ] Complete documentation site
-- [ ] Logo and branding
-
----
-
-## v2.0.0 — Language Expansion
-
-Way down the line:
-- Go
-- C/C++ (original Power of 10 target)
-- Java/Kotlin
-
-Each language needs: grammar, complexity patterns, naming rules, safety checks.
-
----
-
-## Future / Speculative
-
-### AI-Native Linting
-- [ ] **Global State Detection:** Flag `static mut` or singletons (AI hates hidden state).
-- [ ] **Impure Function Warning:** Flag functions that return values but take no arguments (implies hidden I/O or state reading).
-- [ ] **Deep Inheritance Check:** Flag class extension > 1 level (AI gets lost in hierarchy).
-
-### Metrics Dashboard
-Track complexity trends over time. SQLite backend. Charts showing codebase health evolution.
-
-### Session Branches
-`warden session start` creates timestamped branch. Each `warden apply --commit` adds to it. `warden session merge` squashes and merges to main.
+- [ ] **Homebrew**
+- [ ] **Scoop/Winget**
 
 ---
 

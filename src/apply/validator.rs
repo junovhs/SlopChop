@@ -139,17 +139,23 @@ fn check_single_file(path: &str, content: &str, errors: &mut Vec<String>) {
         errors.push(format!("{path} is empty"));
         return;
     }
+    check_lazy_truncation(path, content, errors);
+}
 
-    // Check for "Lazy" truncation markers
+fn check_lazy_truncation(path: &str, content: &str, errors: &mut Vec<String>) {
     for (i, line) in content.lines().enumerate() {
-        for regex in LAZY_MARKERS.iter() {
-            if regex.is_match(line) {
-                errors.push(format!(
-                    "{path}:{}: Detected lazy truncation marker: '{}'. Full file required.",
-                    i + 1,
-                    line.trim()
-                ));
-            }
+        check_line_lazy(path, i, line, errors);
+    }
+}
+
+fn check_line_lazy(path: &str, i: usize, line: &str, errors: &mut Vec<String>) {
+    for regex in LAZY_MARKERS.iter() {
+        if regex.is_match(line) {
+            errors.push(format!(
+                "{path}:{}: Detected lazy truncation marker: '{}'. Full file required.",
+                i + 1,
+                line.trim()
+            ));
         }
     }
 }
