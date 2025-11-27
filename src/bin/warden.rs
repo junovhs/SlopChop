@@ -9,6 +9,7 @@ use crossterm::{
 };
 use std::fs;
 use std::io;
+use std::path::Path;
 use std::process::{self, Command, ExitStatus};
 
 use warden_core::apply;
@@ -73,6 +74,9 @@ fn main() -> Result<()> {
         return init_config();
     }
 
+    // Auto-init: create warden.toml if it doesn't exist
+    ensure_config_exists();
+
     let config = load_config(&cli)?;
 
     if let Some(cmd) = &cli.command {
@@ -81,30 +85,27 @@ fn main() -> Result<()> {
 
     if let Some(cmd_name) = &cli.legacy_command {
         run_alias(&config, cmd_name);
+        return Ok(());
     }
 
     run_scan(&config, cli.ui)
 }
 
+fn ensure_config_exists() {
+    if !Path::new("warden.toml").exists() {
+        let content = Config::generate_toml_content();
+        if fs::write("warden.toml", &content).is_ok() {
+            println!("{}", "✅ Auto-created warden.toml".green());
+        }
+    }
+}
+
 fn init_config() -> Result<()> {
-    if std::path::Path::new("warden.toml").exists() {
+    if Path::new("warden.toml").exists() {
         println!("{}", "⚠️ warden.toml already exists.".yellow());
     } else {
-        let default_toml = r#"# warden.toml
-[rules]
-max_file_tokens = 2000
-max_cyclomatic_complexity = 10
-max_nesting_depth = 4
-max_function_args = 5
-max_function_words = 3
-ignore_naming_on = ["tests", "spec"]
-
-# Commands are auto-detected if not specified here.
-# To override:
-# [commands]
-# check = "npx.cmd @biomejs/biome check src/"
-"#;
-        fs::write("warden.toml", default_toml)?;
+        let content = Config::generate_toml_content();
+        fs::write("warden.toml", content)?;
         println!("{}", "✅ Created warden.toml".green());
     }
     Ok(())
@@ -185,7 +186,7 @@ fn execute_command_string(cmd_str: &str) {
 fn handle_command_result(result: std::io::Result<ExitStatus>, prog: &str) {
     match result {
         Ok(status) => check_status_code(status),
-        Err(e) => handle_exec_error(e, prog),
+        Err(e) => handle_exec_error(&e, prog),
     }
 }
 
@@ -203,7 +204,7 @@ fn check_status_code(status: ExitStatus) {
     }
 }
 
-fn handle_exec_error(e: std::io::Error, prog: &str) {
+fn handle_exec_error(e: &std::io::Error, prog: &str) {
     println!("{}", format!("❌ Failed to execute '{prog}': {e}").red());
     if cfg!(windows) {
         println!(

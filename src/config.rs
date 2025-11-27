@@ -5,7 +5,6 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
-use std::process::Command;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct RuleConfig {
@@ -67,6 +66,14 @@ pub enum GitMode {
     No,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProjectType {
+    Rust,
+    Node,
+    Python,
+    Unknown,
+}
+
 #[derive(Debug, Clone)]
 pub struct Config {
     pub git_mode: GitMode,
@@ -116,53 +123,71 @@ impl Config {
             return;
         }
 
-        if Path::new("Cargo.toml").exists() {
-            self.set_default(
-                "check",
-                "cargo clippy --all-targets -- -D warnings -D clippy::pedantic",
-            );
-            return;
-        }
-
-        if Path::new("package.json").exists() {
-            self.configure_js_defaults();
-            return;
-        }
-
-        if Path::new("pyproject.toml").exists() || Path::new("requirements.txt").exists() {
-            self.set_default("check", "ruff check --fix .");
-        }
-    }
-
-    fn configure_js_defaults(&mut self) {
-        let is_windows = cfg!(windows);
-        // Distinct names to avoid clippy::similar_names
-        let npx_executor = if is_windows { "npx.cmd" } else { "npx" };
-        let npm_manager = if is_windows { "npm.cmd" } else { "npm" };
-
-        let use_biome = Self::should_use_biome(npx_executor);
-        if use_biome {
-            self.set_default(
-                "check",
-                &format!("{npx_executor} @biomejs/biome check --write src/"),
-            );
-        } else {
-            self.set_default("check", &format!("{npm_manager} run lint -- --fix"));
-        }
-    }
-
-    fn should_use_biome(npx: &str) -> bool {
-        if Path::new("biome.json").exists() {
-            return true;
-        }
-        if let Ok(content) = fs::read_to_string("package.json") {
-            if content.contains("@biomejs/biome") {
-                println!("⚙️  Detected Biome dependency but missing config. Initializing...");
-                let _ = Command::new(npx).args(["@biomejs/biome", "init"]).output();
-                return true;
+        match Self::detect_project_type() {
+            ProjectType::Rust => {
+                self.set_default(
+                    "check",
+                    "cargo clippy --all-targets -- -D warnings -D clippy::pedantic",
+                );
+                self.set_default("fix", "cargo fmt");
             }
+            ProjectType::Node => {
+                self.configure_node_defaults();
+            }
+            ProjectType::Python => {
+                self.set_default("check", "ruff check --fix .");
+                self.set_default("fix", "ruff format .");
+            }
+            ProjectType::Unknown => {}
         }
-        false
+    }
+
+    #[must_use]
+    pub fn detect_project_type() -> ProjectType {
+        if Path::new("Cargo.toml").exists() {
+            return ProjectType::Rust;
+        }
+        if Path::new("package.json").exists() {
+            return ProjectType::Node;
+        }
+        if Path::new("pyproject.toml").exists() || Path::new("requirements.txt").exists() {
+            return ProjectType::Python;
+        }
+        ProjectType::Unknown
+    }
+
+    fn configure_node_defaults(&mut self) {
+        let npx = Self::npx_cmd();
+        // Always default to biome - it will auto-install via npx
+        self.set_default("check", &format!("{npx} @biomejs/biome check src/"));
+        self.set_default("fix", &format!("{npx} @biomejs/biome check --write src/"));
+    }
+
+    #[must_use]
+    pub fn npx_cmd() -> &'static str {
+        if cfg!(windows) {
+            "npx.cmd"
+        } else {
+            "npx"
+        }
+    }
+
+    #[must_use]
+    pub fn npm_cmd() -> &'static str {
+        if cfg!(windows) {
+            "npm.cmd"
+        } else {
+            "npm"
+        }
+    }
+
+    #[must_use]
+    pub fn cargo_cmd() -> &'static str {
+        if cfg!(windows) {
+            "cargo.exe"
+        } else {
+            "cargo"
+        }
     }
 
     fn set_default(&mut self, key: &str, val: &str) {
@@ -206,6 +231,62 @@ impl Config {
             }
         }
     }
+
+    /// Generates a warden.toml content string based on detected project type.
+    #[must_use]
+    pub fn generate_toml_content() -> String {
+        let project = Self::detect_project_type();
+        let commands_section = match project {
+            ProjectType::Rust => {
+                r#"[commands]
+check = "cargo clippy --all-targets -- -D warnings -D clippy::pedantic"
+fix = "cargo fmt""#
+            }
+            ProjectType::Node => {
+                let npx = Self::npx_cmd();
+                return format!(
+                    r#"# warden.toml
+[rules]
+max_file_tokens = 2000
+max_cyclomatic_complexity = 10
+max_nesting_depth = 4
+max_function_args = 5
+max_function_words = 3
+ignore_naming_on = ["tests", "spec"]
+
+[commands]
+check = "{npx} @biomejs/biome check src/"
+fix = "{npx} @biomejs/biome check --write src/"
+"#
+                );
+            }
+            ProjectType::Python => {
+                r#"[commands]
+check = "ruff check --fix ."
+fix = "ruff format .""#
+            }
+            ProjectType::Unknown => {
+                r#"# No project type detected. Configure commands manually:
+# [commands]
+# check = "your-lint-command"
+# fix = "your-fix-command""#
+            }
+        };
+
+        format!(
+            r#"# warden.toml
+[rules]
+max_file_tokens = 2000
+max_cyclomatic_complexity = 10
+max_nesting_depth = 4
+max_function_args = 5
+max_function_words = 3
+ignore_naming_on = ["tests", "spec"]
+
+{commands_section}
+"#
+        )
+    }
 }
 
 pub const PRUNE_DIRS: &[&str] = &[
@@ -224,6 +305,7 @@ pub const PRUNE_DIRS: &[&str] = &[
     "__pycache__",
     "coverage",
     "vendor",
+    ".warden_apply_backup",
     "Cargo.lock",
     "package-lock.json",
     "pnpm-lock.yaml",
@@ -238,6 +320,7 @@ pub const PRUNE_DIRS: &[&str] = &[
     "examples",
     "fixtures",
 ];
+
 pub const BIN_EXT_PATTERN: &str =
     r"(?i)\.(png|jpg|gif|svg|ico|webp|woff2?|ttf|pdf|mp4|zip|gz|tar|exe|dll|so|dylib|class|pyc)$";
 pub const SECRET_PATTERN: &str =

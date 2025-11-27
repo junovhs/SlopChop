@@ -7,7 +7,6 @@ max_function_args = 5
 max_function_words = 5
 ignore_naming_on = ["tests", "spec"]
 
-# Commands are auto-detected if not specified here.
-# To override:
-# [commands]
-# check = "npx.cmd @biomejs/biome check src/"
+[commands]
+check = "cargo clippy --all-targets -- -D warnings -D clippy::pedantic"
+fix = "cargo fmt"

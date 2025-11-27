@@ -1,4 +1,4 @@
-// warden:ignore
+// src/enumerate.rs
 use crate::config::{Config, PRUNE_DIRS};
 use crate::error::{Result, WardenError};
 use std::path::PathBuf;
@@ -28,14 +28,12 @@ impl FileEnumerator {
                 if !Self::in_git_repo() {
                     return Err(WardenError::NotInGitRepo);
                 }
-                // Fixed: Self::filter_paths
                 Ok(Self::filter_paths(Self::git_ls_files()?))
             }
             GitMode::No => Ok(self.walk_all_files()),
             GitMode::Auto => {
                 if Self::in_git_repo() {
                     if let Ok(files) = Self::git_ls_files() {
-                        // Fixed: Self::filter_paths
                         return Ok(Self::filter_paths(files));
                     }
                 }
@@ -44,7 +42,6 @@ impl FileEnumerator {
         }
     }
 
-    // Fixed: Removed &self
     fn filter_paths(paths: Vec<PathBuf>) -> Vec<PathBuf> {
         paths
             .into_iter()
@@ -75,6 +72,7 @@ impl FileEnumerator {
             .arg("ls-files")
             .arg("-z")
             .arg("--exclude-standard")
+            .arg(".")
             .output()?;
 
         if !out.status.success() {
@@ -103,7 +101,6 @@ impl FileEnumerator {
 
         for item in walker.filter_entry(|e| {
             let name = e.file_name().to_string_lossy();
-            // WalkDir filtering allows us to skip descending into "node_modules" entirely
             !PRUNE_DIRS.iter().any(|p| name == *p)
         }) {
             let entry = match item {
