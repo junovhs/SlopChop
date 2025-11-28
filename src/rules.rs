@@ -1,3 +1,4 @@
+// src/rules.rs
 use crate::analysis::Analyzer;
 use crate::config::Config;
 use crate::tokens::Tokenizer;
@@ -21,15 +22,10 @@ impl RuleEngine {
     }
 
     /// Scans a list of files and returns a structured report.
-    ///
-    /// # Errors
-    ///
-    /// Returns error if Rayon thread pool fails (unlikely).
     #[must_use]
     pub fn scan(&self, files: Vec<PathBuf>) -> ScanReport {
         let start = Instant::now();
 
-        // Parallel scan
         let results: Vec<FileReport> = files
             .into_par_iter()
             .filter_map(|path| self.analyze_file(&path))
@@ -54,8 +50,8 @@ impl RuleEngine {
         }
 
         let filename = path.to_string_lossy();
-        let mut violations = Vec::new();
         let token_count = Tokenizer::count(&content);
+        let mut violations = Vec::new();
 
         // 1. Law of Atomicity
         if token_count > self.config.rules.max_file_tokens {
@@ -69,17 +65,16 @@ impl RuleEngine {
             });
         }
 
-        // 2. AST Analysis
+        // 2. AST Analysis (complexity, nesting, arity, banned calls)
         if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
-            let mut analysis_violations =
-                ANALYZER.analyze(ext, &filename, &content, &self.config.rules);
-            violations.append(&mut analysis_violations);
+            let mut ast_violations = ANALYZER.analyze(ext, &filename, &content, &self.config.rules);
+            violations.append(&mut ast_violations);
         }
 
         Some(FileReport {
             path: path.to_path_buf(),
             token_count,
-            complexity_score: 0, // Future: aggregate function complexity here
+            complexity_score: 0,
             violations,
         })
     }

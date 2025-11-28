@@ -16,17 +16,29 @@ const SENSITIVE_PATHS: &[&str] = &[
     ".warden_apply_backup/",
 ];
 
+/// Compiled regex patterns for detecting lazy/truncated AI output.
+/// These are compile-time constant patterns; if any fail to compile,
+/// it's a programmer error that will surface immediately at first use.
 static LAZY_MARKERS: LazyLock<Vec<Regex>> = LazyLock::new(|| {
-    vec![
+    [
         // // ...
-        Regex::new(r"^\s*//\s*\.{3,}\s*$").unwrap(),
+        r"^\s*//\s*\.{3,}\s*$",
         // /* ... */
-        Regex::new(r"^\s*/\*\s*\.{3,}\s*\*/\s*$").unwrap(),
-        // // ... rest of code
-        Regex::new(r"(?i)^\s*//.*(rest of|remaining|existing|implement|logic here).*$").unwrap(),
-        // # ... (Python)
-        Regex::new(r"^\s*#\s*\.{3,}\s*$").unwrap(),
+        r"^\s*/\*\s*\.{3,}\s*\*/\s*$",
+        // // ... rest of code, // remaining code, etc.
+        r"(?i)^\s*//.*(rest of|remaining|existing|implement|logic here).*$",
+        // # ... (Python style)
+        r"^\s*#\s*\.{3,}\s*$",
     ]
+    .iter()
+    .filter_map(|pattern| match Regex::new(pattern) {
+        Ok(re) => Some(re),
+        Err(e) => {
+            eprintln!("Warning: Invalid lazy marker pattern '{pattern}': {e}");
+            None
+        }
+    })
+    .collect()
 });
 
 #[must_use]
@@ -70,9 +82,12 @@ fn check_path_safety(extracted: &ExtractedFiles, errors: &mut Vec<String>) {
 
 fn validate_single_path(path: &str, errors: &mut Vec<String>) {
     if has_traversal(path) {
-        errors.push(format!("SECURITY: path contains directory traversal: {path}"));
+        errors.push(format!(
+            "SECURITY: path contains directory traversal: {path}"
+        ));
         return;
     }
+
     if is_absolute_path(path) {
         errors.push(format!("SECURITY: absolute path not allowed: {path}"));
         return;
@@ -96,13 +111,9 @@ fn is_absolute_path(path: &str) -> bool {
     if path.starts_with('/') {
         return true;
     }
-    if path.len() >= 2 {
-        let bytes = path.as_bytes();
-        if bytes[0].is_ascii_alphabetic() && bytes[1] == b':' {
-            return true;
-        }
-    }
-    false
+    // Windows drive letter check (e.g., C:\)
+    let bytes = path.as_bytes();
+    bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':'
 }
 
 fn is_sensitive_path(path: &str) -> bool {
@@ -117,13 +128,12 @@ fn is_hidden_file(path: &str) -> bool {
 }
 
 fn check_missing(manifest: &Manifest, extracted: &ExtractedFiles) -> Vec<String> {
-    let mut missing = Vec::new();
-    for entry in manifest {
-        if entry.operation != Operation::Delete && !extracted.contains_key(&entry.path) {
-            missing.push(entry.path.clone());
-        }
-    }
-    missing
+    manifest
+        .iter()
+        .filter(|entry| entry.operation != Operation::Delete)
+        .filter(|entry| !extracted.contains_key(&entry.path))
+        .map(|entry| entry.path.clone())
+        .collect()
 }
 
 fn check_content(extracted: &ExtractedFiles) -> Vec<String> {
@@ -143,19 +153,15 @@ fn check_single_file(path: &str, content: &str, errors: &mut Vec<String>) {
 }
 
 fn check_lazy_truncation(path: &str, content: &str, errors: &mut Vec<String>) {
-    for (i, line) in content.lines().enumerate() {
-        check_line_lazy(path, i, line, errors);
-    }
-}
-
-fn check_line_lazy(path: &str, i: usize, line: &str, errors: &mut Vec<String>) {
-    for regex in LAZY_MARKERS.iter() {
-        if regex.is_match(line) {
-            errors.push(format!(
-                "{path}:{}: Detected lazy truncation marker: '{}'. Full file required.",
-                i + 1,
-                line.trim()
-            ));
+    for (line_num, line) in content.lines().enumerate() {
+        for regex in LAZY_MARKERS.iter() {
+            if regex.is_match(line) {
+                errors.push(format!(
+                    "{path}:{}: Detected lazy truncation marker: '{}'. Full file required.",
+                    line_num + 1,
+                    line.trim()
+                ));
+            }
         }
     }
 }

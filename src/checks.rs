@@ -2,7 +2,6 @@
 use crate::config::RuleConfig;
 use crate::metrics;
 use crate::types::Violation;
-use anyhow::Result;
 use tree_sitter::{Node, Query, QueryCursor, TreeCursor};
 
 pub struct CheckContext<'a> {
@@ -12,18 +11,18 @@ pub struct CheckContext<'a> {
     pub config: &'a RuleConfig,
 }
 
-/// Checks for naming violations.
+/// Checks for naming violations (function name word count).
 pub fn check_naming(ctx: &CheckContext, query: &Query, out: &mut Vec<Violation>) {
+    if is_ignored(ctx.filename, &ctx.config.ignore_naming_on) {
+        return;
+    }
+
     let mut cursor = QueryCursor::new();
     for m in cursor.matches(query, ctx.root, ctx.source.as_bytes()) {
         let node = m.captures[0].node;
         let name = node.utf8_text(ctx.source.as_bytes()).unwrap_or("?");
-
-        if is_ignored(ctx.filename, &ctx.config.ignore_naming_on) {
-            continue;
-        }
-
         let word_count = count_words(name);
+
         if word_count > ctx.config.max_function_words {
             out.push(Violation {
                 row: node.start_position().row,
@@ -54,16 +53,11 @@ fn is_ignored(filename: &str, patterns: &[String]) -> bool {
     patterns.iter().any(|p| filename.contains(p))
 }
 
-/// Checks for safety violations.
-pub fn check_safety(ctx: &CheckContext, _safety_query: &Query, out: &mut Vec<Violation>) {
-    let _ = ctx;
-    let _ = out;
-}
-
-/// Checks for complexity metrics.
+/// Checks for complexity metrics (arity, depth, cyclomatic complexity).
 pub fn check_metrics(ctx: &CheckContext, complexity_query: &Query, out: &mut Vec<Violation>) {
     traverse_nodes(ctx, |node| {
-        if node.kind().contains("function") || node.kind().contains("method") {
+        let kind = node.kind();
+        if kind.contains("function") || kind.contains("method") {
             validate_arity(node, ctx.config.max_function_args, out);
             validate_depth(node, ctx.config.max_nesting_depth, out);
             validate_complexity(
@@ -118,25 +112,35 @@ fn validate_complexity(
     }
 }
 
-/// Checks for banned constructs.
-/// # Errors
-/// Returns `Ok`.
-#[allow(clippy::unnecessary_wraps)]
-pub fn check_banned(
-    ctx: &CheckContext,
-    banned_query: &Query,
-    out: &mut Vec<Violation>,
-) -> Result<()> {
+/// Checks for banned constructs (.unwrap() and .expect() calls).
+pub fn check_banned(ctx: &CheckContext, banned_query: &Query, out: &mut Vec<Violation>) {
     let mut cursor = QueryCursor::new();
+
     for m in cursor.matches(banned_query, ctx.root, ctx.source.as_bytes()) {
-        let node = m.captures[0].node;
+        // Find the method name capture to determine which one was used
+        let method_name = m
+            .captures
+            .iter()
+            .find(|c| c.node.kind() == "field_identifier")
+            .and_then(|c| c.node.utf8_text(ctx.source.as_bytes()).ok())
+            .unwrap_or("unwrap/expect");
+
+        // Get the full call expression for line number
+        let call_node = m
+            .captures
+            .iter()
+            .find(|c| c.node.kind() == "call_expression")
+            .map(|c| c.node)
+            .unwrap_or(m.captures[0].node);
+
         out.push(Violation {
-            row: node.start_position().row,
-            message: "Explicit 'unwrap()' call detected. Use 'expect', 'unwrap_or', or '?'.".into(),
+            row: call_node.start_position().row,
+            message: format!(
+                "Banned: '.{method_name}()' call. Use '?', 'unwrap_or', 'unwrap_or_else', or 'ok_or'."
+            ),
             law: "LAW OF PARANOIA",
         });
     }
-    Ok(())
 }
 
 fn traverse_nodes<F>(ctx: &CheckContext, mut cb: F)
@@ -146,13 +150,13 @@ where
     let mut cursor = ctx.root.walk();
     loop {
         cb(cursor.node());
-        if !step_cursor(&mut cursor) {
+        if !advance_cursor(&mut cursor) {
             break;
         }
     }
 }
 
-fn step_cursor(cursor: &mut TreeCursor) -> bool {
+fn advance_cursor(cursor: &mut TreeCursor) -> bool {
     if cursor.goto_first_child() {
         return true;
     }

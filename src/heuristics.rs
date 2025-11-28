@@ -1,16 +1,15 @@
-// warden:ignore
+// src/heuristics.rs
 use crate::config::{CODE_BARE_PATTERN, CODE_EXT_PATTERN};
 use regex::Regex;
 use std::collections::HashMap;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
-// --- Configuration Constants for Heuristics ---
 const MIN_TEXT_ENTROPY: f64 = 3.5;
 const MAX_TEXT_ENTROPY: f64 = 5.5;
 
-const BUILD_SYSTEM_PAMPS: &[&str] = &[
+const BUILD_SYSTEM_MARKERS: &[&str] = &[
     "find_package",
     "add_executable",
     "target_link_libraries",
@@ -26,11 +25,27 @@ const BUILD_SYSTEM_PAMPS: &[&str] = &[
     "dependencies",
 ];
 
-// Pre-compiled regexes for known code files
-static CODE_EXT_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(CODE_EXT_PATTERN).unwrap());
-static CODE_BARE_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(CODE_BARE_PATTERN).unwrap());
+/// Pre-compiled regex for known code file extensions.
+static CODE_EXT_RE: LazyLock<Option<Regex>> = LazyLock::new(|| {
+    Regex::new(CODE_EXT_PATTERN)
+        .map_err(|e| eprintln!("Warning: Invalid CODE_EXT_PATTERN: {e}"))
+        .ok()
+});
+
+/// Pre-compiled regex for known code files without extensions.
+static CODE_BARE_RE: LazyLock<Option<Regex>> = LazyLock::new(|| {
+    Regex::new(CODE_BARE_PATTERN)
+        .map_err(|e| eprintln!("Warning: Invalid CODE_BARE_PATTERN: {e}"))
+        .ok()
+});
 
 pub struct HeuristicFilter;
+
+impl Default for HeuristicFilter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl HeuristicFilter {
     #[must_use]
@@ -39,7 +54,7 @@ impl HeuristicFilter {
     }
 
     #[must_use]
-    pub fn filter(&self, files: Vec<std::path::PathBuf>) -> Vec<std::path::PathBuf> {
+    pub fn filter(&self, files: Vec<PathBuf>) -> Vec<PathBuf> {
         files
             .into_iter()
             .filter(|path| Self::should_keep(path))
@@ -49,34 +64,51 @@ impl HeuristicFilter {
     fn should_keep(path: &Path) -> bool {
         let path_str = path.to_string_lossy();
 
-        if CODE_EXT_RE.is_match(&path_str) || CODE_BARE_RE.is_match(&path_str) {
+        // Fast path: known code files always pass
+        if Self::is_known_code_file(&path_str) {
             return true;
         }
 
-        if let Ok(entropy) = calculate_entropy(path) {
-            if !(MIN_TEXT_ENTROPY..=MAX_TEXT_ENTROPY).contains(&entropy) {
-                return false;
-            }
-        } else {
+        // Check entropy for unknown files
+        let Ok(entropy) = calculate_entropy(path) else {
+            return false;
+        };
+
+        if !(MIN_TEXT_ENTROPY..=MAX_TEXT_ENTROPY).contains(&entropy) {
             return false;
         }
 
-        if let Ok(content) = fs::read_to_string(path) {
-            let lower_content = content.to_lowercase();
-            for pamp in BUILD_SYSTEM_PAMPS {
-                if lower_content.contains(pamp) {
-                    return true;
-                }
-            }
+        // Check for build system markers
+        if Self::has_build_markers(path) {
+            return true;
         }
 
         true
     }
-}
 
-impl Default for HeuristicFilter {
-    fn default() -> Self {
-        Self::new()
+    fn is_known_code_file(path_str: &str) -> bool {
+        let ext_match = CODE_EXT_RE
+            .as_ref()
+            .map(|re| re.is_match(path_str))
+            .unwrap_or(false);
+
+        let bare_match = CODE_BARE_RE
+            .as_ref()
+            .map(|re| re.is_match(path_str))
+            .unwrap_or(false);
+
+        ext_match || bare_match
+    }
+
+    fn has_build_markers(path: &Path) -> bool {
+        let Ok(content) = fs::read_to_string(path) else {
+            return false;
+        };
+
+        let lower_content = content.to_lowercase();
+        BUILD_SYSTEM_MARKERS
+            .iter()
+            .any(|marker| lower_content.contains(marker))
     }
 }
 
@@ -86,12 +118,11 @@ fn calculate_entropy(path: &Path) -> std::io::Result<f64> {
         return Ok(0.0);
     }
 
-    let mut freq_map = HashMap::new();
+    let mut freq_map: HashMap<u8, u32> = HashMap::new();
     for &byte in &bytes {
         *freq_map.entry(byte).or_insert(0) += 1;
     }
 
-    // Suppress cast precision loss for 64-bit length; entropy approximation is fine.
     #[allow(clippy::cast_precision_loss)]
     let len = bytes.len() as f64;
 

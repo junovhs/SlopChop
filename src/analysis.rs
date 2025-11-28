@@ -7,14 +7,11 @@ use tree_sitter::{Language, Parser, Query};
 
 pub struct Analyzer {
     rust_naming: Query,
-    rust_safety: Query,
     rust_complexity: Query,
     rust_banned: Query,
     js_naming: Query,
-    js_safety: Query,
     js_complexity: Query,
     py_naming: Query,
-    py_safety: Query,
     py_complexity: Query,
 }
 
@@ -28,12 +25,11 @@ impl Analyzer {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            rust_naming: q(
+            rust_naming: compile_query(
                 tree_sitter_rust::language(),
                 "(function_item name: (identifier) @name)",
             ),
-            rust_safety: q(tree_sitter_rust::language(), r"(match_expression) @safe"),
-            rust_complexity: q(
+            rust_complexity: compile_query(
                 tree_sitter_rust::language(),
                 r#"
                 (if_expression) @branch
@@ -43,13 +39,19 @@ impl Analyzer {
                 (binary_expression operator: ["&&" "||"]) @branch
             "#,
             ),
-            rust_banned: q(
+            // FIXED: Now catches BOTH .unwrap() AND .expect()
+            rust_banned: compile_query(
                 tree_sitter_rust::language(),
                 r#"
-                (call_expression function: (field_expression field: (field_identifier) @m (#eq? @m "unwrap"))) @banned
+                (call_expression
+                    function: (field_expression
+                        field: (field_identifier) @method
+                        (#match? @method "^(unwrap|expect)$")
+                    )
+                ) @banned
             "#,
             ),
-            js_naming: q(
+            js_naming: compile_query(
                 tree_sitter_typescript::language_typescript(),
                 r"
                 (function_declaration name: (identifier) @name)
@@ -57,11 +59,7 @@ impl Analyzer {
                 (variable_declarator name: (identifier) @name value: [(arrow_function) (function_expression)])
             ",
             ),
-            js_safety: q(
-                tree_sitter_typescript::language_typescript(),
-                r"(try_statement) @safe",
-            ),
-            js_complexity: q(
+            js_complexity: compile_query(
                 tree_sitter_typescript::language_typescript(),
                 r#"
                 (if_statement) @branch
@@ -75,12 +73,11 @@ impl Analyzer {
                 (binary_expression operator: ["&&" "||" "??"]) @branch
             "#,
             ),
-            py_naming: q(
+            py_naming: compile_query(
                 tree_sitter_python::language(),
                 "(function_definition name: (identifier) @name)",
             ),
-            py_safety: q(tree_sitter_python::language(), r"(try_statement) @safe"),
-            py_complexity: q(
+            py_complexity: compile_query(
                 tree_sitter_python::language(),
                 r"
                 (if_statement) @branch
@@ -107,68 +104,52 @@ impl Analyzer {
         Self::run_analysis(queries, filename, content, config)
     }
 
-    fn select_language(
-        &self,
-        lang: &str,
-    ) -> Option<(Language, &Query, &Query, &Query, Option<&Query>)> {
-        if lang == "rs" {
-            return Some(self.queries_rust());
+    fn select_language(&self, lang: &str) -> Option<LanguageQueries> {
+        match lang {
+            "rs" => Some(self.queries_rust()),
+            "js" | "jsx" | "ts" | "tsx" => Some(self.queries_js()),
+            "py" => Some(self.queries_python()),
+            _ => None,
         }
-        if matches!(lang, "js" | "jsx" | "ts" | "tsx") {
-            return Some(self.queries_js());
-        }
-        if lang == "py" {
-            return Some(self.queries_python());
-        }
-        None
     }
 
-    fn queries_rust(&self) -> (Language, &Query, &Query, &Query, Option<&Query>) {
-        (
-            tree_sitter_rust::language(),
-            &self.rust_naming,
-            &self.rust_safety,
-            &self.rust_complexity,
-            Some(&self.rust_banned),
-        )
+    fn queries_rust(&self) -> LanguageQueries {
+        LanguageQueries {
+            language: tree_sitter_rust::language(),
+            naming: &self.rust_naming,
+            complexity: &self.rust_complexity,
+            banned: Some(&self.rust_banned),
+        }
     }
 
-    fn queries_js(&self) -> (Language, &Query, &Query, &Query, Option<&Query>) {
-        (
-            tree_sitter_typescript::language_typescript(),
-            &self.js_naming,
-            &self.js_safety,
-            &self.js_complexity,
-            None,
-        )
+    fn queries_js(&self) -> LanguageQueries {
+        LanguageQueries {
+            language: tree_sitter_typescript::language_typescript(),
+            naming: &self.js_naming,
+            complexity: &self.js_complexity,
+            banned: None,
+        }
     }
 
-    fn queries_python(&self) -> (Language, &Query, &Query, &Query, Option<&Query>) {
-        (
-            tree_sitter_python::language(),
-            &self.py_naming,
-            &self.py_safety,
-            &self.py_complexity,
-            None,
-        )
+    fn queries_python(&self) -> LanguageQueries {
+        LanguageQueries {
+            language: tree_sitter_python::language(),
+            naming: &self.py_naming,
+            complexity: &self.py_complexity,
+            banned: None,
+        }
     }
 
     fn run_analysis(
-        (language, naming, safety, complexity, banned): (
-            Language,
-            &Query,
-            &Query,
-            &Query,
-            Option<&Query>,
-        ),
+        queries: LanguageQueries,
         filename: &str,
         content: &str,
         config: &RuleConfig,
     ) -> Vec<Violation> {
-        let mut parser_instance = Parser::new();
-        let Ok(parser) = parser_instance.get_init(language) else {
+        let mut parser = Parser::new();
+        if parser.set_language(queries.language).is_err() {
             return vec![];
-        };
+        }
 
         let Some(tree) = parser.parse(content, None) else {
             return vec![];
@@ -182,29 +163,30 @@ impl Analyzer {
             config,
         };
 
-        checks::check_naming(&ctx, naming, &mut violations);
-        checks::check_safety(&ctx, safety, &mut violations);
-        checks::check_metrics(&ctx, complexity, &mut violations);
+        checks::check_naming(&ctx, queries.naming, &mut violations);
+        checks::check_metrics(&ctx, queries.complexity, &mut violations);
 
-        if let Some(bq) = banned {
-            let _ = checks::check_banned(&ctx, bq, &mut violations);
+        if let Some(banned) = queries.banned {
+            checks::check_banned(&ctx, banned, &mut violations);
         }
 
         violations
     }
 }
 
-trait ParserInit {
-    fn get_init(&mut self, lang: Language) -> Result<&mut Self>;
+struct LanguageQueries<'a> {
+    language: Language,
+    naming: &'a Query,
+    complexity: &'a Query,
+    banned: Option<&'a Query>,
 }
 
-impl ParserInit for Parser {
-    fn get_init(&mut self, lang: Language) -> Result<&mut Self> {
-        self.set_language(lang)?;
-        Ok(self)
+/// Compiles a tree-sitter query pattern.
+/// Panics on invalid patterns — these are compile-time constants,
+/// so invalid patterns represent programmer errors, not runtime failures.
+fn compile_query(lang: Language, pattern: &str) -> Query {
+    match Query::new(lang, pattern) {
+        Ok(q) => q,
+        Err(e) => panic!("Invalid tree-sitter query pattern: {e}"),
     }
-}
-
-fn q(lang: Language, pattern: &str) -> Query {
-    Query::new(lang, pattern).expect("Invalid Query")
 }

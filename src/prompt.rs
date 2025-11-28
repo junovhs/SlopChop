@@ -13,27 +13,24 @@ impl PromptGenerator {
     }
 
     /// Generates the full system prompt.
-    ///
     /// # Errors
-    /// This function returns `Ok` always, but returns `Result` for API consistency.
+    /// Currently infallible, returns Result for API consistency.
     pub fn generate(&self) -> Result<String> {
         Ok(self.build_system_prompt())
     }
 
-    /// Wraps the header for context packs.
-    ///
+    /// Generates a short reminder prompt for context footers.
     /// # Errors
-    /// This function returns `Ok` always, but returns `Result` for API consistency.
-    pub fn wrap_header(&self) -> Result<String> {
-        Ok(self.build_system_prompt())
-    }
-
-    /// Generates a short reminder prompt.
-    ///
-    /// # Errors
-    /// This function returns `Ok` always, but returns `Result` for API consistency.
+    /// Currently infallible, returns Result for API consistency.
     pub fn generate_reminder(&self) -> Result<String> {
         Ok(self.build_reminder())
+    }
+
+    /// Alias for `generate()` — used by knit for context headers.
+    /// # Errors
+    /// Currently infallible, returns Result for API consistency.
+    pub fn wrap_header(&self) -> Result<String> {
+        self.generate()
     }
 
     fn build_system_prompt(&self) -> String {
@@ -80,20 +77,20 @@ THE 3 LAWS (Non-Negotiable):
 □ Complexity ≤ {complexity}
 □ Nesting ≤ {depth}
 □ Args ≤ {args}
-□ No .unwrap()
+□ No .unwrap() or .expect()
 □ Use Nabla Format (∇∇∇ ... ∆∆∆)"
         )
     }
 }
 
 fn build_output_format() -> String {
-    // We construct the delimiters dynamically to avoid confusing the Warden parser.
     let nabla = "∇";
     let delta = "∆";
     let open = format!("{nabla}{nabla}{nabla}");
     let close = format!("{delta}{delta}{delta}");
 
-    format!(r#"OUTPUT FORMAT (MANDATORY):
+    format!(
+        r#"OUTPUT FORMAT (MANDATORY):
 
 1. Explain the changes (Technical Plan) using NABLA PROTOCOL:
    - Must start with "GOAL:"
@@ -124,6 +121,6 @@ RULES:
 - You MAY use markdown inside the file content.
 - Every file in the manifest MUST have a matching {open} block.
 - Paths must match exactly.
-- Do NOT truncate files (No "// ...").
-"#)
+- Do NOT truncate files (No "// ...")."#
+    )
 }
