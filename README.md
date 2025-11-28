@@ -33,8 +33,8 @@ Files must be **< 2000 tokens**.
 Small files fit in context windows. Small files are verifiable. Small files can be taken to an AI in isolation and brought back—they just slot in.
 
 ### 2. Law of Complexity
-- **Cyclomatic Complexity:** ≤ 5 per function
-- **Nesting Depth:** ≤ 2 levels
+- **Cyclomatic Complexity:** ≤ 10 per function
+- **Nesting Depth:** ≤ 3 levels
 - **Function Arguments:** ≤ 5 parameters
 
 These aren't style preferences. They're **containment protocols**. Low complexity bounds the hallucination surface. Shallow nesting prevents AI losing track of scope.
@@ -53,7 +53,7 @@ Take any file to a fresh AI conversation. Work on it. Bring it back.
 
 **It slots in perfectly. Every time. Guaranteed.**
 
-This is what Warden enforces: modularity so strict that files become interchangeable, verifiable units.
+This is the ultimate dream of Warden: modularity so strict that files become interchangeable, verifiable units.
 
 ---
 
@@ -83,7 +83,7 @@ Creates `context.txt` containing:
 
 ### 2. Chat with AI
 
-Drag `context.txt` into Claude/GPT/Gemini. Ask for changes.
+`context.txt` will be generated and applied to your clipboard, paste the file into Claude/GPT/Gemini. Ask for changes.
 
 The AI responds with structured output:
 
@@ -106,7 +106,7 @@ This:
 - **Rejects markdown artifacts** (no fenced code blocks in source)
 - Creates timestamped backup
 - Writes files atomically
-- On failure: copies AI-friendly error to clipboard
+- On failure: copies AI-friendly error to clipboard (future plans to make this configurable)
 
 ### 4. Verify
 
