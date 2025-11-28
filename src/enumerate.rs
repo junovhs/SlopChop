@@ -60,8 +60,11 @@ fn in_git_repo() -> bool {
 }
 
 fn git_ls_files() -> Result<Vec<PathBuf>> {
+    // -c: cached (tracked)
+    // -o: others (untracked)
+    // --exclude-standard: respect .gitignore
     let out = Command::new("git")
-        .args(["ls-files", "-z", "--exclude-standard", "."])
+        .args(["ls-files", "-z", "-c", "-o", "--exclude-standard", "."])
         .output()?;
 
     if !out.status.success() {

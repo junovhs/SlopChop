@@ -44,7 +44,7 @@ struct Cli {
     #[arg(long, value_enum, default_value_t = OutputFormat::Text)]
     format: OutputFormat,
     #[arg(long)]
-    skeleton: bool, // NEW: Context Intelligence flag
+    skeleton: bool,
 }
 
 fn main() -> Result<()> {
@@ -143,7 +143,7 @@ fn inject_violations(ctx: &mut String, files: &[PathBuf], config: &Config) -> Re
 
 fn write_body(files: &[PathBuf], ctx: &mut String, cli: &Cli) -> Result<()> {
     match cli.format {
-        OutputFormat::Text => pack_text(files, ctx, cli.skeleton),
+        OutputFormat::Text => pack_nabla(files, ctx, cli.skeleton),
         OutputFormat::Xml => pack_xml(files, ctx, cli.skeleton),
     }
 }
@@ -188,24 +188,27 @@ fn output_result(content: &str, tokens: usize, cli: &Cli) -> Result<()> {
     Ok(())
 }
 
-fn pack_text(files: &[PathBuf], out: &mut String, skeleton: bool) -> Result<()> {
+/// Packs files using the Warden Nabla Protocol.
+fn pack_nabla(files: &[PathBuf], out: &mut String, skeleton: bool) -> Result<()> {
     for path in files {
         let p_str = path.to_string_lossy().replace('\\', "/");
-        writeln!(out, "<file path=\"{p_str}\">")?;
+
+        // Header: ∇∇∇ path ∇∇∇
+        writeln!(out, "∇∇∇ {p_str} ∇∇∇")?;
 
         match fs::read_to_string(path) {
             Ok(content) => {
                 if skeleton {
-                    // TODO: Detect language and pass to skeletonizer
-                    // For now, pass direct content until logic is ready
                     out.push_str(&skeleton::clean(path, &content));
                 } else {
                     out.push_str(&content);
                 }
             }
-            Err(e) => writeln!(out, "<ERROR READING FILE: {e}>")?,
+            Err(e) => writeln!(out, "// <ERROR READING FILE: {e}>")?,
         }
-        writeln!(out, "</file>\n")?;
+
+        // Footer: ∆∆∆
+        writeln!(out, "\n∆∆∆\n")?;
     }
     Ok(())
 }
