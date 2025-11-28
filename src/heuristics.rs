@@ -87,15 +87,11 @@ impl HeuristicFilter {
     }
 
     fn is_known_code_file(path_str: &str) -> bool {
-        let ext_match = CODE_EXT_RE
-            .as_ref()
-            .map(|re| re.is_match(path_str))
-            .unwrap_or(false);
+        let ext_match = CODE_EXT_RE.as_ref().is_some_and(|re| re.is_match(path_str));
 
         let bare_match = CODE_BARE_RE
             .as_ref()
-            .map(|re| re.is_match(path_str))
-            .unwrap_or(false);
+            .is_some_and(|re| re.is_match(path_str));
 
         ext_match || bare_match
     }

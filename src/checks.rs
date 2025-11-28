@@ -2,7 +2,7 @@
 use crate::config::RuleConfig;
 use crate::metrics;
 use crate::types::Violation;
-use tree_sitter::{Node, Query, QueryCursor, TreeCursor};
+use tree_sitter::{Node, Query, QueryCursor, QueryMatch, TreeCursor};
 
 pub struct CheckContext<'a> {
     pub root: Node<'a>,
@@ -112,34 +112,46 @@ fn validate_complexity(
     }
 }
 
-/// Checks for banned constructs (.unwrap() and .expect() calls).
+/// Checks for banned constructs (`.unwrap()` and `.expect()` calls).
 pub fn check_banned(ctx: &CheckContext, banned_query: &Query, out: &mut Vec<Violation>) {
     let mut cursor = QueryCursor::new();
+    let names = banned_query.capture_names();
 
     for m in cursor.matches(banned_query, ctx.root, ctx.source.as_bytes()) {
-        // Find the method name capture to determine which one was used
-        let method_name = m
-            .captures
-            .iter()
-            .find(|c| c.node.kind() == "field_identifier")
-            .and_then(|c| c.node.utf8_text(ctx.source.as_bytes()).ok())
-            .unwrap_or("unwrap/expect");
+        process_banned_match(&m, names, ctx, out);
+    }
+}
 
-        // Get the full call expression for line number
-        let call_node = m
-            .captures
-            .iter()
-            .find(|c| c.node.kind() == "call_expression")
-            .map(|c| c.node)
-            .unwrap_or(m.captures[0].node);
+// Extracted to satisfy complexity limits and clean up logic
+fn process_banned_match(
+    m: &QueryMatch,
+    names: &[String],
+    ctx: &CheckContext,
+    out: &mut Vec<Violation>,
+) {
+    let mut method_name: Option<&str> = None;
+    let mut row = 0;
 
-        out.push(Violation {
-            row: call_node.start_position().row,
-            message: format!(
-                "Banned: '.{method_name}()' call. Use '?', 'unwrap_or', 'unwrap_or_else', or 'ok_or'."
-            ),
-            law: "LAW OF PARANOIA",
-        });
+    for cap in m.captures {
+        // Fix: Use reference to avoid moving out of slice
+        let capture_name = &names[cap.index as usize];
+
+        if capture_name == "method" {
+            method_name = cap.node.utf8_text(ctx.source.as_bytes()).ok();
+        }
+        if capture_name == "call" {
+            row = cap.node.start_position().row;
+        }
+    }
+
+    if let Some(name) = method_name {
+        if name == "unwrap" || name == "expect" {
+            out.push(Violation {
+                row,
+                message: format!("Banned: '.{name}()'. Use '?' or 'unwrap_or'."),
+                law: "LAW OF PARANOIA",
+            });
+        }
     }
 }
 

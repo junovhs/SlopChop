@@ -2,7 +2,6 @@
 use crate::checks::{self, CheckContext};
 use crate::config::RuleConfig;
 use crate::types::Violation;
-use anyhow::Result;
 use tree_sitter::{Language, Parser, Query};
 
 pub struct Analyzer {
@@ -39,17 +38,11 @@ impl Analyzer {
                 (binary_expression operator: ["&&" "||"]) @branch
             "#,
             ),
-            // FIXED: Now catches BOTH .unwrap() AND .expect()
+            // We catch ALL method calls here and filter for unwrap/expect in Rust.
+            // This bypasses version-specific issues with tree-sitter predicates (#eq?).
             rust_banned: compile_query(
                 tree_sitter_rust::language(),
-                r#"
-                (call_expression
-                    function: (field_expression
-                        field: (field_identifier) @method
-                        (#match? @method "^(unwrap|expect)$")
-                    )
-                ) @banned
-            "#,
+                r"(call_expression function: (field_expression field: (field_identifier) @method)) @call",
             ),
             js_naming: compile_query(
                 tree_sitter_typescript::language_typescript(),
@@ -101,10 +94,10 @@ impl Analyzer {
         let Some(queries) = self.select_language(lang) else {
             return vec![];
         };
-        Self::run_analysis(queries, filename, content, config)
+        Self::run_analysis(&queries, filename, content, config)
     }
 
-    fn select_language(&self, lang: &str) -> Option<LanguageQueries> {
+    fn select_language(&self, lang: &str) -> Option<LanguageQueries<'_>> {
         match lang {
             "rs" => Some(self.queries_rust()),
             "js" | "jsx" | "ts" | "tsx" => Some(self.queries_js()),
@@ -113,7 +106,7 @@ impl Analyzer {
         }
     }
 
-    fn queries_rust(&self) -> LanguageQueries {
+    fn queries_rust(&self) -> LanguageQueries<'_> {
         LanguageQueries {
             language: tree_sitter_rust::language(),
             naming: &self.rust_naming,
@@ -122,7 +115,7 @@ impl Analyzer {
         }
     }
 
-    fn queries_js(&self) -> LanguageQueries {
+    fn queries_js(&self) -> LanguageQueries<'_> {
         LanguageQueries {
             language: tree_sitter_typescript::language_typescript(),
             naming: &self.js_naming,
@@ -131,7 +124,7 @@ impl Analyzer {
         }
     }
 
-    fn queries_python(&self) -> LanguageQueries {
+    fn queries_python(&self) -> LanguageQueries<'_> {
         LanguageQueries {
             language: tree_sitter_python::language(),
             naming: &self.py_naming,
@@ -141,7 +134,7 @@ impl Analyzer {
     }
 
     fn run_analysis(
-        queries: LanguageQueries,
+        queries: &LanguageQueries<'_>,
         filename: &str,
         content: &str,
         config: &RuleConfig,
@@ -181,9 +174,6 @@ struct LanguageQueries<'a> {
     banned: Option<&'a Query>,
 }
 
-/// Compiles a tree-sitter query pattern.
-/// Panics on invalid patterns — these are compile-time constants,
-/// so invalid patterns represent programmer errors, not runtime failures.
 fn compile_query(lang: Language, pattern: &str) -> Query {
     match Query::new(lang, pattern) {
         Ok(q) => q,

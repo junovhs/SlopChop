@@ -2,7 +2,7 @@
 use std::sync::LazyLock;
 use tiktoken_rs::CoreBPE;
 
-/// The tokenizer encoding (cl100k_base, used by GPT-4/3.5-turbo).
+/// The tokenizer encoding (`cl100k_base`, used by GPT-4/3.5-turbo).
 /// Initialization is deferred until first use. If the encoding fails to load
 /// (which should never happen with a valid tiktoken-rs installation),
 /// token counting will return 0 and log an error.
@@ -20,8 +20,7 @@ impl Tokenizer {
     #[must_use]
     pub fn count(text: &str) -> usize {
         BPE.as_ref()
-            .map(|bpe| bpe.encode_ordinary(text).len())
-            .unwrap_or(0)
+            .map_or(0, |bpe| bpe.encode_ordinary(text).len())
     }
 
     /// Returns true if the text exceeds the token limit.
