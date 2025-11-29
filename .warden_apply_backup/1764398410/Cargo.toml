@@ -11,6 +11,10 @@ path = "src/lib.rs"
 name = "warden"
 path = "src/bin/warden.rs"
 
+[[bin]]
+name = "knit"
+path = "src/bin/knit.rs"
+
 [dependencies]
 anyhow = "1.0"
 thiserror = "1.0"

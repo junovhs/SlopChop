@@ -8,7 +8,6 @@ pub enum ProjectType {
     Rust,
     Node,
     Python,
-    Go,
     Unknown,
 }
 
@@ -25,9 +24,6 @@ impl ProjectType {
         if Path::new("pyproject.toml").exists() || Path::new("requirements.txt").exists() {
             return Self::Python;
         }
-        if Path::new("go.mod").exists() {
-            return Self::Go;
-        }
         Self::Unknown
     }
 }
@@ -39,6 +35,26 @@ pub fn npx_cmd() -> &'static str {
         "npx.cmd"
     } else {
         "npx"
+    }
+}
+
+/// Returns the npm command for the current platform.
+#[must_use]
+pub fn npm_cmd() -> &'static str {
+    if cfg!(windows) {
+        "npm.cmd"
+    } else {
+        "npm"
+    }
+}
+
+/// Returns the cargo command for the current platform.
+#[must_use]
+pub fn cargo_cmd() -> &'static str {
+    if cfg!(windows) {
+        "cargo.exe"
+    } else {
+        "cargo"
     }
 }
 
@@ -68,7 +84,6 @@ fn generate_commands_section(project: ProjectType) -> String {
         ProjectType::Rust => rust_commands(),
         ProjectType::Node => node_commands(),
         ProjectType::Python => python_commands(),
-        ProjectType::Go => go_commands(),
         ProjectType::Unknown => unknown_commands(),
     }
 }
@@ -93,13 +108,6 @@ fn python_commands() -> String {
     r#"[commands]
 check = "ruff check ."
 fix = "ruff check --fix .""#
-        .to_string()
-}
-
-fn go_commands() -> String {
-    r#"[commands]
-check = "go vet ./..."
-fix = "go fmt ./...""#
         .to_string()
 }
 

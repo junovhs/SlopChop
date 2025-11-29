@@ -190,10 +190,6 @@ fn project_defaults(project: ProjectType) -> HashMap<String, String> {
             m.insert("check".into(), "ruff check .".into());
             m.insert("fix".into(), "ruff check --fix .".into());
         }
-        ProjectType::Go => {
-            m.insert("check".into(), "go vet ./...".into());
-            m.insert("fix".into(), "go fmt ./...".into());
-        }
         ProjectType::Unknown => {}
     }
     m

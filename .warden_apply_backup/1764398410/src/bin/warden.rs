@@ -3,7 +3,7 @@ use clap::{Parser, Subcommand};
 use colored::Colorize;
 use std::fs;
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{self, Command};
 
 use warden_core::apply;
@@ -12,7 +12,6 @@ use warden_core::config::Config;
 use warden_core::enumerate::FileEnumerator;
 use warden_core::filter::FileFilter;
 use warden_core::heuristics::HeuristicFilter;
-use warden_core::pack::{self, OutputFormat, PackOptions};
 use warden_core::project;
 use warden_core::prompt::PromptGenerator;
 use warden_core::reporting;
@@ -45,27 +44,6 @@ enum Commands {
     Apply,
     #[command(subcommand)]
     Roadmap(RoadmapCommand),
-    /// Generates context.txt for AI (formerly knit)
-    Pack {
-        #[arg(long, short)]
-        stdout: bool,
-        #[arg(long, short)]
-        copy: bool,
-        #[arg(long, short)]
-        prompt: bool,
-        #[arg(long, value_enum, default_value_t = OutputFormat::Text)]
-        format: OutputFormat,
-        #[arg(long)]
-        skeleton: bool,
-        #[arg(long)]
-        git_only: bool,
-        #[arg(long)]
-        no_git: bool,
-        #[arg(long)]
-        code_only: bool,
-        #[arg(long, short)]
-        verbose: bool,
-    },
 }
 
 fn main() {
@@ -100,27 +78,6 @@ fn dispatch_subcommand(cmd: &Commands) -> Result<()> {
         Commands::Fix => run_command("fix"),
         Commands::Apply => handle_apply(),
         Commands::Roadmap(cmd) => handle_command(cmd.clone()),
-        Commands::Pack {
-            stdout,
-            copy,
-            prompt,
-            format,
-            skeleton,
-            git_only,
-            no_git,
-            code_only,
-            verbose,
-        } => pack::run(&PackOptions {
-            stdout: *stdout,
-            copy: *copy,
-            prompt: *prompt,
-            format: format.clone(),
-            skeleton: *skeleton,
-            git_only: *git_only,
-            no_git: *no_git,
-            code_only: *code_only,
-            verbose: *verbose,
-        }),
     }
 }
 
@@ -173,6 +130,7 @@ fn handle_prompt(copy: bool) -> Result<()> {
     Ok(())
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn run_command(name: &str) -> Result<()> {
     let mut config = Config::new();
     config.load_local_config();
@@ -243,13 +201,13 @@ fn load_config() -> Config {
     config
 }
 
-fn discover_files(config: &Config) -> Result<Vec<std::path::PathBuf>> {
+fn discover_files(config: &Config) -> Result<Vec<PathBuf>> {
     let files = FileEnumerator::new(config.clone()).enumerate()?;
     let files = FileFilter::new(config)?.filter(files);
     Ok(HeuristicFilter::new().filter(files))
 }
 
-fn scan_files(config: &Config, files: Vec<std::path::PathBuf>) -> ScanReport {
+fn scan_files(config: &Config, files: Vec<PathBuf>) -> ScanReport {
     RuleEngine::new(config.clone()).scan(files)
 }
 

@@ -110,7 +110,7 @@ fn dispatch_subcommand(cmd: &Commands) -> Result<()> {
             no_git,
             code_only,
             verbose,
-        } => pack::run(&PackOptions {
+        } => pack::run(PackOptions {
             stdout: *stdout,
             copy: *copy,
             prompt: *prompt,

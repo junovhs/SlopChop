@@ -42,24 +42,16 @@ impl CommandBatch {
     }
 }
 
-// Split match to reduce Cyclomatic Complexity (Max 8)
 fn cmd_name(cmd: &Command) -> &'static str {
     match cmd {
         Command::Check { .. } => "CHECK",
         Command::Uncheck { .. } => "UNCHECK",
         Command::Add { .. } => "ADD",
         Command::Delete { .. } => "DELETE",
-        _ => cmd_name_extended(cmd),
-    }
-}
-
-fn cmd_name_extended(cmd: &Command) -> &'static str {
-    match cmd {
         Command::Update { .. } => "UPDATE",
         Command::Note { .. } => "NOTE",
         Command::Move { .. } => "MOVE",
         Command::ReplaceSection { .. } => "SECTION",
-        _ => "UNKNOWN",
     }
 }
 
@@ -75,6 +67,7 @@ fn is_skippable(line: &str) -> bool {
     line.is_empty() || line.starts_with('#') || line.starts_with("//")
 }
 
+// Refactored to group commands and lower complexity score
 fn parse_command_line(line: &str) -> Result<Command, String> {
     let (cmd, args) = split_cmd(line).ok_or_else(|| "Empty command".to_string())?;
 
