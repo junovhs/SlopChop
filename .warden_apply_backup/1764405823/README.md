@@ -61,9 +61,9 @@ This is the ultimate dream of Warden: modularity so strict that files become int
 
     cd your-project
     warden              # Scan for violations (auto-creates warden.toml)
-    warden pack --prompt # Generate context.txt for AI
+    knit --prompt       # Generate context.txt for AI
 
-That's it. Warden detects your project type (Rust/Node/Python/Go) and configures itself.
+That's it. Warden detects your project type (Rust/Node/Python) and configures itself.
 
 ---
 
@@ -73,7 +73,7 @@ Warden is a closed-loop system for AI development.
 
 ### 1. Generate Context
 
-    warden pack --prompt
+    knit --prompt
 
 Creates `context.txt` containing:
 - Your codebase (filtered, deduplicated)
@@ -83,7 +83,7 @@ Creates `context.txt` containing:
 
 ### 2. Chat with AI
 
-`context.txt` will be generated and applied to your clipboard. Paste the file into Claude/GPT/Gemini. Ask for changes.
+`context.txt` will be generated and applied to your clipboard, paste the file into Claude/GPT/Gemini. Ask for changes.
 
 The AI responds with structured output:
 
@@ -106,7 +106,7 @@ This:
 - **Rejects markdown artifacts** (no fenced code blocks in source)
 - Creates timestamped backup
 - Writes files atomically
-- On failure: copies AI-friendly error to clipboard
+- On failure: copies AI-friendly error to clipboard (future plans to make this configurable)
 
 ### 4. Verify
 
@@ -123,44 +123,27 @@ If `warden apply` fails, the error is already in your clipboard. Paste it back t
 
 ## Commands
 
-### Core Analysis & Validation
 | Command | Description |
 |---------|-------------|
-| `warden` | Run structural scan (complexity, tokens, etc.) |
+| `warden` | Run structural scan |
 | `warden --ui` | Interactive TUI dashboard |
-| `warden check` | Run configured linter (e.g., clippy, ruff) |
-| `warden fix` | Run configured formatter |
-
-### Context & Packaging
-| Command | Description |
-|---------|-------------|
-| `warden pack` | Generate `context.txt` from codebase |
-| `warden pack --prompt` | Include system prompt & violations |
-| `warden pack --skeleton` | Export structure only (signatures) |
-| `warden pack --git-only` | Only include files tracked by git |
-| `warden pack --stdout` | Output to stdout instead of file |
-
-### Application & Safety
-| Command | Description |
-|---------|-------------|
+| `warden --init` | Create/regenerate warden.toml |
 | `warden apply` | Apply AI response from clipboard |
-| `warden apply --dry-run` | Validate output without writing to disk |
-
-### Roadmap Management
-| Command | Description |
-|---------|-------------|
+| `warden apply --dry-run` | Validate without writing |
+| `warden apply --commit` | Apply and git commit |
+| `warden check` | Run configured linter |
+| `warden fix` | Run configured formatter |
+| `warden prompt` | Print system prompt |
+| `warden prompt -c` | Copy system prompt to clipboard |
+| `knit` | Generate context.txt |
+| `knit --prompt` | Include system prompt |
+| `knit --skeleton` | Signatures only (coming soon) |
+| `knit --stdout` | Output to stdout |
 | `warden roadmap init` | Create new ROADMAP.md |
 | `warden roadmap prompt` | Copy AI teaching prompt to clipboard |
 | `warden roadmap apply` | Apply roadmap commands from clipboard |
-| `warden roadmap show` | Display roadmap status tree |
-| `warden roadmap tasks` | List tasks (filterable by pending/done) |
-
-### Utilities
-| Command | Description |
-|---------|-------------|
-| `warden --init` | Create/regenerate `warden.toml` |
-| `warden prompt` | Print system prompt only |
-| `warden prompt -c` | Copy system prompt to clipboard |
+| `warden roadmap show` | Display roadmap status |
+| `warden roadmap tasks` | List tasks with paths |
 
 ---
 
@@ -174,6 +157,7 @@ Warden auto-generates `warden.toml` based on project type:
     max_file_tokens = 2000
     max_cyclomatic_complexity = 5
     max_nesting_depth = 2
+    max_function_args = 5
     
     [commands]
     check = "cargo clippy --all-targets -- -D warnings -D clippy::pedantic"
@@ -277,6 +261,10 @@ XML tags get mangled by chat interfaces. Warden uses Unicode delimiters that nev
 
 Warden includes AI-friendly roadmap management. Instead of AI rewriting your entire roadmap, it sends surgical commands.
 
+    warden roadmap init          # Create ROADMAP.md
+    warden roadmap prompt        # Copy AI instructions to clipboard
+    warden roadmap apply         # Apply commands from clipboard
+
 ### The Workflow
 
 1. Run `warden roadmap prompt`
@@ -305,8 +293,6 @@ NOTE auth-system "Needs refactor"
 | `NOTE` | `NOTE task "Implementation note"` |
 
 Tasks are identified by slugified names. `Truncation detection` becomes `truncation-detection`.
-
----
 
 ## Coming Soon: The Contract Protocol
 
@@ -353,9 +339,8 @@ Currently supported:
 - **Rust** - Full analysis (complexity, nesting, arity, safety)
 - **TypeScript/JavaScript** - Full analysis
 - **Python** - Full analysis
-- **Go** - Preliminary support
 
-Coming soon: C/C++, Java/Kotlin
+Coming soon: Go, C/C++, Java/Kotlin
 
 ---
 
@@ -383,7 +368,7 @@ The original Power of 10 rules were for life-critical systems where bugs kill pe
 
 Warden is self-hosting. Run `warden` in this repo:
 
-    ✅ All Clear. Scanned 37586 tokens in 116ms.
+    ✅ All Clear. Scanned 24011 tokens in 133ms.
 
 The tool passes its own rules.
 
