@@ -1,102 +1,84 @@
-// src/roadmap/cli.rs
-use crate::clipboard; // Use Warden's clipboard
+use crate::clipboard;
 use crate::roadmap::{
     apply_commands, generate_prompt, CommandBatch, PromptOptions, Roadmap, TaskStatus,
 };
 use anyhow::{anyhow, Context, Result};
 use clap::Subcommand;
 use std::io::{self, Read};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Subcommand, Debug, Clone)]
 pub enum RoadmapCommand {
-    /// Initialize a new roadmap file
     Init {
-        /// Output file path
         #[arg(short, long, default_value = "ROADMAP.md")]
         output: PathBuf,
-        /// Project name
         #[arg(short, long)]
         name: Option<String>,
     },
-    /// Copy AI teaching prompt to clipboard
     Prompt {
-        /// Roadmap file to read
         #[arg(short, long, default_value = "ROADMAP.md")]
         file: PathBuf,
-        /// Include full roadmap content
         #[arg(long)]
         full: bool,
-        /// Include command examples
         #[arg(long)]
         examples: bool,
-        /// Print to stdout instead of clipboard
         #[arg(long)]
         stdout: bool,
     },
-    /// Apply commands from clipboard to roadmap
     Apply {
-        /// Roadmap file to update
         #[arg(short, long, default_value = "ROADMAP.md")]
         file: PathBuf,
-        /// Show what would change without applying
         #[arg(long)]
         dry_run: bool,
-        /// Read commands from stdin instead of clipboard
         #[arg(long)]
         stdin: bool,
-        /// Verbose output
         #[arg(short, long)]
         verbose: bool,
     },
-    /// Show current roadmap status
     Show {
-        /// Roadmap file to read
         #[arg(short, long, default_value = "ROADMAP.md")]
         file: PathBuf,
-        /// Output format: tree, compact, stats
         #[arg(long, default_value = "tree")]
         format: String,
     },
-    /// List all tasks with their paths
     Tasks {
-        /// Roadmap file to read
         #[arg(short, long, default_value = "ROADMAP.md")]
         file: PathBuf,
-        /// Show only pending tasks
         #[arg(long)]
         pending: bool,
-        /// Show only complete tasks
         #[arg(long)]
         complete: bool,
     },
 }
 
+/// Entry point for roadmap commands
+/// # Errors
+/// Returns error if IO fails or clipboard access fails
 pub fn handle_command(cmd: RoadmapCommand) -> Result<()> {
     match cmd {
-        RoadmapCommand::Init { output, name } => run_init(output, name),
+        RoadmapCommand::Init { output, name } => run_init(&output, name),
         RoadmapCommand::Prompt {
             file,
             full,
             examples,
             stdout,
-        } => run_prompt(file, full, examples, stdout),
+        } => run_prompt(&file, full, examples, stdout),
         RoadmapCommand::Apply {
             file,
             dry_run,
             stdin,
             verbose,
-        } => run_apply(file, dry_run, stdin, verbose),
-        RoadmapCommand::Show { file, format } => run_show(file, &format),
+        } => run_apply(&file, dry_run, stdin, verbose),
+        RoadmapCommand::Show { file, format } => run_show(&file, &format),
         RoadmapCommand::Tasks {
             file,
             pending,
             complete,
-        } => run_tasks(file, pending, complete),
+        } => run_tasks(&file, pending, complete),
     }
 }
 
-fn run_init(output: PathBuf, name: Option<String>) -> Result<()> {
+fn run_init(output: &Path, name: Option<String>) -> Result<()> {
     if output.exists() {
         return Err(anyhow!(
             "{} already exists. Use --output to specify a different file",
@@ -111,15 +93,13 @@ fn run_init(output: PathBuf, name: Option<String>) -> Result<()> {
             .unwrap_or_else(|| "Project".to_string())
     });
 
-    let template = generate_template(&project_name);
-    std::fs::write(&output, template)?;
-
+    std::fs::write(output, generate_template(&project_name))?;
     println!("✓ Created {}", output.display());
     Ok(())
 }
 
-fn run_prompt(file: PathBuf, full: bool, examples: bool, stdout: bool) -> Result<()> {
-    let roadmap = load_roadmap(&file)?;
+fn run_prompt(file: &Path, full: bool, examples: bool, stdout: bool) -> Result<()> {
+    let roadmap = load_roadmap(file)?;
     let options = PromptOptions {
         full,
         examples,
@@ -142,8 +122,8 @@ fn run_prompt(file: PathBuf, full: bool, examples: bool, stdout: bool) -> Result
     Ok(())
 }
 
-fn run_apply(file: PathBuf, dry_run: bool, stdin: bool, verbose: bool) -> Result<()> {
-    let mut roadmap = load_roadmap(&file)?;
+fn run_apply(file: &Path, dry_run: bool, stdin: bool, verbose: bool) -> Result<()> {
+    let mut roadmap = load_roadmap(file)?;
 
     let input = if stdin {
         let mut buffer = String::new();
@@ -200,15 +180,15 @@ fn run_apply(file: PathBuf, dry_run: bool, stdin: bool, verbose: bool) -> Result
     }
 
     if success > 0 {
-        roadmap.save(&file)?;
+        roadmap.save(file)?;
         println!("\n✓ Saved {} ({} changes applied)", file.display(), success);
     }
 
     Ok(())
 }
 
-fn run_show(file: PathBuf, format: &str) -> Result<()> {
-    let roadmap = load_roadmap(&file)?;
+fn run_show(file: &Path, format: &str) -> Result<()> {
+    let roadmap = load_roadmap(file)?;
     match format {
         "stats" => {
             let stats = roadmap.stats();
@@ -217,7 +197,10 @@ fn run_show(file: PathBuf, format: &str) -> Result<()> {
             println!("  Complete: {}", stats.complete);
             println!("  Pending:  {}", stats.pending);
             let pct = if stats.total > 0 {
-                stats.complete as f64 / stats.total as f64 * 100.0
+                #[allow(clippy::cast_precision_loss)]
+                {
+                    (stats.complete as f64 / stats.total as f64) * 100.0
+                }
             } else {
                 0.0
             };
@@ -228,8 +211,8 @@ fn run_show(file: PathBuf, format: &str) -> Result<()> {
     Ok(())
 }
 
-fn run_tasks(file: PathBuf, pending: bool, complete: bool) -> Result<()> {
-    let roadmap = load_roadmap(&file)?;
+fn run_tasks(file: &Path, pending: bool, complete: bool) -> Result<()> {
+    let roadmap = load_roadmap(file)?;
     let tasks = roadmap.all_tasks();
 
     let filter_pending = pending && !complete;
@@ -253,13 +236,13 @@ fn run_tasks(file: PathBuf, pending: bool, complete: bool) -> Result<()> {
     Ok(())
 }
 
-fn load_roadmap(path: &PathBuf) -> Result<Roadmap> {
+fn load_roadmap(path: &Path) -> Result<Roadmap> {
     Roadmap::from_file(path).context("Failed to load roadmap file. Run `warden roadmap init`?")
 }
 
 fn generate_template(name: &str) -> String {
     format!(
-        r#"# {name} Roadmap
+        r"# {name} Roadmap
 
 ## Current State
 
@@ -270,6 +253,6 @@ fn generate_template(name: &str) -> String {
 **Theme:** Foundation
 
 - [ ] Core feature
-"#
+"
     )
 }

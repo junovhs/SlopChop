@@ -1,4 +1,3 @@
-// src/bin/warden.rs
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use colored::Colorize;
@@ -23,6 +22,7 @@ use warden_core::types::ScanReport;
 
 #[derive(Parser)]
 #[command(name = "warden")]
+#[command(version)]
 #[command(about = "Code quality guardian", long_about = None)]
 struct Cli {
     #[command(subcommand)]
