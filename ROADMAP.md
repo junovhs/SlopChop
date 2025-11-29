@@ -76,65 +76,7 @@ These aren't style preferences. They're **containment protocols**.
   *If it passes validation, commit it. Git is your undo.*
 ---
 
-## v0.6.0 — The Contract Protocol
-
-**Theme:** Trust but Verify (Programmatically).
-
-AI must declare intent before writing code. Warden verifies the output matches the contract.
-
-### The Contract DSL
-
-Grammar:
-
-    ACTION TYPE PATH[:SYMBOL] [ASSERTIONS]
-
-Actions: `CREATE`, `UPDATE`, `DELETE`, `REFACTOR`
-Types: `FILE`, `FN`, `STRUCT`, `ENUM`, `TRAIT`, `IMPL`
-
-### Supported Assertions
-
-| Keyword | Meaning | Example |
-|---------|---------|---------|
-| `complexity` | Cyclomatic complexity | `ASSERT complexity <= 5` |
-| `depth` | Max nesting level | `ASSERT depth <= 2` |
-| `args` | Function arity | `ASSERT args <= 3` |
-| `lines` | Line count | `ASSERT lines < 50` |
-| `tokens` | Token count | `ASSERT tokens < 500` |
-| `contains` | Text/regex presence | `ASSERT contains "Result<"` |
-| `public` | Visibility | `ASSERT public == true` |
-
-### Example Contract
-
-    ∇∇∇ CONTRACT ∇∇∇
-    GOAL: Refactor parser for clarity
-    
-    REFACTOR FN src/parser.rs:parse_header
-        ASSERT complexity <= 4
-        ASSERT depth <= 1
-    
-    CREATE STRUCT src/types.rs:Header
-        ASSERT public == true
-    
-    UPDATE FILE src/lib.rs
-        ASSERT tokens < 2000
-    ∆∆∆
-
-### Execution Logic
-
-1. **Parse Contract** → `Vec<Intent>`
-2. **Parse Payload** → Tree-sitter AST (in memory, before write)
-3. **Symbol Resolution** → Find declared symbols in AST
-4. **Metric Validation** → Run metrics, compare to assertions
-5. **Scope Creep Detection** → Flag undeclared modifications
-
-Contract Breach Examples:
-- "Function `parse_header` not found in output"
-- "Complexity is 8, contract requires <= 4"
-- "Undeclared modification: `fn risky_logic` was changed"
-
----
-
-## v0.7.0 — Context Intelligence
+## v0.6.0 — Context Intelligence
 
 **Theme:** The Map vs. Territory problem.
 
@@ -163,7 +105,7 @@ Strip function bodies, keep signatures:
 
 ---
 
-## v0.8.0 — Verification & Safety
+## v0.7.0 — Verification & Safety
 
 **Theme:** Beyond "it compiles."
 
@@ -202,7 +144,7 @@ Prevent "accidental lobotomy" where AI refactors code and silently drops functio
 
 ---
 
-## v0.9.0 — Ecosystem
+## v0.8.0 — Ecosystem
 
 **Theme:** CI/CD integration.
 
