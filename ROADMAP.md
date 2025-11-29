@@ -100,7 +100,8 @@ Strip function bodies, keep signatures:
 
 - [x] **`knit --skeleton`** - All files skeletonized
   *Implemented using tree-sitter for RS, PY, TS*
-- [ ] **`knit src/main.rs --smart`** - Full code for target + skeletons for rest
+- [x] **`knit src/main.rs --smart`** - Full code for target + skeletons for rest
+  *Implemented as: warden pack --target <file>*
 
 ### Dependency Graphing
 
