@@ -81,70 +81,43 @@ pub fn handle_command(cmd: RoadmapCommand) -> Result<()> {
 fn run_init(output: &Path, name: Option<String>) -> Result<()> {
     if output.exists() {
         return Err(anyhow!(
-            "{} already exists. Use --output to specify a different file",
+            "{} already exists. Use --output.",
             output.display()
         ));
     }
-
-    let project_name = name.unwrap_or_else(|| {
-        std::env::current_dir()
-            .ok()
-            .and_then(|p| p.file_name().map(|s| s.to_string_lossy().to_string()))
-            .unwrap_or_else(|| "Project".to_string())
-    });
-
-    std::fs::write(output, generate_template(&project_name))?;
+    let n = name.unwrap_or_else(|| "Project".to_string());
+    std::fs::write(output, template(&n))?;
     println!("✓ Created {}", output.display());
     Ok(())
 }
 
 fn run_prompt(file: &Path, full: bool, examples: bool, stdout: bool) -> Result<()> {
-    let roadmap = load_roadmap(file)?;
-    let options = PromptOptions {
-        full,
-        examples,
-        project_name: None,
-    };
-
-    let prompt = generate_prompt(&roadmap, &options);
-
+    let r = load(file)?;
+    let p = generate_prompt(
+        &r,
+        &PromptOptions {
+            full,
+            examples,
+            project_name: None,
+        },
+    );
     if stdout {
-        println!("{prompt}");
+        println!("{p}");
     } else {
-        match clipboard::smart_copy(&prompt) {
-            Ok(msg) => {
-                println!("✓ Copied to clipboard");
-                println!("  ({msg})");
-            }
-            Err(e) => eprintln!("Clipboard error: {e}. Try --stdout."),
-        }
+        clipboard::smart_copy(&p).map_err(|e| anyhow!("Clipboard: {e}"))?;
+        println!("✓ Copied prompt.");
     }
     Ok(())
 }
 
 fn run_apply(file: &Path, dry_run: bool, stdin: bool, verbose: bool) -> Result<()> {
-    let mut roadmap = load_roadmap(file)?;
-
-    let input = if stdin {
-        let mut buffer = String::new();
-        io::stdin().read_to_string(&mut buffer)?;
-        buffer
-    } else {
-        clipboard::read_clipboard().context("Failed to read clipboard")?
-    };
-
+    let mut roadmap = load(file)?;
+    let input = get_input(stdin)?;
     let batch = CommandBatch::parse(&input);
 
     if batch.commands.is_empty() {
-        if !batch.errors.is_empty() {
-            eprintln!("Parse errors:");
-            for err in &batch.errors {
-                eprintln!("  {err}");
-            }
-        }
-        return Err(anyhow!(
-            "No commands found in input. Expected '===ROADMAP===' block."
-        ));
+        print_errs(&batch.errors);
+        return Err(anyhow!("No commands found."));
     }
 
     println!(
@@ -152,107 +125,86 @@ fn run_apply(file: &Path, dry_run: bool, stdin: bool, verbose: bool) -> Result<(
         batch.commands.len(),
         batch.summary()
     );
-
-    if !batch.errors.is_empty() && verbose {
-        eprintln!("Parse warnings:");
-        for err in &batch.errors {
-            eprintln!("  {err}");
-        }
+    if verbose {
+        print_errs(&batch.errors);
     }
 
     if dry_run {
-        println!("\n[DRY RUN] Would apply:");
-        for cmd in &batch.commands {
-            println!("  {cmd:?}");
-        }
+        println!("[DRY RUN]");
         return Ok(());
     }
 
     let results = apply_commands(&mut roadmap, &batch);
-    let mut success = 0;
-
-    println!("\nResults:");
-    for result in &results {
-        println!("  {result}");
-        if matches!(result, crate::roadmap::ApplyResult::Success(_)) {
-            success += 1;
-        }
-    }
-
-    if success > 0 {
+    if results
+        .iter()
+        .any(|r| matches!(r, crate::roadmap::ApplyResult::Success(_)))
+    {
         roadmap.save(file)?;
-        println!("\n✓ Saved {} ({} changes applied)", file.display(), success);
+        println!("✓ Saved.");
     }
-
+    for r in &results {
+        println!("{r}");
+    }
     Ok(())
 }
 
 fn run_show(file: &Path, format: &str) -> Result<()> {
-    let roadmap = load_roadmap(file)?;
-    match format {
-        "stats" => {
-            let stats = roadmap.stats();
-            println!("{}", roadmap.title);
-            println!("  Total:    {}", stats.total);
-            println!("  Complete: {}", stats.complete);
-            println!("  Pending:  {}", stats.pending);
-            let pct = if stats.total > 0 {
-                #[allow(clippy::cast_precision_loss)]
-                {
-                    (stats.complete as f64 / stats.total as f64) * 100.0
-                }
-            } else {
-                0.0
-            };
-            println!("  Progress: {pct:.1}%");
-        }
-        _ => println!("{}", roadmap.compact_state()),
+    let r = load(file)?;
+    if format == "stats" {
+        let s = r.stats();
+        println!(
+            "Tasks: {} ({} done, {} pending)",
+            s.total, s.complete, s.pending
+        );
+    } else {
+        println!("{}", r.compact_state());
     }
     Ok(())
 }
 
 fn run_tasks(file: &Path, pending: bool, complete: bool) -> Result<()> {
-    let roadmap = load_roadmap(file)?;
-    let tasks = roadmap.all_tasks();
-
-    let filter_pending = pending && !complete;
-    let filter_complete = complete && !pending;
-
-    for task in tasks {
-        let include = match (filter_pending, filter_complete) {
-            (true, _) => task.status == TaskStatus::Pending,
-            (_, true) => task.status == TaskStatus::Complete,
-            _ => true,
-        };
-
-        if include {
-            let status = match task.status {
-                TaskStatus::Complete => "[x]",
-                TaskStatus::Pending => "[ ]",
+    let r = load(file)?;
+    for t in r.all_tasks() {
+        if should_show_task(t.status, pending, complete) {
+            let mark = if t.status == TaskStatus::Complete {
+                "[x]"
+            } else {
+                "[ ]"
             };
-            println!("{} {} - {}", status, task.path, task.text);
+            println!("{mark} {} - {}", t.path, t.text);
         }
     }
     Ok(())
 }
 
-fn load_roadmap(path: &Path) -> Result<Roadmap> {
-    Roadmap::from_file(path).context("Failed to load roadmap file. Run `warden roadmap init`?")
+fn should_show_task(status: TaskStatus, pending: bool, complete: bool) -> bool {
+    match (pending, complete) {
+        (true, false) => status == TaskStatus::Pending,
+        (false, true) => status == TaskStatus::Complete,
+        _ => true,
+    }
 }
 
-fn generate_template(name: &str) -> String {
-    format!(
-        r"# {name} Roadmap
+fn load(path: &Path) -> Result<Roadmap> {
+    Roadmap::from_file(path).context("Load failed")
+}
 
-## Current State
+fn get_input(stdin: bool) -> Result<String> {
+    if stdin {
+        let mut buf = String::new();
+        io::stdin().read_to_string(&mut buf)?;
+        Ok(buf)
+    } else {
+        clipboard::read_clipboard().context("Clipboard read failed")
+    }
+}
 
-- [ ] Initial setup
+fn print_errs(errors: &[String]) {
+    for e in errors {
+        eprintln!("Warning: {e}");
+    }
+}
 
-## v0.1.0
-
-**Theme:** Foundation
-
-- [ ] Core feature
-"
-    )
+fn template(name: &str) -> String {
+    format!("# {name} Roadmap\n\n## v0.1\n- [ ] Init")
 }

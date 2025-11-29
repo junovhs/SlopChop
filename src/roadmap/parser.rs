@@ -90,7 +90,10 @@ fn parse_heading(line: &str) -> Option<(u8, String)> {
     if lvl < 2 {
         return None;
     }
-    Some((lvl as u8, t[lvl..].trim().into()))
+
+    // Fix: Safe cast using try_from
+    let level = u8::try_from(lvl).ok()?;
+    Some((level, t[lvl..].trim().into()))
 }
 
 fn parse_section(lines: &[&str], i: &mut usize, lvl: u8, heading: String) -> Section {

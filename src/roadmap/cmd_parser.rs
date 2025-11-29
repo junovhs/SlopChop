@@ -66,19 +66,18 @@ fn is_skippable(line: &str) -> bool {
     line.is_empty() || line.starts_with('#') || line.starts_with("//")
 }
 
-// Split logic to satisfy complexity limits
 fn parse_command_line(line: &str) -> Result<Command, String> {
     let (cmd, args) = split_cmd(line).ok_or_else(|| "Empty command".to_string())?;
 
     match cmd {
-        "CHECK" | "UNCHECK" | "DELETE" => parse_simple_cmd(cmd, args),
-        "ADD" | "UPDATE" | "NOTE" => parse_content_cmd(cmd, args),
-        "MOVE" | "SECTION" => parse_struct_cmd(cmd, args),
+        "CHECK" | "UNCHECK" | "DELETE" => parse_basic(cmd, args),
+        "ADD" | "UPDATE" | "NOTE" => parse_content(cmd, args),
+        "MOVE" | "SECTION" => parse_struct(cmd, args),
         _ => Err(format!("Unknown command: {cmd}")),
     }
 }
 
-fn parse_simple_cmd(cmd: &str, args: &str) -> Result<Command, String> {
+fn parse_basic(cmd: &str, args: &str) -> Result<Command, String> {
     let path = req_path(args)?;
     match cmd {
         "CHECK" => Ok(Command::Check { path }),
@@ -88,7 +87,7 @@ fn parse_simple_cmd(cmd: &str, args: &str) -> Result<Command, String> {
     }
 }
 
-fn parse_content_cmd(cmd: &str, args: &str) -> Result<Command, String> {
+fn parse_content(cmd: &str, args: &str) -> Result<Command, String> {
     match cmd {
         "ADD" => parse_add(args),
         "UPDATE" => parse_update(args),
@@ -97,7 +96,7 @@ fn parse_content_cmd(cmd: &str, args: &str) -> Result<Command, String> {
     }
 }
 
-fn parse_struct_cmd(cmd: &str, args: &str) -> Result<Command, String> {
+fn parse_struct(cmd: &str, args: &str) -> Result<Command, String> {
     match cmd {
         "MOVE" => parse_move(args),
         "SECTION" => parse_section(args),

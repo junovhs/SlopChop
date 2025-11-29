@@ -15,40 +15,44 @@ fn run_cmd(roadmap: &mut Roadmap, cmd: &Command) -> ApplyResult {
     match cmd {
         Command::Check { path } => set_status(roadmap, path, TaskStatus::Complete),
         Command::Uncheck { path } => set_status(roadmap, path, TaskStatus::Pending),
+        Command::Delete { path } => run_delete(roadmap, path),
+        Command::Add { .. } | Command::Update { .. } | Command::Note { .. } => {
+            run_content_cmd(roadmap, cmd)
+        }
+        _ => ApplyResult::Error("Command not supported".into()),
+    }
+}
+
+fn run_content_cmd(roadmap: &mut Roadmap, cmd: &Command) -> ApplyResult {
+    match cmd {
         Command::Add {
             parent,
             text,
             after,
         } => run_add(roadmap, parent, text, after.as_deref()),
-        Command::Delete { path } => run_delete(roadmap, path),
         Command::Update { path, text } => run_update(roadmap, path, text),
         Command::Note { path, note } => run_note(roadmap, path, note),
-        Command::Move { path, position } => apply_move(roadmap, path, position),
-        Command::ReplaceSection { id, content } => apply_section_replace(roadmap, id, content),
+        _ => unreachable!(),
     }
 }
 
 fn set_status(roadmap: &mut Roadmap, path: &str, status: TaskStatus) -> ApplyResult {
-    // Strategy 1: Direct task lookup
     if let Some(task) = roadmap.find_task(path) {
         if update_line_status(roadmap, task.line, status) {
             return ok_res(status, path);
         }
     }
 
-    // Strategy 2: Scan for matching line
     if let Some(idx) = find_line_idx(roadmap, path) {
         if update_line_status(roadmap, idx, status) {
             return ok_res(status, path);
         }
     }
-
     ApplyResult::NotFound(path.into())
 }
 
 fn run_add(roadmap: &mut Roadmap, parent: &str, text: &str, after: Option<&str>) -> ApplyResult {
     let lines: Vec<&str> = roadmap.raw.lines().collect();
-
     if let Some(idx) = scan_insertion_point(&lines, parent, after) {
         insert_raw(roadmap, idx, format!("- [ ] **{text}**"));
         ApplyResult::Success(format!("Added: {text}"))
@@ -86,8 +90,8 @@ fn run_update(roadmap: &mut Roadmap, path: &str, text: &str) -> ApplyResult {
 fn run_note(roadmap: &mut Roadmap, path: &str, note: &str) -> ApplyResult {
     if let Some(idx) = find_line_idx(roadmap, path) {
         let line = roadmap.raw.lines().nth(idx).unwrap_or("");
-        let indent_len = line.len() - line.trim_start().len();
-        let prefix = " ".repeat(indent_len + 2);
+        let len = line.len() - line.trim_start().len();
+        let prefix = " ".repeat(len + 2);
 
         insert_raw(roadmap, idx + 1, format!("{prefix}*{note}*"));
         ApplyResult::Success(format!("Added note: {path}"))
@@ -96,54 +100,43 @@ fn run_note(roadmap: &mut Roadmap, path: &str, note: &str) -> ApplyResult {
     }
 }
 
+#[allow(dead_code)] // Stub for future use
 fn apply_move(_: &mut Roadmap, path: &str, _: &MovePosition) -> ApplyResult {
     ApplyResult::Error(format!("MOVE not implemented: {path}"))
 }
 
+#[allow(dead_code)] // Stub for future use
 fn apply_section_replace(_: &mut Roadmap, id: &str, _: &str) -> ApplyResult {
     ApplyResult::Error(format!("SECTION not implemented: {id}"))
 }
 
-// --- Logic Helpers ---
+// --- Helpers ---
 
 fn scan_insertion_point(lines: &[&str], parent: &str, after: Option<&str>) -> Option<usize> {
     let p_slug = slugify(parent);
-    let mut state = ScanState::default();
+    let mut in_sec = false;
+    let mut last_task = None;
+    let mut sec_start = None;
 
     for (i, line) in lines.iter().enumerate() {
-        process_line(line, i, &p_slug, after, &mut state);
-        if let Some(idx) = state.found_index {
-            return Some(idx);
+        if line.starts_with("##") {
+            if check_section_entry(line, &p_slug) {
+                in_sec = true;
+                sec_start = Some(i + 1);
+            } else if in_sec {
+                break;
+            }
+            continue;
+        }
+
+        if in_sec && is_task(line) {
+            last_task = Some(i);
+            if check_after_match(line, after) {
+                return Some(i + 1);
+            }
         }
     }
-    state.last_task.map(|i| i + 1).or(state.sec_start)
-}
-
-#[derive(Default)]
-struct ScanState {
-    in_sec: bool,
-    last_task: Option<usize>,
-    sec_start: Option<usize>,
-    found_index: Option<usize>,
-}
-
-fn process_line(line: &str, i: usize, p_slug: &str, after: Option<&str>, state: &mut ScanState) {
-    if line.starts_with("##") {
-        if check_section_entry(line, p_slug) {
-            state.in_sec = true;
-            state.sec_start = Some(i + 1);
-        } else if state.in_sec {
-            state.in_sec = false; // Left section
-        }
-        return;
-    }
-
-    if state.in_sec && is_task(line) {
-        state.last_task = Some(i);
-        if check_after_match(line, after) {
-            state.found_index = Some(i + 1);
-        }
-    }
+    last_task.map(|i| i + 1).or(sec_start)
 }
 
 fn check_section_entry(line: &str, parent_slug: &str) -> bool {
@@ -151,17 +144,12 @@ fn check_section_entry(line: &str, parent_slug: &str) -> bool {
 }
 
 fn check_after_match(line: &str, after: Option<&str>) -> bool {
-    if let Some(tgt) = after {
-        slugify(line).contains(&slugify(tgt))
-    } else {
-        false
-    }
+    after.is_some_and(|tgt| slugify(line).contains(&slugify(tgt)))
 }
 
 fn find_line_idx(roadmap: &Roadmap, path: &str) -> Option<usize> {
     let search = path.split('/').next_back().unwrap_or(path);
     let s_slug = slugify(search);
-
     roadmap
         .raw
         .lines()
@@ -182,8 +170,6 @@ fn update_line_status(roadmap: &mut Roadmap, idx: usize, status: TaskStatus) -> 
     replace_raw(roadmap, idx, new);
     true
 }
-
-// --- Mutation Helpers ---
 
 fn replace_raw(roadmap: &mut Roadmap, idx: usize, line: String) {
     modify_lines(roadmap, |lines| {
