@@ -166,6 +166,7 @@
 
 ## v0.5.0 — Pack & Context ✅
 - [ ] **New feature**
+- [ ] **New feature**
 
 *Context generation for AI consumption.*
 
