@@ -80,6 +80,7 @@ These aren't style preferences. They're **containment protocols**.
 
 ## v0.6.0 — Context Intelligence
 - [x] **Smart Context (Focus Mode)**
+- [x] **Config Wizard**
 - [ ] **Config Wizard**
   *Implemented: warden pack <target> skeletonizes background files*
 
