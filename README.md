@@ -1,264 +1,522 @@
-# 🛡️ Warden Protocol
+# Warden
 
-**Structural governance for AI-assisted development.**
+**The Code Guardian for AI-Assisted Development**
 
-> *"The rules are like the seat belts in a car: Initially, using them is perhaps a little uncomfortable, but after a while, it becomes second nature, and not using them is unimaginable."*
-> — Gerard J. Holzmann, NASA/JPL
+Warden is a code quality enforcement tool designed for developers who use AI assistants (like Claude, GPT, etc.) for coding. It creates a closed-loop workflow where your codebase is packaged with quality constraints, sent to an AI, and the AI's response is validated and applied—automatically committing and pushing only when all rules pass.
 
-Warden enforces **NASA "Power of 10" Rules** adapted for the AI coding era. It's not a style linter—it's a containment system that keeps AI-generated code verifiable, modular, and sane.
-
-    cargo install --path .
+Think of it as a gatekeeper that ensures AI-generated code meets structural quality standards before it ever touches your repository.
 
 ---
 
-## The Problem
+## Philosophy: The Three Laws
 
-You paste 50KB into Claude. It generates a 400-line function with 6 levels of nesting. Now you're debugging something neither you nor the AI can reason about.
-
-AI-generated code **drifts**:
-- Functions bloat
-- Complexity creeps
-- Context windows overflow
-- Hallucinations compound
-
-Warden stops this at the source.
-
----
-
-## The 3 Laws
+Warden enforces three fundamental laws designed to keep code maintainable, testable, and safe. These aren't style preferences—they're structural constraints that prevent the kind of complexity that makes codebases unmaintainable.
 
 ### 1. Law of Atomicity
-Files must be **< 2000 tokens**.
+**Files must be small enough to reason about.**
 
-Small files fit in context windows. Small files are verifiable. Small files can be taken to an AI in isolation and brought back—they just slot in.
+```
+Files MUST be < 2000 tokens
+```
+
+Large files are cognitive black holes. When a file exceeds ~2000 tokens, it's doing too much. Warden forces you (and your AI assistant) to split large files into focused modules. This makes code easier to review, test, and understand.
 
 ### 2. Law of Complexity
-- **Cyclomatic Complexity:** ≤ 10 per function
-- **Nesting Depth:** ≤ 3 levels
-- **Function Arguments:** ≤ 5 parameters
+**Functions must be simple enough to test.**
 
-These aren't style preferences. They're **containment protocols**. Low complexity bounds the hallucination surface. Shallow nesting prevents AI losing track of scope.
+```
+Cyclomatic Complexity: MUST be ≤ 8 per function
+Nesting Depth:         MUST be ≤ 3 levels
+Function Arguments:    MUST be ≤ 5 parameters
+```
 
-### 3. Law of Paranoia
-- No `.unwrap()` or `.expect()` (Rust)
-- Fallible operations must return `Result`
+Complex functions are untestable functions. If a function has too many branches, it has too many test cases. If it's nested too deep, the logic is too convoluted. If it takes too many arguments, it has too many responsibilities.
 
-The type system is your ally. Don't let AI lie to the compiler.
+### 3. Law of Paranoia (Rust-specific)
+**Handle errors explicitly. No shortcuts.**
+
+```
+Use Result<T, E> for I/O and fallible operations
+NO .unwrap() or .expect() calls
+```
+
+In Rust codebases, Warden bans `.unwrap()` and `.expect()` calls. These are time bombs—they work until they don't, and then your program panics. Use `?`, `unwrap_or`, `unwrap_or_default`, or handle the error explicitly.
+
+---
+
+## Installation
+
+### From Source (Rust required)
+
+```bash
+git clone https://github.com/yourusername/warden.git
+cd warden
+cargo install --path .
+```
+
+### Verify Installation
+
+```bash
+warden --version
+```
 
 ---
 
 ## Quick Start
 
-    cd your-project
-    warden              # Scan for violations (auto-creates warden.toml)
-    warden config       # Open the interactive configuration deck
-    warden pack --prompt # Generate context.txt for AI
+### 1. Initialize Your Project
 
-That's it. Warden detects your project type (Rust/Node/Python/Go) and configures itself.
+```bash
+cd your-project
+warden --init
+```
 
----
+This launches an interactive wizard that:
+- Detects your project type (Rust, Node/TypeScript, Python, Go)
+- Asks for strictness level (Strict, Standard, Relaxed)
+- Generates a `warden.toml` configuration file
 
-## The Workflow
+Alternatively, Warden auto-generates a default config on first run.
 
-Warden is a closed-loop system for AI development.
+### 2. Scan Your Codebase
 
-### 1. Generate Context
+```bash
+warden
+```
 
-    warden pack --prompt
+This analyzes every file and reports violations:
 
-Creates `context.txt` containing:
-- Your codebase (filtered, deduplicated)
-- The Warden Protocol system prompt
-- Current violations (AI sees what to fix)
-- Token count
+```
+LAW VIOLATIONS DETECTED
 
-If **Auto-Copy** is enabled, it's already in your clipboard.
+src/complex.rs
+  ├─ Line 45: High Complexity: Score is 12 (Max: 8). Hard to test.
+  └─ Line 89: Deep Nesting: Max depth is 5 (Max: 3). Extract logic.
 
-### 2. Chat with AI
+src/big_file.rs
+  └─ File exceeds 2000 tokens (3,456 found). Split this file.
 
-Paste the file into Claude/GPT/Gemini. Ask for changes.
+Summary: 3 violations in 2 files
+```
 
-The AI responds with structured output:
+### 3. Use the TUI Dashboard
 
-    ∇∇∇ src/lib.rs ∇∇∇
-    // complete file contents
-    ∆∆∆
-    
-    ∇∇∇ src/new_module.rs ∇∇∇
-    // complete file contents
-    ∆∆∆
+```bash
+warden --ui
+```
 
-### 3. Apply Changes
-
-    warden apply
-
-This:
-- Extracts file blocks from clipboard
-- **Validates paths** (blocks traversal, sensitive files, hidden files)
-- **Rejects truncated output** (unbalanced braces, `// ...` markers)
-- Creates timestamped backup
-- Writes files atomically
-- On failure: copies AI-friendly error to clipboard
-
-### 4. Verify
-
-    warden          # Structural analysis
-    warden check    # Run your linter (clippy, biome, ruff)
-
-If violations exist, exit code is non-zero. CI-friendly.
-
-### 5. Iterate
-
-If `warden apply` fails, the error is already in your clipboard. Paste it back to AI, get corrected output, repeat.
+Opens an interactive terminal interface showing:
+- Health score (percentage of clean files)
+- File list with violation counts
+- Inspector panel with detailed violation info
+- Keyboard navigation (j/k to move, s to sort, f to filter errors)
 
 ---
 
-## Visual Interfaces
+## The Workflow: AI-Assisted Development
 
-### 1. Configuration Flight Deck
+Warden's superpower is its integration with AI coding assistants. Here's the complete workflow:
 
-    warden config
+### Step 1: Pack Your Codebase
 
-An interactive TUI for managing your project's strictness and workflow.
+```bash
+warden pack
+```
 
-**Features:**
-*   **Global Protocol:** One-click presets (Strict / Standard / Relaxed).
-*   **Threat Analytics:** A live gauge showing your containment integrity score.
-*   **Workflow Automation:** Toggle auto-copy, auto-format, and auto-commit.
-*   **Visual Themes:** Switch between NASA (High Contrast), Cyberpunk (Neon), and Corporate (Subtle).
+This generates `context.txt` containing:
+- The system prompt (The 3 Laws + Nabla Protocol instructions)
+- Your entire codebase in Nabla format
+- Any existing violations flagged for priority fixing
+- A reminder footer with constraints
 
-### 2. Scan Dashboard
+The file path is automatically copied to your clipboard for easy attachment.
 
-    warden --ui
+**Options:**
+```bash
+warden pack --copy          # Copy content directly to clipboard
+warden pack --stdout        # Print to stdout (for piping)
+warden pack --skeleton      # Compress all files to signatures only
+warden pack src/main.rs     # Focus mode: full content for target, skeleton for rest
+warden pack --noprompt      # Skip the system prompt (just raw code)
+warden pack --git-only      # Only include git-tracked files
+warden pack --code-only     # Skip non-code files (README, etc.)
+```
 
-A visual explorer for scan results. Filter by error, sort by size, and inspect file health.
+### Step 2: Send to Your AI
+
+Paste or attach `context.txt` to your AI conversation. The system prompt teaches the AI:
+- The three laws and their limits
+- The Nabla Protocol format for responses
+- That it must never truncate files
+
+### Step 3: Get AI Response
+
+The AI responds with changes in Nabla format:
+
+```
+∇∇∇ PLAN ∇∇∇
+GOAL: Refactor authentication module
+CHANGES:
+1. Extract validation logic to new file
+2. Simplify the login function
+∆∆∆
+
+∇∇∇ MANIFEST ∇∇∇
+src/auth/mod.rs
+src/auth/validate.rs [NEW]
+src/old_auth.rs [DELETE]
+∆∆∆
+
+∇∇∇ src/auth/mod.rs ∇∇∇
+// src/auth/mod.rs
+pub mod validate;
+
+pub fn login(user: &str, pass: &str) -> Result<Session, AuthError> {
+    validate::check_credentials(user, pass)?;
+    Session::create(user)
+}
+∆∆∆
+
+∇∇∇ src/auth/validate.rs ∇∇∇
+// src/auth/validate.rs
+use crate::error::AuthError;
+
+pub fn check_credentials(user: &str, pass: &str) -> Result<(), AuthError> {
+    if user.is_empty() {
+        return Err(AuthError::EmptyUsername);
+    }
+    // validation logic...
+    Ok(())
+}
+∆∆∆
+```
+
+### Step 4: Apply the Changes
+
+Copy the AI's response to your clipboard, then:
+
+```bash
+warden apply
+```
+
+Warden will:
+1. **Show the PLAN** and ask for confirmation
+2. **Validate all paths** (blocks `../`, absolute paths, `.git/`, `.env`, etc.)
+3. **Check for truncation** (detects `// ...`, `/* remaining code */`, etc.)
+4. **Create backups** of all modified files
+5. **Write the changes** to disk
+6. **Run verification** (`warden check` commands from config)
+7. **Auto-commit and push** if everything passes
+
+If validation fails, Warden:
+- Shows you exactly what went wrong
+- Generates a rejection message
+- Copies it to your clipboard
+- You paste it back to the AI for correction
+
+### The Loop
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│ warden pack │────▶│   Send to   │────▶│   AI edits  │
+│             │     │     AI      │     │   codebase  │
+└─────────────┘     └─────────────┘     └─────────────┘
+       ▲                                       │
+       │                                       ▼
+       │                               ┌─────────────┐
+       │            ❌ Rejected        │ warden apply│
+       └───────────────────────────────│  (validate) │
+                                       └──────┬──────┘
+                                              │ ✅ Valid
+                                              ▼
+                                       ┌─────────────┐
+                                       │  Auto-commit │
+                                       │  & push      │
+                                       └─────────────┘
+```
+
+---
+
+## The Nabla Protocol
+
+The Nabla Protocol is the structured format Warden uses to parse AI responses. It uses the `∇∇∇` (nabla) and `∆∆∆` (delta) symbols as delimiters.
+
+### Why Not Markdown Code Fences?
+
+AI models often nest markdown fences incorrectly or escape them. The nabla symbols are unambiguous and never conflict with code content.
+
+### Block Types
+
+**PLAN Block** (optional but recommended):
+```
+∇∇∇ PLAN ∇∇∇
+GOAL: What you're trying to achieve
+CHANGES:
+1. First change
+2. Second change
+∆∆∆
+```
+
+**MANIFEST Block** (declares all files being touched):
+```
+∇∇∇ MANIFEST ∇∇∇
+path/to/file1.rs
+path/to/file2.rs [NEW]
+path/to/old_file.rs [DELETE]
+∆∆∆
+```
+
+**File Blocks** (one per file):
+```
+∇∇∇ path/to/file.rs ∇∇∇
+// Complete file content here
+// NO truncation allowed
+∆∆∆
+```
+
+### Critical Rules
+
+1. **Every file in MANIFEST must have a matching file block** (unless marked `[DELETE]`)
+2. **Paths must match exactly** between manifest and file blocks
+3. **No truncation** — files must be complete. No `// ...` or `/* rest of code */`
+4. **No markdown fences** — the nabla delimiters ARE the fence
+
+---
+
+## Commands Reference
+
+### Core Commands
+
+| Command | Description |
+|---------|-------------|
+| `warden` | Scan codebase and report violations |
+| `warden --ui` | Open TUI dashboard |
+| `warden --init` | Run configuration wizard |
+
+### Workflow Commands
+
+| Command | Description |
+|---------|-------------|
+| `warden pack` | Generate context.txt for AI |
+| `warden apply` | Apply changes from clipboard |
+| `warden check` | Run configured check commands |
+| `warden fix` | Run configured fix commands |
+| `warden prompt` | Output just the system prompt |
+
+### Pack Options
+
+| Flag | Description |
+|------|-------------|
+| `--copy` / `-c` | Copy to clipboard instead of file |
+| `--stdout` / `-s` | Print to stdout |
+| `--skeleton` | Skeletonize all files |
+| `--noprompt` | Exclude system prompt |
+| `--git-only` | Only git-tracked files |
+| `--no-git` | Ignore git status |
+| `--code-only` | Skip non-code files |
+| `--verbose` / `-v` | Show progress |
+| `<TARGET>` | Focus mode: full file for target |
+
+### Roadmap Commands
+
+Warden includes a programmatic roadmap system for tracking features:
+
+| Command | Description |
+|---------|-------------|
+| `warden roadmap init` | Create a ROADMAP.md template |
+| `warden roadmap show` | Display roadmap as tree |
+| `warden roadmap tasks` | List all tasks |
+| `warden roadmap tasks --pending` | List incomplete tasks |
+| `warden roadmap tasks --complete` | List completed tasks |
+| `warden roadmap prompt` | Generate AI prompt for roadmap work |
+| `warden roadmap apply` | Apply roadmap changes from clipboard |
+| `warden roadmap audit` | Verify test anchors exist |
 
 ---
 
 ## Configuration
 
-Warden uses `warden.toml`. You can edit it manually or via `warden config`.
+### warden.toml
 
 ```toml
 [rules]
-max_file_tokens = 2000
-max_cyclomatic_complexity = 8
-max_nesting_depth = 3
-max_function_args = 5
-max_function_words = 5
+max_file_tokens = 2000           # Law of Atomicity
+max_cyclomatic_complexity = 8     # Law of Complexity
+max_nesting_depth = 3             # Law of Complexity
+max_function_args = 5             # Law of Complexity
+max_function_words = 5            # Naming complexity
+
+# Patterns to skip for specific rules
 ignore_naming_on = ["tests", "spec"]
 ignore_tokens_on = ["lock", ".md"]
 
-[preferences]
-theme = "Cyberpunk"
-auto_copy = true
-auto_format = false
-auto_commit = false
-commit_prefix = "AI: "
-progress_bars = true
-
 [commands]
-check = ["cargo clippy", "cargo test"]
+# Commands run during `warden check` and after `warden apply`
+check = [
+    "cargo clippy --all-targets -- -D warnings",
+    "cargo test"
+]
+# Commands run during `warden fix`
 fix = "cargo fmt"
 ```
 
-### Protocol Levels
+### Strictness Levels
 
-| Preset | Tokens | Complexity | Depth | Use Case |
-|--------|--------|------------|-------|----------|
-| **Strict** | 1500 | 4 | 2 | Mission-critical / Greenfield |
-| **Standard** | 2000 | 8 | 3 | Recommended balance |
-| **Relaxed** | 3000 | 12 | 4 | Legacy / Prototyping |
+**Strict** (Greenfield projects):
+- 1500 tokens per file
+- Complexity ≤ 6
+- Nesting ≤ 2
 
----
+**Standard** (Recommended):
+- 2000 tokens per file
+- Complexity ≤ 8
+- Nesting ≤ 3
 
-## Safety Features
+**Relaxed** (Legacy codebases):
+- 3000 tokens per file
+- Complexity ≤ 12
+- Nesting ≤ 4
 
-### Path Safety Validation
+### .wardenignore
 
-Warden blocks dangerous paths before they touch disk:
+Like `.gitignore`, but for Warden. Files matching these patterns are excluded from scanning and packing.
 
-| Threat | Example | Status |
-|--------|---------|--------|
-| Directory traversal | `../etc/passwd` | Blocked |
-| Absolute paths | `/etc/passwd`, `C:\Windows` | Blocked |
-| Git internals | `.git/config` | Blocked |
-| Secrets | `.env`, `.ssh/`, `.aws/` | Blocked |
-| Hidden files | `.secrets`, `.private` | Blocked |
-
-### Truncation Detection
-
-AI output often gets cut off. Warden catches:
-- Unbalanced `{}`, `[]`, `()`
-- Truncation markers: `// ...`, `// rest of file`
-- Files ending mid-statement
-
-### Atomic Backups
-
-Before any write: `.warden_apply_backup/TIMESTAMP/`
-
-Your original files are always preserved.
-
----
-
-## Roadmap Management
-
-Warden includes AI-friendly roadmap management. Instead of AI rewriting your entire roadmap, it sends surgical commands.
-
-1. Run `warden roadmap prompt` (Copies current state + instructions)
-2. AI responds with commands:
 ```
-===ROADMAP===
-CHECK truncation-detection
-ADD v0.5.0 "New feature" AFTER truncation-detection
-NOTE auth-system "Needs refactor"
-===END===
+# .wardenignore
+target
+node_modules
+.git
+*.lock
+dist/
 ```
-3. Run `warden roadmap apply` (Parses and updates `ROADMAP.md`)
+
+### File-Level Ignores
+
+Add a comment at the top of any file to skip Warden analysis:
+
+```rust
+// warden:ignore
+```
+```python
+# warden:ignore
+```
+```html
+<!-- warden:ignore -->
+```
 
 ---
 
-## Philosophy
+## Skeleton Mode
 
-Warden exists because AI-assisted development needs **constraints**, not suggestions.
+For large codebases, sending full file contents may exceed AI context limits. Skeleton mode compresses files to just their signatures:
 
-The original Power of 10 rules were for life-critical systems where bugs kill people. We're not building flight software—but we are building systems that must remain comprehensible through hundreds of AI-human iterations.
+**Original Rust file:**
+```rust
+pub fn process_data(input: &str) -> Result<Output, Error> {
+    let parsed = parse_input(input)?;
+    let validated = validate(parsed)?;
+    transform(validated)
+}
 
-**Principles:**
+fn parse_input(s: &str) -> Result<Parsed, Error> {
+    // 50 lines of parsing logic
+}
+```
 
-1. **Reject bad input, don't fix it** — Warden is a gatekeeper, not a fixer.
+**Skeletonized:**
+```rust
+pub fn process_data(input: &str) -> Result<Output, Error> { ... }
 
-2. **Git is the undo system** — Don't reinvent version control.
+fn parse_input(s: &str) -> Result<Parsed, Error> { ... }
+```
 
-3. **Explicit > Magic** — If AI doesn't follow format, fail loudly.
-
-4. **Containment over craftsmanship** — For AI, constraints aren't style. They're safety.
-
-5. **Eat your own dogfood** — Warden enforces its own rules on its own codebase.
+Use `warden pack --skeleton` to skeletonize everything, or `warden pack src/target.rs` to focus on one file while skeletonizing the rest.
 
 ---
 
-## Self-Hosting
+## Security
 
-Warden is self-hosting. Run `warden` in this repo:
+Warden blocks dangerous operations in AI responses:
 
-    ✅ All Clear. Scanned 37586 tokens in 116ms.
+**Path Traversal:**
+- `../` sequences → Blocked
+- Absolute paths (`/etc/passwd`, `C:\Windows`) → Blocked
 
-The tool passes its own rules.
+**Sensitive Locations:**
+- `.git/` → Blocked
+- `.env` → Blocked
+- `.ssh/` → Blocked
+- `.aws/` → Blocked
+- Credentials files → Blocked
+
+**Protected Files:**
+- `ROADMAP.md` → Managed programmatically only
+
+**Hidden Files:**
+- Dotfiles → Blocked (except `.gitignore`, `.wardenignore`)
+
+**Truncation Detection:**
+- `// ...` → Rejected
+- `/* ... */` → Rejected
+- `# ...` → Rejected
+- `"remaining code"` phrases → Rejected
+- Empty files → Rejected
+
+---
+
+## Backups
+
+Before applying any changes, Warden creates backups in `.warden_apply_backup/`:
+
+```
+.warden_apply_backup/
+└── 1699876543/          # Unix timestamp
+    ├── src/
+    │   └── modified.rs  # Original content
+    └── lib/
+        └── changed.rs
+```
+
+Add `.warden_apply_backup` to your `.gitignore`.
+
+---
+
+## Language Support
+
+| Language | Complexity Analysis | Paranoia Rules | Skeleton |
+|----------|-------------------|----------------|----------|
+| Rust | ✅ | ✅ (.unwrap/.expect) | ✅ |
+| TypeScript | ✅ | — | ✅ |
+| JavaScript | ✅ | — | ✅ |
+| Python | ✅ | — | ✅ |
+| Go | Detection only | — | — |
+| Other | Token counting only | — | — |
+
+---
+
+## Principles
+
+1. **Every feature has a verified test** — The roadmap system enforces this
+2. **Reject bad input, don't fix it** — Warden is a gatekeeper, not a linter
+3. **Git is the undo system** — Don't reinvent version control
+4. **Explicit > Magic** — Fail loudly on format violations
+5. **Containment over craftsmanship** — Constraints are safety, not style
+6. **Self-hosting** — Warden passes its own rules
 
 ---
 
 ## License
 
-MIT
+MIT License — See [LICENSE](LICENSE) for details.
 
 ---
 
-## Links
+## Contributing
 
-- [Roadmap](ROADMAP.md)
-- [NASA Power of 10 Rules](https://en.wikipedia.org/wiki/The_Power_of_10:_Rules_for_Developing_Safety-Critical_Code)
+1. Fork the repository
+2. Run `warden` to ensure you start clean
+3. Make your changes (Warden will enforce the 3 Laws)
+4. Use `warden pack` to generate context for AI assistance
+5. Submit a PR
 
----
-
-*Complexity is the enemy. Warden is the checkpoint.*
+The codebase is its own best documentation—every file follows the constraints it enforces.
