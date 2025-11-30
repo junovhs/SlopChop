@@ -1,11 +1,10 @@
 // src/tui/mod.rs
-pub mod config_state;
-pub mod config_view;
+pub mod config;
 pub mod state;
 pub mod view;
 
 use anyhow::Result;
-use config_state::ConfigApp;
+use config::state::ConfigApp;
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture},
     execute,

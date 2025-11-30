@@ -10,6 +10,58 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Default)]
+pub enum Theme {
+    Nasa,
+    #[default]
+    Cyberpunk,
+    Corporate,
+}
+
+#[allow(clippy::struct_excessive_bools)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Preferences {
+    #[serde(default)]
+    pub theme: Theme,
+    #[serde(default = "default_auto_copy")]
+    pub auto_copy: bool,
+    #[serde(default)]
+    pub auto_format: bool,
+    #[serde(default)]
+    pub auto_commit: bool,
+    #[serde(default = "default_commit_prefix")]
+    pub commit_prefix: String,
+    #[serde(default)]
+    pub allow_dirty_git: bool,
+    #[serde(default)]
+    pub system_bell: bool,
+    #[serde(default = "default_backup_retention")]
+    pub backup_retention: usize,
+    #[serde(default = "default_progress_bars")]
+    pub progress_bars: bool,
+}
+
+impl Default for Preferences {
+    fn default() -> Self {
+        Self {
+            theme: Theme::default(),
+            auto_copy: true,
+            auto_format: false,
+            auto_commit: false,
+            commit_prefix: default_commit_prefix(),
+            allow_dirty_git: false,
+            system_bell: false,
+            backup_retention: default_backup_retention(),
+            progress_bars: true,
+        }
+    }
+}
+
+fn default_auto_copy() -> bool { true }
+fn default_progress_bars() -> bool { true }
+fn default_backup_retention() -> usize { 5 }
+fn default_commit_prefix() -> String { "AI: ".to_string() }
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RuleConfig {
     #[serde(default = "default_max_tokens")]
@@ -42,21 +94,11 @@ impl Default for RuleConfig {
     }
 }
 
-const fn default_max_tokens() -> usize {
-    2000
-}
-const fn default_max_complexity() -> usize {
-    5
-}
-const fn default_max_depth() -> usize {
-    2
-}
-const fn default_max_args() -> usize {
-    5
-}
-const fn default_max_words() -> usize {
-    5
-}
+const fn default_max_tokens() -> usize { 2000 }
+const fn default_max_complexity() -> usize { 8 }
+const fn default_max_depth() -> usize { 3 }
+const fn default_max_args() -> usize { 5 }
+const fn default_max_words() -> usize { 5 }
 fn default_ignore_tokens() -> Vec<String> {
     vec!["README.md".to_string(), "lock".to_string()]
 }
@@ -83,6 +125,8 @@ pub struct WardenToml {
     #[serde(default)]
     pub rules: RuleConfig,
     #[serde(default)]
+    pub preferences: Preferences,
+    #[serde(default)]
     pub commands: HashMap<String, CommandEntry>,
 }
 
@@ -101,7 +145,7 @@ pub struct Config {
     pub code_only: bool,
     pub verbose: bool,
     pub rules: RuleConfig,
-    // Normalized to always be a list of commands
+    pub preferences: Preferences,
     pub commands: HashMap<String, Vec<String>>,
 }
 
@@ -121,13 +165,14 @@ impl Config {
             code_only: false,
             verbose: false,
             rules: RuleConfig::default(),
+            preferences: Preferences::default(),
             commands: HashMap::new(),
         }
     }
 
     /// Validates configuration.
     /// # Errors
-    /// Currently always returns Ok.
+    /// Returns Ok.
     pub fn validate(&self) -> Result<()> {
         Ok(())
     }
@@ -157,7 +202,7 @@ impl Config {
         }
     }
 
-    fn process_ignore_line(&mut self, line: &str) {
+    pub fn process_ignore_line(&mut self, line: &str) {
         let trimmed = line.trim();
         if trimmed.is_empty() || trimmed.starts_with('#') {
             return;
@@ -177,11 +222,12 @@ impl Config {
         self.parse_toml(&content);
     }
 
-    fn parse_toml(&mut self, content: &str) {
+    pub fn parse_toml(&mut self, content: &str) {
         let Ok(parsed) = toml::from_str::<WardenToml>(content) else {
             return;
         };
         self.rules = parsed.rules;
+        self.preferences = parsed.preferences;
         self.commands = parsed
             .commands
             .into_iter()
@@ -194,7 +240,11 @@ impl Config {
 /// # Errors
 /// Returns error if file write fails or serialization fails.
 #[allow(clippy::implicit_hasher)]
-pub fn save_to_file(rules: &RuleConfig, commands: &HashMap<String, Vec<String>>) -> Result<()> {
+pub fn save_to_file(
+    rules: &RuleConfig,
+    prefs: &Preferences,
+    commands: &HashMap<String, Vec<String>>,
+) -> Result<()> {
     let cmd_entries: HashMap<String, CommandEntry> = commands
         .iter()
         .map(|(k, v)| (k.clone(), CommandEntry::List(v.clone())))
@@ -202,6 +252,7 @@ pub fn save_to_file(rules: &RuleConfig, commands: &HashMap<String, Vec<String>>)
 
     let toml_struct = WardenToml {
         rules: rules.clone(),
+        preferences: prefs.clone(),
         commands: cmd_entries,
     };
 
