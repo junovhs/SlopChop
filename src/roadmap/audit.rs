@@ -2,6 +2,7 @@
 use crate::roadmap::slugify;
 use crate::roadmap::types::{Roadmap, Task, TaskStatus};
 use colored::Colorize;
+use regex::Regex;
 use std::fs;
 use std::path::Path;
 use walkdir::{DirEntry, WalkDir};
@@ -76,12 +77,53 @@ fn verify_anchor(anchor: &str, root: &Path) -> bool {
     // If function name is specified, verify it exists in the file content
     if let Some(func_name) = fn_part {
         if let Ok(content) = fs::read_to_string(&path) {
-            return content.contains(func_name.trim());
+            return check_definition(&path, &content, func_name.trim());
         }
         return false; // Could not read file
     }
 
     true
+}
+
+fn check_definition(path: &Path, content: &str, name: &str) -> bool {
+    let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("");
+    let pattern = build_definition_pattern(ext, name);
+
+    let Ok(re) = Regex::new(&pattern) else {
+        return content.contains(name);
+    };
+
+    // Iterate matches and check if line is commented
+    for m in re.find_iter(content) {
+        if !is_match_commented(content, m.start(), ext) {
+            return true;
+        }
+    }
+    
+    false
+}
+
+fn build_definition_pattern(ext: &str, name: &str) -> String {
+    match ext {
+        "rs" => format!(r"fn\s+{name}\b"),
+        "py" => format!(r"def\s+{name}\b"),
+        "go" => format!(r"func\s+{name}\b"),
+        "js" | "ts" | "jsx" | "tsx" => {
+            // JS/TS is flexible: function foo, const foo =, foo: function
+            format!(r"(function\s+{name}\b|const\s+{name}\s*=|let\s+{name}\s*=|var\s+{name}\s*=|{name}\s*[:\(])")
+        }
+        _ => name.to_string(), // Fallback (used as regex pattern if simple)
+    }
+}
+
+fn is_match_commented(content: &str, start_idx: usize, ext: &str) -> bool {
+    let line_start = content[..start_idx].rfind('\n').map_or(0, |i| i + 1);
+    let prefix = content[line_start..start_idx].trim();
+    
+    match ext {
+        "py" => prefix.starts_with('#'),
+        _ => prefix.starts_with("//") || prefix.starts_with('*'),
+    }
 }
 
 fn print_missing(task: &Task) {
@@ -102,7 +144,7 @@ fn print_summary(missing: usize) {
             "{}",
             format!("❌ Found {missing} tasks without verified tests.").red().bold()
         );
-        println!("   (Tip: Add <!-- test: tests/my_test.rs --> to the task in ROADMAP.md)");
+        println!("   (Tip: Add <!-- test: tests/my_test.rs::function_name --> to the task in ROADMAP.md)");
     }
 }
 
