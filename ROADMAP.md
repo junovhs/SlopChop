@@ -18,7 +18,7 @@ These aren't style preferences. They're **containment protocols**.
 
 ## Current State: v0.4.1
 
-- [x] **Core loop: knit → chat → apply → verify <!-- test: tests/integration_core.rs -->**
+- [x] **Core loop: knit → chat → apply → verify <!-- test: tests/integration_apply.rs -->**
 - [x] **Self-hosting (Warden passes its own rules) <!-- test: tests/integration_core.rs -->**
 - [x] **Path safety validation (See v0.4.1) [no-test]**
 - [x] **Markdown block rejection <!-- test: tests/integration_apply.rs -->**
@@ -41,10 +41,10 @@ These aren't style preferences. They're **containment protocols**.
 
 ### Validation Hardening
 
-- [x] **Path safety validation**
+- [x] **Path safety validation <!-- test: tests/security_validation.rs -->**
   Blocks: `../` traversal, absolute paths, `.git/`, `.env`, `.ssh/`, `.aws/`, hidden files.
 
-- [x] **Markdown block rejection**
+- [x] **Markdown block rejection <!-- test: tests/integration_apply.rs -->**
   Rejects fenced code blocks in file content.
 
 - [x] **Truncation detection <!-- test: tests/integration_apply.rs -->**
