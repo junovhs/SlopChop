@@ -16,12 +16,6 @@ const SENSITIVE_PATHS: &[&str] = &[
     ".warden_apply_backup/",
 ];
 
-const ALLOWED_DOTFILES: &[&str] = &[
-    ".gitignore",
-    ".wardenignore",
-    ".warden_intent",
-];
-
 /// Compiled regex patterns for detecting lazy/truncated AI output.
 /// These are compile-time constant patterns; if any fail to compile,
 /// it's a programmer error that will surface immediately at first use.
@@ -144,11 +138,6 @@ fn is_sensitive_path(path: &str) -> bool {
 }
 
 fn is_hidden_file(path: &str) -> bool {
-    // Check if whitelisted
-    if ALLOWED_DOTFILES.iter().any(|&f| path.ends_with(f)) {
-        return false;
-    }
-
     path.split('/')
         .filter(|s| !s.is_empty())
         .any(|seg| seg.starts_with('.') && seg != "." && seg != "..")
