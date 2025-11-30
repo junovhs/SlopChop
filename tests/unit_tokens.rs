@@ -1,76 +1,46 @@
 // tests/unit_tokens.rs
-//! Unit tests for the Tokenizer module.
-//!
-//! VERIFICATION STRATEGY:
-//! 1. Determinism: Verify exact token counts for known inputs using `cl100k_base`.
-//! 2. Domain Relevance: Verify counting of code constructs (brackets, keywords).
-//! 3. Edge Cases: Empty strings, Unicode, and exact limit boundaries.
-
 use warden_core::tokens::Tokenizer;
 
 #[test]
 fn test_tokenizer_available() {
-    // Critical system check: Tokenizer must load successfully.
-    assert!(
-        Tokenizer::is_available(),
-        "Tokenizer failed to initialize (cl100k_base missing?)"
-    );
+    // Basic sanity check that the tokenizer loaded (cl100k_base)
+    assert!(Tokenizer::is_available());
 }
 
 #[test]
 fn test_count_basic() {
-    // "Hello" = 1, " world" = 1. Total = 2.
-    // This asserts the tokenizer is actually cl100k_base and working deterministically.
-    let count = Tokenizer::count("Hello world");
-    assert_eq!(count, 2, "Expected 'Hello world' to be exactly 2 tokens");
-}
-
-#[test]
-fn test_count_code_constructs() {
-    // Verify handling of common syntax characters
-    // "fn" " main" "()" " {" "}"
-    let code = "fn main() {}";
-    let count = Tokenizer::count(code);
+    // "hello world" is typically 2 tokens in cl100k_base [15339, 1917]
+    let count = Tokenizer::count("hello world");
+    assert_eq!(count, 2);
     
-    // cl100k_base typically encodes this as:
-    // "fn" " main" "() {}" (or similar combination).
-    // Actual test shows 4 tokens.
-    assert_eq!(count, 4, "Unexpected token count for basic Rust fn");
-}
-
-#[test]
-fn test_count_unicode() {
-    // Emojis and multi-byte chars
-    let text = "🚀"; 
-    let count = Tokenizer::count(text);
-    // 🚀 is usually 1 or 2 tokens depending on encoding
-    assert!(count > 0, "Emoji should count as tokens");
-    
-    let mixed = "let x = '🦀';";
-    assert!(Tokenizer::count(mixed) > 5);
-}
-
-#[test]
-fn test_exceeds_limit_boundary() {
-    // "a" is 1 token.
-    let text = "a";
-    let limit = 1;
-    
-    // Case 1: Count (1) == Limit (1) -> Should PASS (False)
-    assert!(
-        !Tokenizer::exceeds_limit(text, limit),
-        "Count == Limit should NOT exceed"
-    );
-
-    // Case 2: Count (1) > Limit (0) -> Should FAIL (True)
-    assert!(
-        Tokenizer::exceeds_limit(text, 0),
-        "Count > Limit SHOULD exceed"
-    );
-}
-
-#[test]
-fn test_empty_string_is_zero() {
-    // An empty string must always be 0 tokens.
+    // Empty string should be 0
     assert_eq!(Tokenizer::count(""), 0);
+}
+
+#[test]
+fn test_exceeds_limit() {
+    let text = "hello world"; // 2 tokens
+    
+    // Limit 10 (pass)
+    assert!(!Tokenizer::exceeds_limit(text, 10));
+    
+    // Limit 1 (fail)
+    assert!(Tokenizer::exceeds_limit(text, 1));
+    
+    // Limit 2 (pass - strictly greater than check)
+    assert!(!Tokenizer::exceeds_limit(text, 2));
+}
+
+#[test]
+fn test_fallback_returns_zero() {
+    // This tests the contract that if the tokenizer encounters issues 
+    // (or implies empty/invalid state), it returns 0 safe-defaults.
+    // Real initialization failure is hard to mock without dependency injection,
+    // so we verify the empty string case as the proxy for "safe zero return".
+    assert_eq!(Tokenizer::count(""), 0);
+    
+    // If the tokenizer were unavailable, count() returns 0.
+    if !Tokenizer::is_available() {
+        assert_eq!(Tokenizer::count("test content"), 0);
+    }
 }

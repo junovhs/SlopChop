@@ -35,25 +35,3 @@ impl Tokenizer {
         BPE.is_some()
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_tokenizer_available() {
-        assert!(Tokenizer::is_available());
-    }
-
-    #[test]
-    fn test_count_basic() {
-        let count = Tokenizer::count("hello world");
-        assert!(count > 0);
-    }
-
-    #[test]
-    fn test_exceeds_limit() {
-        assert!(!Tokenizer::exceeds_limit("hi", 100));
-        assert!(Tokenizer::exceeds_limit("hello world this is a test", 1));
-    }
-}
