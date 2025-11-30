@@ -47,3 +47,7 @@ venv/
 !/target/release/saccade.exe
 !/target/release/gauntlet.exe
 chaos_examples/
+
+# Warden backups
+.warden_apply_backup/
+.warden_intent

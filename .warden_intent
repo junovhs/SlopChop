@@ -1,4 +1,0 @@
-Refactor the parser module
-CHANGES:
-1. Extract parsing logic
-2. Add error handling
