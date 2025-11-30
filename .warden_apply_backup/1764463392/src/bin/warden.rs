@@ -12,12 +12,12 @@ use warden_core::apply::types::ApplyContext;
 use warden_core::config::Config;
 use warden_core::discovery;
 use warden_core::pack::{self, OutputFormat, PackOptions};
+use warden_core::project;
 use warden_core::prompt::PromptGenerator;
 use warden_core::reporting;
 use warden_core::roadmap::cli::{handle_command, RoadmapCommand};
 use warden_core::tui::state::App;
 use warden_core::types::ScanReport;
-use warden_core::wizard;
 
 #[derive(Parser)]
 #[command(name = "warden")]
@@ -81,7 +81,7 @@ fn run() -> Result<()> {
     let cli = Cli::parse();
 
     if cli.init {
-        return wizard::run();
+        return init_config();
     }
 
     ensure_config_exists();
@@ -150,16 +150,17 @@ fn ensure_config_exists() {
     if Path::new("warden.toml").exists() {
         return;
     }
-    // Default to Standard strictness if auto-generating without wizard
-    let project = warden_core::project::ProjectType::detect();
-    let content = warden_core::project::generate_toml(
-        project, 
-        warden_core::project::Strictness::Standard
-    );
-    
+    let content = project::generate_toml();
     if fs::write("warden.toml", &content).is_ok() {
         eprintln!("{}", "📝 Created warden.toml".dimmed());
     }
+}
+
+fn init_config() -> Result<()> {
+    let content = project::generate_toml();
+    fs::write("warden.toml", &content)?;
+    println!("{}", "✓ Created warden.toml".green());
+    Ok(())
 }
 
 fn handle_prompt(copy: bool) -> Result<()> {

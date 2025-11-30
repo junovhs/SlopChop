@@ -10,13 +10,6 @@ pub enum ProjectType {
     Unknown,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Strictness {
-    Strict,
-    Standard,
-    Relaxed,
-}
-
 impl ProjectType {
     #[must_use]
     pub fn detect() -> Self {
@@ -61,29 +54,23 @@ fn has_ts_files() -> bool {
 }
 
 #[must_use]
-pub fn generate_toml(project: ProjectType, strictness: Strictness) -> String {
-    let rules = rules_section(strictness);
+pub fn generate_toml() -> String {
+    let project = ProjectType::detect();
+    let rules = rules_section();
     let commands = commands_section(project);
 
     format!("# warden.toml\n{rules}\n\n{commands}\n")
 }
 
-fn rules_section(strictness: Strictness) -> String {
-    let (tokens, complexity, depth) = match strictness {
-        Strictness::Strict => (1500, 4, 2),
-        Strictness::Standard => (2000, 8, 3),
-        Strictness::Relaxed => (3000, 12, 4),
-    };
-
-    format!(
-        r#"[rules]
-max_file_tokens = {tokens}
-max_cyclomatic_complexity = {complexity}
-max_nesting_depth = {depth}
+fn rules_section() -> String {
+    r#"[rules]
+max_file_tokens = 2000
+max_cyclomatic_complexity = 8
+max_nesting_depth = 3
 max_function_args = 5
 max_function_words = 5
 ignore_naming_on = ["tests", "spec"]"#
-    )
+        .to_string()
 }
 
 fn commands_section(project: ProjectType) -> String {

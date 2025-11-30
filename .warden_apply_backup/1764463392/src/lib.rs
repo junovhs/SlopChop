@@ -16,7 +16,6 @@ pub mod skeleton;
 pub mod tokens;
 pub mod tui;
 pub mod types;
-pub mod wizard;
 
 // Legacy/Test compatibility aliases
 pub use analysis as rules;
