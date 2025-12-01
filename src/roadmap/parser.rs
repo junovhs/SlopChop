@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use std::path::Path;
 
 impl Roadmap {
-    /// Parse a roadmap from markdown content
     #[must_use]
     pub fn parse(content: &str) -> Self {
         let lines: Vec<&str> = content.lines().collect();
@@ -34,7 +33,6 @@ impl Roadmap {
         }
     }
 
-    /// Parse from a file
     /// # Errors
     /// Returns error on file read fail
     pub fn from_file(path: &Path) -> std::io::Result<Self> {
@@ -44,7 +42,6 @@ impl Roadmap {
         Ok(r)
     }
 
-    /// Save back to file
     /// # Errors
     /// Returns error on file write fail
     pub fn save(&self, path: &Path) -> std::io::Result<()> {
@@ -89,7 +86,6 @@ fn parse_heading(line: &str) -> Option<(u8, String)> {
     if lvl < 2 {
         return None;
     }
-
     let level = u8::try_from(lvl).ok()?;
     Some((level, t[lvl..].trim().into()))
 }
@@ -165,11 +161,6 @@ fn parse_task(line: &str, line_num: usize) -> Option<Task> {
 
     let mut parts = rest.split("<!--");
     let text_part = parts.next()?.trim().trim_matches(|c| c == '*' || c == ' ');
-    let id = crate::roadmap::slugify(text_part);
-
-    if id.is_empty() {
-        return None;
-    }
 
     let mut tests = Vec::new();
     for part in parts {
@@ -178,6 +169,12 @@ fn parse_task(line: &str, line_num: usize) -> Option<Task> {
                 tests.push(path.trim().to_string());
             }
         }
+    }
+
+    let id = derive_task_id(text_part, &tests);
+
+    if id.is_empty() {
+        return None;
     }
 
     Some(Task {
@@ -192,6 +189,18 @@ fn parse_task(line: &str, line_num: usize) -> Option<Task> {
     })
 }
 
+fn derive_task_id(text: &str, tests: &[String]) -> String {
+    if let Some(anchor) = tests.first() {
+        if let Some(func_name) = anchor.rsplit("::").next() {
+            let id = crate::roadmap::slugify(func_name);
+            if !id.is_empty() {
+                return id;
+            }
+        }
+    }
+    crate::roadmap::slugify(text)
+}
+
 fn collect_tasks<'a>(s: &'a Section, out: &mut Vec<&'a Task>) {
     for t in &s.tasks {
         out.push(t);
@@ -201,7 +210,6 @@ fn collect_tasks<'a>(s: &'a Section, out: &mut Vec<&'a Task>) {
     }
 }
 
-/// Convert text to a URL-safe slug
 #[must_use]
 pub fn slugify(text: &str) -> String {
     text.to_lowercase()
