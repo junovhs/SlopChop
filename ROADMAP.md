@@ -260,6 +260,10 @@
 ---
 
 ## v0.7.0 — Test Traceability 🔄 CURRENT
+- [ ] **— Test Traceability 🔄 CURRENT" "**Empty task ID filtering** <!-- test: tests/unit_parser.rs::test_empty_id_skipped -->"**
+- [ ] **— Test Traceability 🔄 CURRENT" "**Task ID collision detection** <!-- test: tests/unit_parser.rs::test_id_collision_resolved -->"**
+- [ ] **— Test Traceability 🔄 CURRENT" "**Anchor-based task matching** <!-- test: tests/unit_parser.rs::test_anchor_id_extraction -->"**
+- [ ] **— Test Traceability 🔄 CURRENT" "**Smart UPDATE inference (vs DELETE+ADD)** <!-- test: tests/unit_diff.rs::test_text_change_is_update -->"**
 
 *Enforce the contract: every feature has verified tests.*
 
