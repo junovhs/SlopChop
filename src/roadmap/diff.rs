@@ -1,5 +1,5 @@
 // src/roadmap/diff.rs
-use crate::roadmap::types::{Command, MovePosition, Roadmap, Section, Task};
+use crate::roadmap::types::{Command, MovePosition, Roadmap, Task};
 use std::collections::HashMap;
 
 /// Compares two roadmaps and generates a "Wicked Smart" patch of commands.
@@ -7,8 +7,7 @@ use std::collections::HashMap;
 pub fn diff(current: &Roadmap, incoming: &Roadmap) -> Vec<Command> {
     let mut commands = Vec::new();
     
-    // 1. Structural Scan: Add missing top-level sections
-    // (Note: This simple check doesn't handle nested section additions well yet, but solves the main use case)
+    // 1. Structural Scan: Add missing sections
     let curr_sections: HashMap<String, String> = current.sections.iter()
         .map(|s| (s.id.clone(), s.heading.clone()))
         .collect();
@@ -25,7 +24,7 @@ pub fn diff(current: &Roadmap, incoming: &Roadmap) -> Vec<Command> {
     let curr_map = map_tasks_with_parent(current);
     let inc_map = map_tasks_with_parent(incoming);
 
-    // 2a. Updates, Moves, Checks
+    // 2a. Updates, Moves, Checks, Deletions
     for (id, (curr_task, curr_parent)) in &curr_map {
         if let Some((inc_task, inc_parent)) = inc_map.get(id) {
             let ctx = TaskComparisonContext {
@@ -37,6 +36,7 @@ pub fn diff(current: &Roadmap, incoming: &Roadmap) -> Vec<Command> {
             };
             compare_task_detailed(&ctx, &mut commands);
         } else {
+            // Task in Current but NOT in Incoming -> Deleted
             commands.push(Command::Delete { path: id.clone() });
         }
     }
@@ -106,9 +106,11 @@ fn map_tasks_with_parent(roadmap: &Roadmap) -> TaskMap<'_> {
     map
 }
 
-fn collect_tasks_recursive<'a>(section: &'a Section, map: &mut TaskMap<'a>) {
+fn collect_tasks_recursive<'a>(section: &'a crate::roadmap::types::Section, map: &mut TaskMap<'a>) {
     for task in &section.tasks {
-        map.insert(task.id.clone(), (task, section.heading.clone()));
+        if !task.id.is_empty() {
+            map.insert(task.id.clone(), (task, section.heading.clone()));
+        }
     }
     for sub in &section.subsections {
         collect_tasks_recursive(sub, map);
@@ -191,5 +193,27 @@ mod tests {
             Command::AddSection { heading } => assert_eq!(heading, "New Era"),
             _ => panic!("Expected AddSection"),
         }
+    }
+
+    #[test]
+    fn test_diff_section_deletion() {
+        let t1 = make_task("t1", TaskStatus::Pending);
+        let t2 = make_task("t2", TaskStatus::Pending);
+        let sec = make_section("To Delete", vec![t1, t2]);
+        let curr = make_roadmap(vec![sec]);
+        let inc = make_roadmap(vec![]); // Empty
+
+        let cmds = diff(&curr, &inc);
+        
+        // Should delete both tasks
+        assert_eq!(cmds.len(), 2);
+        
+        let deleted: Vec<String> = cmds.iter().map(|c| match c {
+            Command::Delete { path } => path.clone(),
+            _ => panic!("Wrong command"),
+        }).collect();
+
+        assert!(deleted.contains(&"t1".to_string()));
+        assert!(deleted.contains(&"t2".to_string()));
     }
 }
