@@ -1,5 +1,5 @@
 // src/roadmap/diff.rs
-use crate::roadmap::types::{Command, MovePosition, Roadmap, Task};
+use crate::roadmap::types::{Command, MovePosition, Roadmap, Section, Task};
 use std::collections::HashMap;
 
 /// Compares two roadmaps and generates a "Wicked Smart" patch of commands.
@@ -7,7 +7,8 @@ use std::collections::HashMap;
 pub fn diff(current: &Roadmap, incoming: &Roadmap) -> Vec<Command> {
     let mut commands = Vec::new();
     
-    // 1. Structural Scan: Add missing sections
+    // 1. Structural Scan: Add missing top-level sections
+    // (Note: This simple check doesn't handle nested section additions well yet, but solves the main use case)
     let curr_sections: HashMap<String, String> = current.sections.iter()
         .map(|s| (s.id.clone(), s.heading.clone()))
         .collect();
@@ -100,11 +101,18 @@ type TaskMap<'a> = HashMap<String, (&'a Task, String)>;
 fn map_tasks_with_parent(roadmap: &Roadmap) -> TaskMap<'_> {
     let mut map = HashMap::new();
     for section in &roadmap.sections {
-        for task in &section.tasks {
-            map.insert(task.id.clone(), (task, section.heading.clone()));
-        }
+        collect_tasks_recursive(section, &mut map);
     }
     map
+}
+
+fn collect_tasks_recursive<'a>(section: &'a Section, map: &mut TaskMap<'a>) {
+    for task in &section.tasks {
+        map.insert(task.id.clone(), (task, section.heading.clone()));
+    }
+    for sub in &section.subsections {
+        collect_tasks_recursive(sub, map);
+    }
 }
 
 #[cfg(test)]
