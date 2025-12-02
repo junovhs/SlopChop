@@ -50,3 +50,4 @@ chaos_examples/
 # Warden backups
 .warden_apply_backup/
 .warden_intent
+context.txt

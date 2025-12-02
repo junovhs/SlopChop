@@ -41,6 +41,10 @@ enum Commands {
     Check,
     Fix,
     Apply,
+    Clean {
+        #[arg(long, short)]
+        commit: bool,
+    },
     /// Open the interactive configuration editor
     Config,
     #[command(subcommand)]
@@ -103,6 +107,7 @@ fn dispatch_subcommand(cmd: &Commands) -> Result<()> {
         Commands::Check => run_command("check"),
         Commands::Fix => run_command("fix"),
         Commands::Apply => handle_apply(),
+        Commands::Clean { commit } => warden_core::clean::run(*commit),
         Commands::Config => warden_core::tui::run_config(),
         Commands::Roadmap(cmd) => handle_command(cmd.clone()),
         Commands::Pack {
