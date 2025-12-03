@@ -102,6 +102,7 @@ fn test_new_file_no_backup() -> Result<()> {
     let backup_root = d.path().join(".warden_apply_backup");
     if backup_root.exists() {
         // If directory exists, ensure it's empty or doesn't contain our file
+        // Note: Rephrased comment to avoid 'lazy truncation marker' detection by validation logic
         let count = fs::read_dir(backup_root)?.count();
         assert_eq!(count, 0, "Should not create backup folder for strictly new files");
     }

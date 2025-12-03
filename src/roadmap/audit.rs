@@ -76,13 +76,17 @@ pub fn scan(roadmap: &Roadmap, root: &Path, _opts: &AuditOptions) -> AuditReport
     // Heuristic scan for un-anchored tasks
     let scanned_test_files = scan_test_files(root);
     let mut report = AuditReport::new();
-    report.total_checked = completed.len();
+    
+    // Logic Fix: Don't pre-set total_checked. Count only non-skipped tasks.
+    // report.total_checked = completed.len(); 
 
     for task in completed {
         // Skip if marked as [no-test]
         if task.text.contains("[no-test]") {
             continue;
         }
+        
+        report.total_checked += 1;
 
         if let Some(reason) = check_task(task, root, &scanned_test_files) {
             report.violations.push(AuditViolation {
