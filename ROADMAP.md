@@ -292,6 +292,12 @@
 ### Test Naming Convention
 - [ ] **Feature ID → test function mapping**
 - [x] ****Audit validates naming convention** <!-- test: tests/unit_audit.rs::test_naming_convention_mismatch -->**
+- [ ] **Traceability" "Enforce test-first registration during AI sessions"**
+- [ ] **Traceability" "Block feature completion without matching test file"**
+- [ ] **Traceability" "warden register <feature> command (pre-declares intent)"**
+- [ ] **Traceability" "warden verify-session command (audit current work)"**
+- [ ] **Traceability" "Incremental roadmap sync (update after each file)"**
+- [ ] **Traceability" "Session manifest tracking (files touched this session)"**
 
 ### Roadmap Hardening
 - [ ] **SECTION command (create version headers)** <!-- test: tests/unit_roadmap_cmd.rs::test_section_command -->
@@ -327,7 +333,7 @@
 *Build the import graph for smart context generation.*
 
 ### Import Extraction — Rust
-- [ ] **Rust use declaration extraction** <!-- test: tests/unit_graph.rs::test_rust_use_extraction -->
+- [x] **Rust use declaration extraction** <!-- test: tests/unit_graph.rs::test_rust_use_extraction -->
 - [ ] **Rust mod declaration extraction** <!-- test: tests/unit_graph.rs::test_rust_mod_extraction -->
 - [ ] **Rust re-export handling (pub use)** <!-- test: tests/unit_graph.rs::test_rust_reexport -->
 - [ ] **Rust crate:: path resolution** <!-- test: tests/unit_graph.rs::test_rust_crate_path -->
@@ -336,13 +342,13 @@
 - [ ] **Rust mod.rs index resolution** <!-- test: tests/unit_graph.rs::test_rust_mod_index -->
 
 ### Import Extraction — Python
-- [ ] **Python import statement extraction** <!-- test: tests/unit_graph.rs::test_python_import -->
-- [ ] **Python from...import extraction** <!-- test: tests/unit_graph.rs::test_python_from_import -->
+- [x] **Python import statement extraction** <!-- test: tests/unit_graph.rs::test_python_import -->
+- [x] **Python from...import extraction** <!-- test: tests/unit_graph.rs::test_python_from_import -->
 - [ ] **Python relative import handling (.module)** <!-- test: tests/unit_graph.rs::test_python_relative -->
 - [ ] **Python __init__.py resolution** <!-- test: tests/unit_graph.rs::test_python_init -->
 
 ### Import Extraction — TypeScript/JavaScript
-- [ ] **TypeScript import extraction** <!-- test: tests/unit_graph.rs::test_ts_import -->
+- [x] **TypeScript import extraction** <!-- test: tests/unit_graph.rs::test_ts_import -->
 - [ ] **TypeScript require() extraction** <!-- test: tests/unit_graph.rs::test_ts_require -->
 - [ ] **TypeScript re-export extraction** <!-- test: tests/unit_graph.rs::test_ts_reexport -->
 - [ ] **JavaScript ESM/CJS detection** <!-- test: tests/unit_graph.rs::test_js_module_type -->
@@ -355,9 +361,9 @@
 - [ ] **External dependency detection (skip)** <!-- test: tests/unit_resolver.rs::test_external_skipped -->
 
 ### Graph Construction
-- [ ] **Graph node creation (file → vertex)** <!-- test: tests/unit_graph_build.rs::test_node_creation -->
-- [ ] **Graph edge creation (import → directed edge)** <!-- test: tests/unit_graph_build.rs::test_edge_creation -->
-- [ ] **Reverse index construction (importers)** <!-- test: tests/unit_graph_build.rs::test_reverse_index -->
+- [x] **Graph node creation (file → vertex)** <!-- test: tests/unit_graph_build.rs::test_node_creation -->
+- [x] **Graph edge creation (import → directed edge)** <!-- test: tests/unit_graph_build.rs::test_edge_creation -->
+- [x] **Reverse index construction (importers)** <!-- test: tests/unit_graph_build.rs::test_reverse_index -->
 - [ ] **Cycle detection (tarjan or DFS)** <!-- test: tests/unit_graph_build.rs::test_cycle_detection -->
 - [ ] **Hub file detection (high in-degree)** <!-- test: tests/unit_graph_build.rs::test_hub_detection -->
 - [ ] **Leaf file detection (zero out-degree)** <!-- test: tests/unit_graph_build.rs::test_leaf_detection -->
@@ -392,8 +398,8 @@
 *Give AI exactly what it needs, nothing more.*
 
 ### Warden Map Command
-- [ ] **warden map basic output** <!-- test: tests/cli_map.rs::test_map_basic -->
-- [ ] **Directory tree with file counts** <!-- test: tests/cli_map.rs::test_map_tree -->
+- [x] **warden map basic output** <!-- test: tests/cli_map.rs::test_map_basic -->
+- [x] **Directory tree with file counts** <!-- test: tests/cli_map.rs::test_map_tree -->
 - [ ] **Cluster summary display** <!-- test: tests/cli_map.rs::test_map_clusters -->
 - [ ] **--deps flag (show dependency arrows)** <!-- test: tests/cli_map.rs::test_map_deps -->
 - [ ] **--stats flag (token counts per cluster)** <!-- test: tests/cli_map.rs::test_map_stats -->
