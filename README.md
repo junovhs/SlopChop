@@ -209,7 +209,7 @@ If AI uses markdown fences or truncates code, rejected.
 
 ## Who Is This For?
 
-**Tribe C: AI-Native Builders**
+**AI-Native Builders**
 
 You've fully embraced AI coding. You're not scared of it, you're not skeptical of it. You use it daily. Your pain is the copy-paste friction and the quality inconsistency.
 
@@ -221,7 +221,7 @@ If you think AI code needs guardrails to be good: welcome.
 
 ## The Proof
 
-This tool was built by a product designer chatting with Claude.
+This tool was built by a product designer chatting with various AI models in chat interfaces. 
 
 It's ~10,000 lines of Rust across 50+ files. It has tree-sitter parsing, a TUI dashboard, dependency graph analysis, and a roadmap system with test traceability.
 
