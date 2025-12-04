@@ -75,6 +75,15 @@ ADD "auth-logout" AFTER "auth-login"
 
 **Result:** One paste updates your code **and** your project status.
 
+### 5. Smart Context (Dependency-Aware Packing)
+Not all files are equal. Warden understands your codebase's structure.
+
+```bash
+warden trace src/apply/mod.rs --depth 2
+```
+
+Warden walks the import graph, packs your anchor file in full, and includes dependencies as skeletons—optimizing the AI's context window.
+
 ---
 
 ## A Typical Session
@@ -135,6 +144,109 @@ cargo install --path .
 
 (Requires Rust toolchain. Supports Linux, macOS, and Windows via WSL.)
 
+### Quick Start
+
+```bash
+# Initialize configuration (interactive wizard)
+warden --init
+
+# Or let Warden auto-detect and create warden.toml
+warden
+```
+
+---
+
+## Commands
+
+### Core Workflow
+
+| Command | Description |
+|---------|-------------|
+| `warden` | Scan codebase for violations |
+| `warden --ui` | Interactive TUI dashboard |
+| `warden pack [options]` | Pack context for AI consumption |
+| `warden apply` | Apply AI response from clipboard |
+| `warden check` | Run configured check commands |
+| `warden fix` | Run configured fix commands |
+
+### Smart Context
+
+| Command | Description |
+|---------|-------------|
+| `warden trace <FILE>` | Trace dependencies from anchor file |
+| `warden map [--deps]` | Show repository structure map |
+| `warden context [--copy]` | Generate context map |
+| `warden prompt [--copy]` | Generate system prompt |
+
+### Configuration & Maintenance
+
+| Command | Description |
+|---------|-------------|
+| `warden --init` | Interactive configuration wizard |
+| `warden config` | TUI configuration editor |
+| `warden clean [--commit]` | Clean backup files |
+
+### Roadmap Management
+
+| Command | Description |
+|---------|-------------|
+| `warden roadmap show` | Display roadmap tree |
+| `warden roadmap tasks` | List all tasks |
+| `warden roadmap apply` | Apply roadmap commands |
+| `warden roadmap audit` | Verify test coverage |
+| `warden roadmap prompt` | Generate roadmap prompt |
+
+---
+
+## Pack Options
+
+```bash
+warden pack [OPTIONS]
+
+Options:
+  -s, --stdout         Output to stdout instead of file
+  -c, --copy           Copy to clipboard
+      --noprompt       Exclude system prompt header
+      --format <FMT>   Output format: text, json (default: text)
+      --skeleton       Skeletonize all files (signatures only)
+      --git-only       Only include git-tracked files
+      --no-git         Include all files regardless of git
+      --code-only      Exclude markdown and config files
+  -v, --verbose        Show progress
+      --target <FILE>  Focus on specific file (full content)
+  -f, --focus <FILE>   Additional focus files
+      --depth <N>      Dependency trace depth (default: 1)
+```
+
+### Focus Mode
+
+```bash
+# Target file in full, everything else skeletonized
+warden pack --target src/apply/mod.rs
+
+# Multiple focus files
+warden pack --focus src/apply/mod.rs --focus src/types.rs
+```
+
+---
+
+## Trace Command
+
+```bash
+warden trace <FILE> [OPTIONS]
+
+Options:
+  -d, --depth <N>    Dependency depth (default: 2)
+  -b, --budget <N>   Token budget (default: 4000)
+```
+
+Traces dependencies from an anchor file, generating optimized context:
+- **Anchor**: Full content
+- **Direct dependencies**: Skeletonized
+- **Indirect dependencies**: Skeletonized
+
+---
+
 ## Configuration (`warden.toml`)
 
 Warden is opinionated, but you can negotiate.
@@ -145,18 +257,116 @@ max_file_tokens = 2000              # Keep files small
 max_cyclomatic_complexity = 8       # Keep logic simple
 max_nesting_depth = 3               # Keep indentation flat
 max_function_args = 5               # Keep interfaces clean
+max_function_words = 5              # Keep names focused
+ignore_tokens_on = [".lock", ".md"] # Skip token checks
+ignore_naming_on = ["tests"]        # Skip naming checks
 
 [commands]
 # Warden runs these before committing. If they fail, the apply is rejected.
-check = ["cargo test", "npm test"]
+check = ["cargo test", "cargo clippy --all-targets -- -D warnings"]
 fix = "cargo fmt"
 ```
+
+---
+
+## The Protocol Format
+
+AI outputs follow this structure:
+
+```
+#__WARDEN_PLAN__#
+GOAL: What you're doing
+CHANGES:
+1. First change
+2. Second change
+#__WARDEN_END__#
+
+#__WARDEN_MANIFEST__#
+src/file1.rs
+src/file2.rs [NEW]
+src/old.rs [DELETE]
+#__WARDEN_END__#
+
+#__WARDEN_FILE__# src/file1.rs
+// Complete file content
+// No truncation allowed
+#__WARDEN_END__#
+
+#__WARDEN_FILE__# src/file2.rs
+// Another complete file
+#__WARDEN_END__#
+```
+
+### Block Types
+
+| Block | Purpose |
+|-------|---------|
+| `PLAN` | Human-readable summary |
+| `MANIFEST` | Declares all files being touched |
+| File paths | Actual file content |
+
+### Markers
+
+| Marker | Meaning |
+|--------|---------|
+| `[NEW]` | File will be created |
+| `[DELETE]` | File will be removed |
+| *(none)* | File will be updated |
+
+---
+
+## The Three Laws
+
+### Law of Atomicity
+Files must be small enough to reason about.
+- Default: 2000 tokens (~500 lines)
+- Enforced: Reject files exceeding limit
+
+### Law of Complexity
+Functions must be simple enough to test.
+- Cyclomatic complexity ≤ 8
+- Nesting depth ≤ 3
+- Function arguments ≤ 5
+- Function name words ≤ 5
+
+### Law of Paranoia (Rust)
+No panic paths in production code.
+- `.unwrap()` → Rejected
+- `.expect()` → Rejected
+- `.unwrap_or()` → Allowed
+- `?` operator → Allowed
+
+---
 
 ## "Is this an Agent?"
 
 No. Agents (like Devin) try to be the pilot. **Warden keeps you as the pilot.**
 
 Warden is the navigation system and the safety interlocks. It allows you to use the most powerful LLMs available (which are currently chat-based) without sacrificing the integrity of your local codebase.
+
+---
+
+## Adoption Tiers
+
+### Tier 1: Structural Linting Only
+```bash
+warden              # Scan for violations
+warden check        # Run tests/linters
+```
+Use Warden as a code quality scanner without AI integration.
+
+### Tier 2: AI-Assisted Development
+```bash
+warden pack         # Generate context for AI
+warden apply        # Apply AI responses
+```
+Add the pack/apply loop for AI coding sessions.
+
+### Tier 3: Full Traceability
+```bash
+warden roadmap audit --strict
+```
+Every feature tied to a test, programmatic progress tracking.
 
 ---
 

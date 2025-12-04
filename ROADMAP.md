@@ -22,7 +22,7 @@
 - **Contributors:** Look at the `🔄 CURRENT` version's unchecked tasks.
 - **AI Assistants:** Never rewrite this file directly. Emit `===ROADMAP===` command blocks only.
 
-**Current Status (v0.7.x):** Warden fully supports the Three Laws, Nabla protocol, and basic roadmap management. Smart Context (dependency graphs, cluster packing) is planned for v0.8-0.9.
+**Current Status (v0.7.x):** Warden fully supports the Three Laws, Protocol format, and basic roadmap management. Smart Context (dependency graphs, cluster packing) is implemented in v0.8-0.9.
 
 ---
 
@@ -96,9 +96,9 @@
 
 *AI response parsing and file writing.*
 
-### Nabla Format Extraction
-- [x] **Header detection (∇∇∇ path ∇∇∇)** <!-- test: tests/integration_apply.rs::test_extract_single_file -->
-- [x] **Footer detection (∆∆∆)** <!-- test: tests/integration_apply.rs::test_extract_single_file -->
+### Protocol Format Extraction
+- [x] **Header detection (#__WARDEN_FILE__#)** <!-- test: tests/integration_apply.rs::test_extract_single_file -->
+- [x] **Footer detection (#__WARDEN_END__#)** <!-- test: tests/integration_apply.rs::test_extract_single_file -->
 - [x] **Path extraction from header** <!-- test: tests/integration_apply.rs::test_extract_single_file -->
 - [x] **Content extraction** <!-- test: tests/integration_apply.rs::test_extract_single_file -->
 - [x] **Multiple file extraction** <!-- test: tests/integration_apply.rs::test_extract_multiple_files -->
@@ -179,7 +179,7 @@
 
 ### Pack Core
 - [x] **File discovery integration** <!-- test: tests/integration_pack.rs::test_nabla_delimiters_are_unique -->
-- [x] **Nabla format output** <!-- test: tests/integration_pack.rs::test_nabla_format_structure -->
+- [x] **Protocol format output** <!-- test: tests/integration_pack.rs::test_nabla_format_structure -->
 - [x] **Token count display** <!-- test: tests/unit_pack.rs::test_token_count_shown -->
 - [x] **File write to context.txt** <!-- test: tests/unit_pack.rs::test_writes_context_file -->
 
@@ -196,7 +196,7 @@
 - [x] **System prompt header** <!-- test: tests/integration_pack.rs::test_prompt_includes_laws -->
 - [x] **Law of Atomicity in prompt** <!-- test: tests/integration_pack.rs::test_prompt_includes_limits -->
 - [x] **Law of Complexity in prompt** <!-- test: tests/integration_pack.rs::test_prompt_includes_limits -->
-- [x] **Nabla format instructions** <!-- test: tests/integration_pack.rs::test_prompt_includes_nabla_instructions -->
+- [x] **Protocol format instructions** <!-- test: tests/integration_pack.rs::test_prompt_includes_nabla_instructions -->
 - [x] **Footer reminder** <!-- test: tests/integration_pack.rs::test_reminder_is_concise -->
 - [x] **Violation injection** <!-- test: tests/unit_pack_violations.rs::test_violations_injected -->
 
@@ -225,8 +225,6 @@
 ### Roadmap Parsing
 - [x] **Title extraction (# Title)** <!-- test: tests/integration_roadmap.rs::test_parse_simple_roadmap -->
 - [x] **Section heading detection** <!-- test: tests/integration_roadmap.rs::test_parse_simple_roadmap -->
-  *Additional info*
-  *Additional info*
 - [x] **Task checkbox detection** <!-- test: tests/integration_roadmap.rs::test_parse_extracts_tasks -->
 - [x] **Task status: pending** <!-- test: tests/integration_roadmap.rs::test_parse_extracts_tasks -->
 - [x] **Task status: complete** <!-- test: tests/integration_roadmap.rs::test_parse_extracts_tasks -->
@@ -283,23 +281,23 @@
 - [x] **[no-test] skip** <!-- test: tests/integration_audit.rs::test_no_test_skipped -->
 - [x] **Explicit anchor verification** <!-- test: tests/integration_audit.rs::test_explicit_anchor_verified -->
 - [x] **Missing test file detection** <!-- test: tests/integration_audit.rs::test_missing_file_detected -->
-- [x] ****Missing test function detection** <!-- test: tests/unit_audit.rs::test_missing_function_detection -->** <!-- test: tests/unit_audit.rs::test_missing_function_detection -->**
+- [x] **Missing test function detection** <!-- test: tests/unit_audit.rs::test_missing_function_detection -->
 - [ ] **Test execution verification (cargo test)**
-- [x] ****Exit code 1 on any failure** [no-test] *(CLI exit behavior)***
-- [x] ****--strict mode (all must pass)** [no-test] *(CLI flag)***
+- [x] **Exit code 1 on any failure** [no-test] *(CLI exit behavior)*
+- [x] **--strict mode (all must pass)** [no-test] *(CLI flag)*
 
 ### Self-Hosting
 - [x] **Warden passes own rules** <!-- test: tests/integration_self_host.rs::test_warden_passes_own_rules -->
 
 ### Test Naming Convention
 - [ ] **Feature ID → test function mapping**
-- [x] ****Audit validates naming convention** <!-- test: tests/unit_audit.rs::test_naming_convention_mismatch -->**
-- [ ] **Traceability" "Enforce test-first registration during AI sessions"**
-- [ ] **Traceability" "Block feature completion without matching test file"**
-- [ ] **Traceability" "warden register <feature> command (pre-declares intent)"**
-- [ ] **Traceability" "warden verify-session command (audit current work)"**
-- [ ] **Traceability" "Incremental roadmap sync (update after each file)"**
-- [ ] **Traceability" "Session manifest tracking (files touched this session)"**
+- [x] **Audit validates naming convention** <!-- test: tests/unit_audit.rs::test_naming_convention_mismatch -->
+- [ ] **Enforce test-first registration during AI sessions**
+- [ ] **Block feature completion without matching test file**
+- [ ] **warden register <feature> command (pre-declares intent)**
+- [ ] **warden verify-session command (audit current work)**
+- [ ] **Incremental roadmap sync (update after each file)**
+- [ ] **Session manifest tracking (files touched this session)**
 
 ### Roadmap Hardening
 - [ ] **SECTION command (create version headers)** <!-- test: tests/unit_roadmap_cmd.rs::test_section_command -->
@@ -328,9 +326,7 @@
 
 ---
 
-## v0.8.0 — Dependency Graph ⚡ HIGH PRIORITY
-
-> **Why this matters:** Efficient context management is what makes AI assistance scale. Understanding file relationships enables surgical context packing.
+## v0.8.0 — Dependency Graph ✅
 
 *Build the import graph for smart context generation.*
 
@@ -393,9 +389,7 @@
 
 ---
 
-## v0.9.0 — Smart Context ⚡ HIGH PRIORITY
-
-> **Ship incrementally:** Start with `--from-errors` (highest ROI), then add cluster/trace packing.
+## v0.9.0 — Smart Context ✅
 
 *Give AI exactly what it needs, nothing more.*
 
@@ -403,8 +397,8 @@
 - [x] **warden map basic output** <!-- test: tests/cli_map.rs::test_map_basic -->
 - [x] **Directory tree with file counts** <!-- test: tests/cli_map.rs::test_map_tree -->
 - [ ] **Cluster summary display** <!-- test: tests/cli_map.rs::test_map_clusters -->
-- [x] **--deps flag (show dependency arrows) <!-- test: tests/cli_map.rs::test_map_deps -->** <!-- test: tests/cli_map.rs::test_map_deps -->
-- [x] ****--stats flag (token counts per cluster)** <!-- test: tests/cli_map.rs::test_map_stats -->** <!-- test: tests/cli_map.rs::test_map_basic -->** <!-- test: tests/cli_map.rs::test_map_stats -->
+- [x] **--deps flag (show dependency arrows)** <!-- test: tests/cli_map.rs::test_map_deps -->
+- [x] **--stats flag (token counts per cluster)** <!-- test: tests/cli_map.rs::test_map_stats -->
 - [ ] **--json flag (machine-readable map)** <!-- test: tests/cli_map.rs::test_map_json -->
 - [ ] **Module description extraction (//! or docstring)** <!-- test: tests/cli_map.rs::test_map_docs -->
 - [ ] **Entry point detection (main.rs, lib.rs, index.ts)** <!-- test: tests/cli_map.rs::test_entry_point -->
