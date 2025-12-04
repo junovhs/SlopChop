@@ -76,7 +76,10 @@ enum Commands {
         #[arg(long, short, default_value = "4000")]
         budget: usize,
     },
-    Map,
+    Map {
+        #[arg(long, short)]
+        deps: bool,
+    },
 }
 
 fn main() {
@@ -123,7 +126,6 @@ fn try_simple_commands(cmd: &Commands) -> Option<Result<()>> {
         Commands::Fix => Some(handle_fix()),
         Commands::Config => Some(warden_core::tui::run_config()),
         Commands::Apply => Some(handle_apply()),
-        Commands::Map => Some(handle_map()),
         _ => None,
     }
 }
@@ -135,6 +137,7 @@ fn dispatch_complex_commands(cmd: &Commands) -> Result<()> {
         Commands::Roadmap(sub) => handle_command(sub.clone()),
         Commands::Pack { .. } => handle_pack(cmd),
         Commands::Trace { file, depth, budget } => handle_trace(file, *depth, *budget),
+        Commands::Map { deps } => handle_map(*deps),
         _ => Ok(()),
     }
 }
@@ -151,8 +154,8 @@ fn handle_fix() -> Result<()> {
     Ok(())
 }
 
-fn handle_map() -> Result<()> {
-    println!("{}", trace::map()?);
+fn handle_map(show_deps: bool) -> Result<()> {
+    println!("{}", trace::map(show_deps)?);
     Ok(())
 }
 
@@ -222,7 +225,7 @@ fn handle_prompt(copy: bool) -> Result<()> {
     let prompt = PromptGenerator::new(config.rules.clone()).generate()?;
     if copy {
         warden_core::clipboard::copy_to_clipboard(&prompt)?;
-        println!("{}", "� Copied to clipboard".green());
+        println!("{}", " Copied to clipboard".green());
     } else {
         println!("{prompt}");
     }
@@ -302,4 +305,4 @@ fn load_config() -> Config {
     let mut c = Config::new();
     c.load_local_config();
     c
-}
+}

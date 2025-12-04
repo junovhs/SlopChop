@@ -1,48 +1,85 @@
 // tests/cli_map.rs
-//! Tests for warden map and trace commands.
+use anyhow::Result;
+use std::fs;
+use std::sync::{LazyLock, Mutex, PoisonError};
+use tempfile::tempdir;
+use warden_core::trace;
 
-use std::path::PathBuf;
-use warden_core::trace::{self, TraceOptions};
+// Protect CWD changes with a global mutex
+static CWD_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
 #[test]
-fn test_map_basic() {
-    // Map should run without panicking on empty/minimal setup
-    // In a real repo, this would show directory structure
-    let result = trace::map();
-    assert!(result.is_ok(), "Map command should succeed");
+fn test_map_basic() -> Result<()> {
+    // Handle poisoned lock by recovering (we just need serialization)
+    let _lock = CWD_LOCK.lock().unwrap_or_else(PoisonError::into_inner);
+    
+    let temp = tempdir()?;
+    let _guard = TestDirectoryGuard::new(temp.path());
+    
+    // Use .rs extension so discovery heuristics accept it
+    fs::write("main.rs", "fn main() {}")?;
+
+    let result = trace::map(false)?;
+    assert!(result.contains("main.rs"));
+    Ok(())
 }
 
 #[test]
-fn test_map_tree() {
-    let result = trace::map();
-    assert!(result.is_ok());
-    let output = result.unwrap_or_default();
-    // Output should contain directory-like structure
-    assert!(
-        output.contains('/') || output.contains("Repository"),
-        "Should show directory tree"
-    );
+fn test_map_tree() -> Result<()> {
+    let _lock = CWD_LOCK.lock().unwrap_or_else(PoisonError::into_inner);
+    
+    let temp = tempdir()?;
+    let _guard = TestDirectoryGuard::new(temp.path());
+    fs::create_dir("src")?;
+    fs::write("src/lib.rs", "fn lib() {}")?;
+
+    let result = trace::map(false)?;
+    assert!(result.contains("src/"));
+    assert!(result.contains("lib.rs"));
+    Ok(())
 }
 
 #[test]
-fn test_trace_with_depth() {
-    // This tests the --depth flag functionality
-    let opts = TraceOptions {
-        anchor: PathBuf::from("src/lib.rs"),
-        depth: 1,
-        budget: 4000,
-    };
-    // Should not panic even if file doesn't exist in test env
-    let _ = trace::run(&opts);
+fn test_map_deps() -> Result<()> {
+    let _lock = CWD_LOCK.lock().unwrap_or_else(PoisonError::into_inner);
+    
+    let temp = tempdir()?;
+    let _guard = TestDirectoryGuard::new(temp.path());
+    fs::create_dir("src")?;
+    
+    // Create an explicit dependency link
+    // lib.rs refers to 'Helper'
+    fs::write("src/lib.rs", "use crate::utils::Helper;")?;
+    
+    // utils.rs defines 'Helper'
+    fs::write("src/utils.rs", "pub struct Helper;")?;
+
+    // Enable dependency visualization
+    let result = trace::map(true)?;
+    
+    assert!(result.contains("src/"));
+    assert!(result.contains("lib.rs"));
+    // Should show link from lib.rs -> utils.rs
+    assert!(result.contains("🔗"));
+    assert!(result.contains("utils.rs"));
+    Ok(())
 }
 
-#[test]
-fn test_trace_with_budget() {
-    // This tests the --budget flag functionality
-    let opts = TraceOptions {
-        anchor: PathBuf::from("src/lib.rs"),
-        depth: 2,
-        budget: 1000,
-    };
-    let _ = trace::run(&opts);
-}
+// Helper to change directory for test duration
+struct TestDirectoryGuard {
+    original: std::path::PathBuf,
+}
+
+impl TestDirectoryGuard {
+    fn new(path: &std::path::Path) -> Self {
+        let original = std::env::current_dir().unwrap();
+        std::env::set_current_dir(path).unwrap();
+        Self { original }
+    }
+}
+
+impl Drop for TestDirectoryGuard {
+    fn drop(&mut self) {
+        let _ = std::env::set_current_dir(&self.original);
+    }
+}

@@ -7,12 +7,14 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
+use colored::Colorize;
 
 use super::options::TraceOptions;
 use super::output;
 use crate::config::Config;
 use crate::discovery;
 use crate::graph::rank::RepoGraph;
+use crate::tokens::Tokenizer;
 
 /// Result of tracing dependencies.
 pub struct TraceResult {
@@ -21,6 +23,11 @@ pub struct TraceResult {
     pub indirect: Vec<PathBuf>,
     pub output: String,
     pub tokens: usize,
+}
+
+struct FileStats {
+    size_kb: f64,
+    tokens: usize,
 }
 
 /// Runs the trace command.
@@ -54,9 +61,19 @@ pub fn run(opts: &TraceOptions) -> Result<String> {
 ///
 /// # Errors
 /// Returns error if discovery fails.
-pub fn map() -> Result<String> {
+pub fn map(show_deps: bool) -> Result<String> {
     let config = load_config();
     let files = discovery::discover(&config)?;
+    let contents = read_all_files(&files);
+
+    let mut graph = None;
+    if show_deps {
+        let file_vec: Vec<_> = contents
+            .iter()
+            .map(|(p, c)| (p.clone(), c.clone()))
+            .collect();
+        graph = Some(RepoGraph::build(&file_vec));
+    }
 
     let mut out = String::from("# Repository Map\n\n");
     let mut dirs = group_by_directory(&files);
@@ -67,7 +84,7 @@ pub fn map() -> Result<String> {
     }
 
     for (dir, dir_files) in &dirs {
-        write_dir_section(&mut out, dir, dir_files);
+        write_dir_section(&mut out, dir, dir_files, &contents, graph.as_ref());
     }
 
     Ok(out)
@@ -105,10 +122,57 @@ fn group_by_directory(files: &[PathBuf]) -> BTreeMap<PathBuf, Vec<PathBuf>> {
     dirs
 }
 
-fn write_dir_section(out: &mut String, dir: &Path, files: &[PathBuf]) {
-    let _ = writeln!(out, "{}/ ({} files)", dir.display(), files.len());
+fn write_dir_section(
+    out: &mut String,
+    dir: &Path,
+    files: &[PathBuf],
+    contents: &HashMap<PathBuf, String>,
+    graph: Option<&RepoGraph>,
+) {
+    let _ = writeln!(out, "{}/", dir.display().to_string().blue().bold());
+    
     for f in files {
         let name = f.file_name().unwrap_or_default().to_string_lossy();
-        let _ = writeln!(out, "  └── {name}");
+        let stats = get_file_stats(f, contents);
+        
+        let meta = format!(
+            "{} KB • {} toks",
+            format!("{:.1}", stats.size_kb).yellow(),
+            stats.tokens.to_string().cyan()
+        );
+
+        let _ = writeln!(out, "  ├── {name:<30} ({meta})");
+
+        if let Some(g) = graph {
+            render_dependencies(out, g, f);
+        }
+    }
+    let _ = writeln!(out);
+}
+
+fn render_dependencies(out: &mut String, graph: &RepoGraph, file: &Path) {
+    let deps = graph.neighbors(file);
+    if deps.is_empty() {
+        return;
+    }
+    
+    for dep in deps {
+        let dep_name = dep.to_string_lossy();
+        let _ = writeln!(out, "  │   └── 🔗 {}", dep_name.dimmed());
+    }
+}
+
+#[allow(clippy::cast_precision_loss)]
+fn get_file_stats(
+    path: &Path,
+    contents: &HashMap<PathBuf, String>,
+) -> FileStats {
+    let content = contents.get(path).map_or("", String::as_str);
+    let tokens = Tokenizer::count(content);
+    let size_bytes = content.len();
+    
+    FileStats {
+        size_kb: size_bytes as f64 / 1024.0,
+        tokens,
     }
 }
