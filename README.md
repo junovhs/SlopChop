@@ -1,24 +1,34 @@
 # Warden
 
-**A code quality gatekeeper for AI-assisted development**
+**Turn any LLM chat window into a rigorous coding agent.**
 
-Warden creates a feedback loop between your codebase and AI coding assistants. It packages your code with configurable quality constraints, validates AI responses, and only commits changes that pass your rules.
+Warden is a CLI tool that bridges the gap between your local codebase and AI chat interfaces (like ChatGPT, Claude, or DeepSeek). It turns the "Copy/Paste" workflow from a chore into a reliable, architectural protocol.
 
-Instead of manually reviewing every AI-generated file, Warden automatically rejects malformed output and asks the AI to try again. When everything passes, it commits and pushes. You stay in flow.
+Most AI coding goes like this:
+1. You copy code.
+2. You paste it into ChatGPT.
+3. It gives you back code with markdown errors, truncated lines (`// ... rest of code`), or subtle bugs.
+4. You manually fix the files.
 
-```
-warden pack → AI → warden apply → ✅ Pass → commit
-                        ↓
-                   ❌ Fail → rejection copied → paste back to AI → retry
-```
+**Warden changes the game:**
+1. **Pack:** `warden pack` bundles your code into a context-optimized format.
+2. **Apply:** You paste the AI's response directly into `warden apply`.
+3. **Verify:** Warden parses the response, checks for truncation, enforcing architectural rules (The 3 Laws), runs your tests, and **auto-commits** if green.
 
-## Current Status
+If the AI breaks a rule (e.g., creates a massive function, hallucinates a file, or skips code), Warden **rejects the change** and generates a specific error message for you to paste back. The AI fixes it, and you try again.
 
-**Stable (v0.7.x):** The Three Laws, Warden Protocol, apply/reject loop, and roadmap system are fully implemented and tested.
+## Is this an Agent?
 
-**In Development (v0.8+):** Smart Context features (dependency graphs, error-driven packing, cluster isolation) are designed but not yet implemented. See [ROADMAP.md](ROADMAP.md).
+**No, it's a protocol for Chat-Driven Development.**
 
-For architecture, protocol specs, and design philosophy, see [DESIGN.md](DESIGN.md).
+Autonomous agents (like Devin or Aider) try to do everything and often get stuck in loops. Warden keeps **you** in the loop as the pilot, using the AI as the engine.
+
+- **You** control the context (`warden pack src/auth`).
+- **You** review the plan (Warden forces the AI to output a PLAN block).
+- **You** transport the data (Clipboard).
+- **Warden** enforces the quality.
+
+It allows "dumb" chat models to act like "smart" senior engineers by constraining their output to a strict format and set of architectural rules.
 
 ---
 
@@ -35,77 +45,33 @@ Verify:
 warden --version
 ```
 
-### Clipboard Dependencies
-
-Warden uses system clipboard for seamless copy/paste:
-
-| Platform | Utility | Install |
-|----------|---------|---------|
-| macOS | `pbcopy` / `pbpaste` | Built-in |
-| Linux (X11) | `xclip` | `apt install xclip` |
-| Linux (Wayland) | `wl-copy` / `wl-paste` | `apt install wl-clipboard` |
-| Windows | PowerShell | Built-in |
-
-If clipboard isn't available, Warden displays file paths for manual copy.
+**Requirements:**
+- Rust toolchain
+- System clipboard utilities (`xclip` or `wl-copy` on Linux)
 
 ---
 
-## Quick Start
+## The Workflow
 
-### 1. Initialize
+### 1. Context Generation (Pack)
 
-```bash
-cd your-project
-warden --init
-```
-
-This creates `warden.toml` with sensible defaults for your project type.
-
-### 2. Scan
+Don't dump your whole repo. Warden packs exactly what the AI needs.
 
 ```bash
-warden
-```
-
-Reports any violations of the configured rules (file size, complexity, nesting, etc.).
-
-### 3. Pack for AI
-
-```bash
+# Pack the whole project (smartly filtered)
 warden pack
+
+# Focus on specific files (others are skeletonized to save tokens)
+warden pack src/auth/login.rs
 ```
 
-Generates `context.txt` with your codebase and copies the file path to clipboard. Attach it to your AI conversation.
+This copies a prompt to your clipboard containing your code + **The System Mandate** (rules about complexity, file size, and the output format).
 
-### 4. Apply AI Response
+### 2. The Chat
 
-Copy the AI's response (in Warden Protocol format), then:
+Paste into ChatGPT/Claude. Ask for your feature. The AI has been instructed by Warden's prompt to reply using the **Warden Protocol**:
 
-```bash
-warden apply
-```
-
-Warden validates the response, writes files, runs your checks, and commits if everything passes.
-
----
-
-## The AI Loop (Example)
-
-Here's how a typical AI coding session works with Warden:
-
-**Step 1:** Pack your codebase
-```bash
-warden pack
-# → Generates context.txt, copies path to clipboard
-# → Attach to your AI conversation
-```
-
-**Step 2:** AI responds in Warden Protocol format
-
-```
+```text
 #__WARDEN_PLAN__#
-GOAL: Add input validation to login handler
-CHANGES:
-1. Create validation module
-2. Add email format check
-3. Add password strength check
+GOAL: Refactor login logic
+CHANGES: ...
