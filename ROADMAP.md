@@ -401,8 +401,8 @@
 - [x] **warden map basic output** <!-- test: tests/cli_map.rs::test_map_basic -->
 - [x] **Directory tree with file counts** <!-- test: tests/cli_map.rs::test_map_tree -->
 - [ ] **Cluster summary display** <!-- test: tests/cli_map.rs::test_map_clusters -->
-- [ ] **--deps flag (show dependency arrows)** <!-- test: tests/cli_map.rs::test_map_deps -->
-- [ ] **--stats flag (token counts per cluster)** <!-- test: tests/cli_map.rs::test_map_stats -->
+- [x] **--deps flag (show dependency arrows) <!-- test: tests/cli_map.rs::test_map_deps -->** <!-- test: tests/cli_map.rs::test_map_deps -->
+- [x] **--stats flag (token counts per cluster) <!-- test: tests/cli_map.rs::test_map_basic -->** <!-- test: tests/cli_map.rs::test_map_stats -->
 - [ ] **--json flag (machine-readable map)** <!-- test: tests/cli_map.rs::test_map_json -->
 - [ ] **Module description extraction (//! or docstring)** <!-- test: tests/cli_map.rs::test_map_docs -->
 - [ ] **Entry point detection (main.rs, lib.rs, index.ts)** <!-- test: tests/cli_map.rs::test_entry_point -->
