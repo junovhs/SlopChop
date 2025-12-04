@@ -17,10 +17,10 @@ If vibe coding is building a house of cards, SlopChop is building a house of car
 
 Here's what that actually means in practice:
 
-Small files — AI reasons better over code it can see entirely. So does your reviewer (you).
-Low complexity — Deeply nested logic confuses AI. It confuses humans too. Keep it flat. Why not be draconian about it? If AI is writing the code, who cares if in the end you used fewer tokens and the outcome is cleaner.
-No panic paths — In Rust, .unwrap() is a hidden crash. SlopChop bans it, forcing proper error handling.
-No truncation — When AI writes // ... rest of implementation, that's not code. That's giving up. Rejected.
+* **Small files** — AI reasons better over code it can see entirely. So does your reviewer (you).
+* **Low complexity** — Deeply nested logic confuses AI. It confuses humans too. Keep it flat. Why not be draconian about it? If AI is writing the code, who cares if in the end you used fewer tokens and the outcome is cleaner.
+* **No panic paths** — In Rust, .unwrap() is a hidden crash. SlopChop bans it, forcing proper error handling.
+* **No truncation** — When AI writes // ... rest of implementation, that's not code. That's giving up. Rejected.
 
 The result: code that's modular, testable, and honest. Not because AI is smart, but because you refused to let it be lazy.
 This tool is the proof. It passes its own rules.
@@ -31,14 +31,14 @@ This tool is the proof. It passes its own rules.
 
 SlopChop is the bridge between your AI chat and your codebase.
 
-You love coding with ChatGPT and Claude. The conversation is where the thinking happens. But the last mile sucks:
+You (and I) love coding with traditional chat interfaces. The conversation is where the thinking happens. But the last mile **sucks**:
 
-- Copy code, miss a bracket, broken file
-- AI gives you `// rest of implementation`, deletes your code
-- 300-line god function you didn't ask for
+- Copy code, miss a bracket, **broken file**
+- AI gives you `// rest of implementation`, **deletes your code**
+- 300-line god function **you didn't ask for**
 - Context window forgets everything between sessions
 
-SlopChop fixes all of this.
+SlopChop **fixes all of this.**
 
 ---
 
