@@ -97,28 +97,33 @@ fn dispatch_command(cmd: &Commands) -> Result<()> {
         | Commands::Map { .. }
         | Commands::Context { .. } => dispatch_analysis(cmd),
 
-        Commands::Check
-        | Commands::Fix
-        | Commands::Apply
-        | Commands::Clean { .. } => dispatch_action(cmd),
+        Commands::Check | Commands::Fix | Commands::Clean { .. } | Commands::Config => {
+            dispatch_maintenance(cmd)
+        }
 
-        Commands::Config | Commands::Prompt { .. } | Commands::Roadmap(_) => dispatch_util(cmd),
+        Commands::Apply | Commands::Prompt { .. } | Commands::Roadmap(_) => dispatch_tools(cmd),
     }
 }
 
-fn dispatch_action(cmd: &Commands) -> Result<()> {
+fn dispatch_maintenance(cmd: &Commands) -> Result<()> {
     match cmd {
-        Commands::Check => { cli::handle_check(); Ok(()) }
-        Commands::Fix => { cli::handle_fix(); Ok(()) }
-        Commands::Apply => cli::handle_apply(),
+        Commands::Check => {
+            cli::handle_check();
+            Ok(())
+        }
+        Commands::Fix => {
+            cli::handle_fix();
+            Ok(())
+        }
+        Commands::Config => warden_core::tui::run_config(),
         Commands::Clean { commit } => warden_core::clean::run(*commit),
         _ => unreachable!(),
     }
 }
 
-fn dispatch_util(cmd: &Commands) -> Result<()> {
+fn dispatch_tools(cmd: &Commands) -> Result<()> {
     match cmd {
-        Commands::Config => warden_core::tui::run_config(),
+        Commands::Apply => cli::handle_apply(),
         Commands::Prompt { copy } => cli::handle_prompt(*copy),
         Commands::Roadmap(sub) => handle_command(sub.clone()),
         _ => unreachable!(),
@@ -127,7 +132,11 @@ fn dispatch_util(cmd: &Commands) -> Result<()> {
 
 fn dispatch_analysis(cmd: &Commands) -> Result<()> {
     match cmd {
-        Commands::Trace { file, depth, budget } => cli::handle_trace(file, *depth, *budget),
+        Commands::Trace {
+            file,
+            depth,
+            budget,
+        } => cli::handle_trace(file, *depth, *budget),
         Commands::Map { deps } => cli::handle_map(*deps),
         Commands::Context { verbose, copy } => cli::handle_context(*verbose, *copy),
         Commands::Pack { .. } => dispatch_pack(cmd),
@@ -136,8 +145,21 @@ fn dispatch_analysis(cmd: &Commands) -> Result<()> {
 }
 
 fn dispatch_pack(cmd: &Commands) -> Result<()> {
-    if let Commands::Pack { stdout, copy, noprompt, format, skeleton, git_only, no_git,
-        code_only, verbose, target, focus, depth } = cmd {
+    if let Commands::Pack {
+        stdout,
+        copy,
+        noprompt,
+        format,
+        skeleton,
+        git_only,
+        no_git,
+        code_only,
+        verbose,
+        target,
+        focus,
+        depth,
+    } = cmd
+    {
         cli::handle_pack(PackArgs {
             stdout: *stdout,
             copy: *copy,
@@ -187,7 +209,11 @@ fn run_tui() -> Result<()> {
     let res = App::new(report).run(&mut term);
 
     disable_raw_mode()?;
-    execute!(term.backend_mut(), LeaveAlternateScreen, DisableMouseCapture)?;
+    execute!(
+        term.backend_mut(),
+        LeaveAlternateScreen,
+        DisableMouseCapture
+    )?;
     term.show_cursor()?;
     res
 }
