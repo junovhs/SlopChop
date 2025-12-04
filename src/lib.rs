@@ -2,9 +2,11 @@
 pub mod analysis;
 pub mod apply;
 pub mod clean;
+pub mod cli;
 pub mod clipboard;
 pub mod config;
 pub mod constants;
+pub mod context;
 pub mod discovery;
 pub mod error;
 pub mod graph;

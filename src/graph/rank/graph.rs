@@ -57,7 +57,7 @@ impl RepoGraph {
         ranked
     }
 
-    /// Returns files directly connected to the anchor.
+    /// Returns files directly connected to the anchor (both directions).
     #[must_use]
     pub fn neighbors(&self, anchor: &Path) -> Vec<PathBuf> {
         let anchor_path = anchor.to_path_buf();
@@ -69,6 +69,28 @@ impl RepoGraph {
         result.into_iter().collect()
     }
 
+    /// Returns files that this file depends on (fan-out / what I import).
+    #[must_use]
+    pub fn dependencies(&self, anchor: &Path) -> Vec<PathBuf> {
+        let anchor_path = anchor.to_path_buf();
+        let mut result = HashSet::new();
+        collect_dependencies(&self.defines, &self.references, &anchor_path, &mut result);
+        let mut deps: Vec<_> = result.into_iter().collect();
+        deps.sort();
+        deps
+    }
+
+    /// Returns files that depend on this file (fan-in / who imports me).
+    #[must_use]
+    pub fn dependents(&self, anchor: &Path) -> Vec<PathBuf> {
+        let anchor_path = anchor.to_path_buf();
+        let mut result = HashSet::new();
+        collect_importers(&self.defines, &self.references, &anchor_path, &mut result);
+        let mut deps: Vec<_> = result.into_iter().collect();
+        deps.sort();
+        deps
+    }
+
     /// Returns definition tags only.
     #[must_use]
     pub fn definition_tags(&self) -> Vec<Tag> {
@@ -77,6 +99,18 @@ impl RepoGraph {
             .filter(|t| t.kind == TagKind::Def)
             .cloned()
             .collect()
+    }
+
+    /// Counts dependents for hub detection.
+    #[must_use]
+    pub fn dependent_count(&self, anchor: &Path) -> usize {
+        self.dependents(anchor).len()
+    }
+
+    /// Returns true if this file is a hub (high fan-in).
+    #[must_use]
+    pub fn is_hub(&self, anchor: &Path, threshold: usize) -> bool {
+        self.dependent_count(anchor) >= threshold
     }
 }
 
