@@ -6,11 +6,25 @@
 
 ## The Story
 
-I'm a product designer, not a developer. I built this entire tool by chatting with AI. Every line of Rust came from Claude and ChatGPT.
+I'm mainly a product designer. This tool is the embodiment of a workflow I've developed over the last several years playing with LLMs. Every line of Rust came from Claude and ChatGPT. While this tool can be useful even to senior developers or teams, the full suite of tools is mostly geared at the low/no-code folk like myself.
 
-How? By enforcing rules that keep AI output clean. Small files. Simple functions. No lazy truncation. The AI learns through rejection.
+My big bet: writing code in this draconian fashion is difficult for humans, but who cares if AI is writing the code? Be super strict I say, and watch the shape of your code improve instantly. 
 
-This tool is the proof. It passes its own rules. It was built by the workflow it enables.
+How does that even work?
+
+By enforcing rules that keep AI output clean. Small files. Simple functions. No lazy truncation. The AI learns on the spot via rejection.
+
+If vibe coding your app is building a house of cards, SlapChop is building a house of cards **with glue**. At every step, you refuse code that doesn't meet strict quality standards. You never have to "go back and fix something later" — that's where projects collapse. I mean, as much as possible, anyway. 
+
+Here's what that actually means in practice:
+
+Small files — AI reasons better over code it can see entirely. We use tree sitter to trace dependancies so you can do just that.
+Low complexity — Deeply nested logic confuses AI. It confuses humans too. Keep it flat. Why not be draconian about it? If AI is writing the code, who cares. In my experience, this results in consistent positive outcomes.
+No panic paths — In Rust, .unwrap() is a hidden crash. SlopChop bans it, forcing proper error handling.
+No truncation — When AI writes // ... rest of implementation, that's not code. That's giving up. Rejected.
+
+The result: code that's modular, testable, and honest. Not because AI is smart, but because you refused to let it be lazy.
+This tool is the proof. It passes its own rules.
 
 ---
 
