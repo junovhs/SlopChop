@@ -186,17 +186,51 @@ mod tests {
     }
 
     #[test]
+    fn test_resolve_rust_crate() -> Result<()> {
+        let temp = tempdir()?;
+        let root = temp.path();
+        
+        let src = root.join("src");
+        let conf = src.join("config");
+        fs::create_dir_all(&conf)?;
+        
+        let lib = src.join("lib.rs");
+        let types = conf.join("types.rs");
+        
+        fs::write(&lib, "use crate::config::types;")?;
+        fs::write(&types, "// types")?;
+
+        let resolved = resolve(root, &lib, "crate::config::types");
+        assert_eq!(resolved, Some(types));
+        Ok(())
+    }
+
+    #[test]
+    fn test_resolve_rust_mod_index() -> Result<()> {
+        let temp = tempdir()?;
+        let root = temp.path();
+        
+        let src = root.join("src");
+        let utils = src.join("utils");
+        fs::create_dir_all(&utils)?;
+        
+        let main = src.join("main.rs");
+        let mod_rs = utils.join("mod.rs");
+        
+        fs::write(&main, "mod utils;")?;
+        fs::write(&mod_rs, "// mod.rs")?;
+
+        let resolved = resolve(root, &main, "utils");
+        assert_eq!(resolved, Some(mod_rs));
+        Ok(())
+    }
+
+    #[test]
     fn test_resolve_rust_super() -> Result<()> {
         let temp = tempdir()?;
         let root = temp.path();
         
-        // Structure:
-        // src/
-        //   lib.rs
-        //   parent/
-        //     mod.rs
-        //     child.rs
-        
+        // Structure: src/lib.rs, src/parent/child.rs
         let src = root.join("src");
         let parent = src.join("parent");
         fs::create_dir_all(&parent)?;
@@ -207,7 +241,6 @@ mod tests {
         fs::write(&lib, "// lib")?;
         fs::write(&child, "use super::lib;")?;
 
-        // From child.rs, super::lib refers to ../lib (which is lib.rs because lib is a sibling of parent)
         let resolved = resolve(root, &child, "super::lib");
         assert_eq!(resolved, Some(lib));
         Ok(())

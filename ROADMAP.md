@@ -334,12 +334,12 @@
 
 ### Import Extraction — Rust
 - [x] **Rust use declaration extraction** <!-- test: tests/unit_graph.rs::test_rust_use_extraction -->
-- [ ] **Rust mod declaration extraction** <!-- test: tests/unit_graph.rs::test_rust_mod_extraction -->
+- [x] ****Rust mod declaration extraction** <!-- test: src/graph/imports.rs::tests::test_rust_imports -->** <!-- test: tests/unit_graph.rs::test_rust_mod_extraction -->
 - [ ] **Rust re-export handling (pub use)** <!-- test: tests/unit_graph.rs::test_rust_reexport -->
-- [ ] **Rust crate:: path resolution** <!-- test: tests/unit_graph.rs::test_rust_crate_path -->
+- [x] ****Rust crate:: path resolution** <!-- test: src/graph/resolver.rs::tests::test_resolve_rust_crate -->** <!-- test: tests/unit_graph.rs::test_rust_crate_path -->
 - [x] **Rust self:: path resolution** <!-- test: tests/unit_graph.rs::test_rust_self_path -->
 - [x] **Rust super:: path resolution** <!-- test: tests/unit_graph.rs::test_rust_super_path -->
-- [ ] **Rust mod.rs index resolution** <!-- test: tests/unit_graph.rs::test_rust_mod_index -->
+- [x] ****Rust mod.rs index resolution** <!-- test: src/graph/resolver.rs::tests::test_resolve_rust_mod_index -->** <!-- test: tests/unit_graph.rs::test_rust_mod_index -->
 
 ### Import Extraction — Python
 - [x] **Python import statement extraction** <!-- test: tests/unit_graph.rs::test_python_import -->
