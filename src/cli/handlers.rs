@@ -160,20 +160,25 @@ fn exec_cmd_filtered(cmd: &str) -> bool {
         return true;
     };
 
-    let output = match Command::new(prog)
+    match execute_command(prog, args) {
+        Ok(output) => handle_command_output(cmd, &output),
+        Err(e) => {
+            println!("{}", "?".red());
+            eprintln!("     {} {e}", "error:".red());
+            false
+        }
+    }
+}
+
+fn execute_command(prog: &str, args: &[&str]) -> std::io::Result<std::process::Output> {
+    Command::new(prog)
         .args(args)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .output()
-    {
-        Ok(o) => o,
-        Err(e) => {
-            println!("{}", "?".red());
-            eprintln!("     {} {e}", "error:".red());
-            return false;
-        }
-    };
+}
 
+fn handle_command_output(cmd: &str, output: &std::process::Output) -> bool {
     if output.status.success() {
         println!("{}", "�".green());
         return true;
@@ -183,15 +188,18 @@ fn exec_cmd_filtered(cmd: &str) -> bool {
     let stderr = String::from_utf8_lossy(&output.stderr);
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    if cmd.contains("cargo test") {
-        print_test_failures(&stdout, &stderr);
-    } else if cmd.contains("clippy") {
-        print_clippy_errors(&stderr);
-    } else {
-        print_generic_error(&stdout, &stderr);
-    }
-
+    print_failure_details(cmd, &stdout, &stderr);
     false
+}
+
+fn print_failure_details(cmd: &str, stdout: &str, stderr: &str) {
+    if cmd.contains("cargo test") {
+        print_test_failures(stdout, stderr);
+    } else if cmd.contains("clippy") {
+        print_clippy_errors(stderr);
+    } else {
+        print_generic_error(stdout, stderr);
+    }
 }
 
 fn print_test_failures(stdout: &str, stderr: &str) {
@@ -215,16 +223,23 @@ fn print_clippy_errors(stderr: &str) {
     println!("\n{}", "��� Clippy Errors ���".red().bold());
 
     for line in stderr.lines() {
-        let trimmed = line.trim();
-        if trimmed.starts_with("error[") || trimmed.starts_with("error:") {
-            println!("  {}", trimmed.red());
-        } else if trimmed.starts_with("-->") {
-            println!("    {}", trimmed.dimmed());
-        } else if trimmed.contains("could not compile") {
+        if !process_clippy_line(line) {
             break;
         }
     }
     println!();
+}
+
+fn process_clippy_line(line: &str) -> bool {
+    let trimmed = line.trim();
+    if trimmed.starts_with("error[") || trimmed.starts_with("error:") {
+        println!("  {}", trimmed.red());
+    } else if trimmed.starts_with("-->") {
+        println!("    {}", trimmed.dimmed());
+    } else if trimmed.contains("could not compile") {
+        return false;
+    }
+    true
 }
 
 fn print_generic_error(stdout: &str, stderr: &str) {
