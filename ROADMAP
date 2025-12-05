@@ -1,3 +1,49 @@
 ===ROADMAP===
-CHECK tui-roadmap-explorer
+UNCHECK empty-task-id-filtering
+CHECK task-id-collision-detection
+CHECK anchor-based-task-matching
+CHECK smart-update-inference
+CHECK scan-completed-tasks
+CHECK no-test-skip
+CHECK explicit-anchor-verification
+CHECK missing-test-file-detection
+CHECK missing-test-function-detection
+UNCHECK test-execution-verification
+CHECK exit-code-1-on-any-failure
+CHECK strict-mode-all-must-pass
+CHECK slopchop-passes-own-rules
+UNCHECK feature-id-test-function-mapping
+CHECK audit-validates-naming-convention
+UNCHECK enforce-test-first-registration-during-ai-sessions
+UNCHECK block-feature-completion-without-matching-test-file
+UNCHECK slopchop-register-feature-command
+UNCHECK slopchop-verify-session-command
+UNCHECK incremental-roadmap-sync
+UNCHECK session-manifest-tracking
+CHECK section-command
+CHECK subsection-command
+CHECK chain-command
+UNCHECK after-previous-keyword
+UNCHECK after-text-exact-match
+UNCHECK after-line-n-match
+UNCHECK in-section-subsection-location
+UNCHECK slug-echo-on-add
+UNCHECK pre-validation-all-after-targets-exist
+UNCHECK pre-validation-no-slug-collisions
+UNCHECK pre-validation-no-circular-after-chains
+UNCHECK batch-dependency-resolution
+UNCHECK fuzzy-match-suggestions-on-after-miss
+UNCHECK dry-run-mode
+UNCHECK atomic-file-write
+UNCHECK backup-creation
+UNCHECK all-or-nothing-execution
+UNCHECK verbose-plan-output
+UNCHECK slopchop-apply-force-flag
+UNCHECK quarantine-mode
+UNCHECK quarantine-report
+
+ADD "TUI Consolidation (Mission Control)" "TUI: View Filters (Pending/Done/All)"
+ADD "TUI Consolidation (Mission Control)" "TUI: Copy View to Clipboard"
+ADD "TUI Consolidation (Mission Control)" "TUI: Mouse Support (Clickable Buttons)"
+ADD "TUI Consolidation (Mission Control)" "TUI: Interactive Staging Workflow (Apply -> Diff -> Confirm)"
 ===END===

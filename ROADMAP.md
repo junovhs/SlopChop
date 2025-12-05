@@ -633,6 +633,10 @@
 - [x] **Consolidation (Mission Control)" "TUI: Check Runner** (Live test/lint output in pane)"**
 - [x] **Consolidation (Mission Control)" "TUI: Roadmap Explorer** (Navigate and check tasks interactively)"**
 - [x] **Consolidation (Mission Control)" "TUI: Log Stream** (Replace stdout scrolling)"**
+- [ ] **Consolidation (Mission Control)" "TUI: View Filters (Pending/Done/All)"**
+- [ ] **Consolidation (Mission Control)" "TUI: Copy View to Clipboard"**
+- [ ] **Consolidation (Mission Control)" "TUI: Mouse Support (Clickable Buttons)"**
+- [ ] **Consolidation (Mission Control)" "TUI: Interactive Staging Workflow (Apply -> Diff -> Confirm)"**
 
 ## v0.8.0 - Dependency Graph ?
 - [ ] **- Dependency Graph ?" "**slopchop watch command** <!-- test: tests/cli_watch.rs::test_watch_starts -->"**
