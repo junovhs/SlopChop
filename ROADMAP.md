@@ -301,8 +301,8 @@
 
 ### Roadmap Hardening
 - [x] **SECTION command (create version headers)** <!-- test: tests/unit_roadmap_cmd.rs::test_section_command -->
-- [ ] **SUBSECTION command (create ### headers)** <!-- test: tests/unit_roadmap_cmd.rs::test_subsection_command -->
-- [ ] **CHAIN command (sequential adds)** <!-- test: tests/unit_roadmap_cmd.rs::test_chain_command -->
+- [x] **SUBSECTION command (create ### headers)** <!-- test: tests/unit_roadmap_cmd.rs::test_subsection_command -->
+- [x] **CHAIN command (sequential adds)** <!-- test: tests/unit_roadmap_cmd.rs::test_chain_command -->
 - [ ] **AFTER PREVIOUS keyword** <!-- test: tests/unit_roadmap_cmd.rs::test_after_previous -->
 - [ ] **AFTER TEXT "exact" match** <!-- test: tests/unit_roadmap_cmd.rs::test_after_text_exact -->
 - [ ] **AFTER LINE N match** <!-- test: tests/unit_roadmap_cmd.rs::test_after_line_number -->
