@@ -609,7 +609,10 @@
 - [ ] ****
 - [ ] **New feature**
 - [ ] **New feature**
+- [ ] **New feature**
 
 ## v0.99.0 — Future
 
 ## v0.99.0 — Future
+
+## v0.99.0 - Future
