@@ -34,7 +34,6 @@
 - [x] **Tokenizer initialization (cl100k_base)** <!-- test: tests/unit_tokens.rs::test_tokenizer_available -->
 - [x] **Token count function** <!-- test: tests/unit_tokens.rs::test_count_basic -->
 - [x] **Token limit check** <!-- test: tests/unit_tokens.rs::test_exceeds_limit -->
-- [x] **Graceful fallback on init failure** <!-- test: tests/unit_tokens.rs::test_fallback_returns_zero -->
 
 ### Project Detection
 - [x] **Rust project detection (Cargo.toml)** <!-- test: tests/unit_project.rs::test_detect_rust -->
@@ -332,9 +331,6 @@
 *Build the import graph for smart context generation.*
 
 ### Daemon Core
-- [ ] **slopchop watch command** <!-- test: tests/cli_watch.rs::test_watch_starts -->
-- [ ] **Background process management** <!-- test: tests/unit_daemon.rs::test_daemon_lifecycle -->
-- [ ] **Graceful shutdown (SIGTERM)** <!-- test: tests/unit_daemon.rs::test_graceful_shutdown -->
 - [ ] **Single instance enforcement** <!-- test: tests/unit_daemon.rs::test_single_instance -->
 
 ### Clipboard Monitoring
@@ -393,9 +389,7 @@
 - [ ] **Extraction" "**TypeScript import extraction** <!-- test: tests/unit_graph.rs::test_ts_import -->"**
 
 ### Graph Construction
-- [x] **Graph node creation (file → vertex)** <!-- test: tests/unit_graph_build.rs::test_node_creation -->
 - [x] **Graph edge creation (import → directed edge)** <!-- test: tests/unit_graph_build.rs::test_edge_creation -->
-- [x] **Reverse index construction (importers)** <!-- test: tests/unit_graph_build.rs::test_reverse_index -->
 - [ ] **Cycle detection (tarjan or DFS)** <!-- test: tests/unit_graph_build.rs::test_cycle_detection -->
 - [ ] **Hub file detection (high in-degree)** <!-- test: tests/unit_graph_build.rs::test_hub_detection -->
 - [ ] **Leaf file detection (zero out-degree)** <!-- test: tests/unit_graph_build.rs::test_leaf_detection -->
@@ -629,14 +623,15 @@
 ## v0.99.0 - Future
 
 ## TUI Consolidation (Mission Control)
-- [x] **Consolidation (Mission Control)" "TUI: Unified Dashboard** (Single entry point `slopchop dashboard`)"**
-- [x] **Consolidation (Mission Control)" "TUI: Check Runner** (Live test/lint output in pane)"**
-- [x] **Consolidation (Mission Control)" "TUI: Roadmap Explorer** (Navigate and check tasks interactively)"**
-- [x] **Consolidation (Mission Control)" "TUI: Log Stream** (Replace stdout scrolling)"**
 - [ ] **Consolidation (Mission Control)" "TUI: View Filters (Pending/Done/All)"**
-- [ ] **Consolidation (Mission Control)" "TUI: Copy View to Clipboard"**
-- [ ] **Consolidation (Mission Control)" "TUI: Mouse Support (Clickable Buttons)"**
-- [ ] **Consolidation (Mission Control)" "TUI: Interactive Staging Workflow (Apply -> Diff -> Confirm)"**
+- [x] **Mission Control (v0.8.0)" "Unified Dashboard** (Single entry point `slopchop dashboard`)"**
+- [x] **Mission Control (v0.8.0)" "Check Runner** (Live test/lint output in pane)"**
+- [x] **Mission Control (v0.8.0)" "Roadmap Explorer** (Navigate and check tasks interactively)"**
+- [x] **Mission Control (v0.8.0)" "Log Stream** (Replace stdout scrolling)"**
+- [ ] **Mission Control (v0.8.0)" "View Filters** (Pending/Done/All)"**
+- [ ] **Mission Control (v0.8.0)" "Copy View to Clipboard"**
+- [ ] **Mission Control (v0.8.0)" "Mouse Support** (Clickable Buttons)"**
+- [ ] **Mission Control (v0.8.0)" "Interactive Staging Workflow** (Apply -> Diff -> Confirm)"**
 
 ## v0.8.0 - Dependency Graph ?
 - [ ] **- Dependency Graph ?" "**slopchop watch command** <!-- test: tests/cli_watch.rs::test_watch_starts -->"**
@@ -644,3 +639,10 @@
 - [ ] **- Dependency Graph ?" "**Graceful shutdown (SIGTERM)** <!-- test: tests/unit_daemon.rs::test_graceful_shutdown -->"**
 - [x] **Construction" "**Graph node/edge creation** <!-- test: tests/unit_graph_build.rs::test_node_creation -->"**
 - [ ] **Construction" "**Reverse index construction** <!-- test: tests/unit_graph_build.rs::test_reverse_index -->"**
+- [ ] **- Dependency Graph ?" "**slopchop watch command** <!-- test: tests/cli_watch.rs::test_watch_starts -->"**
+- [ ] **- Dependency Graph ?" "**Background process management** <!-- test: tests/unit_daemon.rs::test_daemon_lifecycle -->"**
+- [ ] **- Dependency Graph ?" "**Graceful shutdown (SIGTERM)** <!-- test: tests/unit_daemon.rs::test_graceful_shutdown -->"**
+
+## TUI Mission Control (v0.8.0)
+
+## v0.8.0 - Dependency Graph ?
