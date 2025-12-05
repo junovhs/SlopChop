@@ -271,7 +271,7 @@
 *Enforce the contract: every feature has verified tests.*
 
 ### Parser Hardening
-- [x] **Empty task ID filtering** <!-- test: tests/unit_parser.rs::test_empty_id_skipped -->
+- [ ] **Empty task ID filtering** <!-- test: tests/unit_parser.rs::test_empty_id_skipped -->
 - [x] **Task ID collision detection** <!-- test: tests/unit_parser.rs::test_id_collision_resolved -->
 - [x] **Anchor-based task matching** <!-- test: tests/unit_parser.rs::test_anchor_id_extraction -->
 - [x] **Smart UPDATE inference (vs DELETE+ADD)** <!-- test: tests/unit_diff.rs::test_text_change_is_update -->
@@ -329,6 +329,35 @@
 ## v0.8.0 — Dependency Graph ✅
 
 *Build the import graph for smart context generation.*
+
+### Daemon Core
+- [ ] **slopchop watch command** <!-- test: tests/cli_watch.rs::test_watch_starts -->
+- [ ] **Background process management** <!-- test: tests/unit_daemon.rs::test_daemon_lifecycle -->
+- [ ] **Graceful shutdown (SIGTERM)** <!-- test: tests/unit_daemon.rs::test_graceful_shutdown -->
+- [ ] **Single instance enforcement** <!-- test: tests/unit_daemon.rs::test_single_instance -->
+
+### Clipboard Monitoring
+- [ ] **Clipboard polling loop** <!-- test: tests/unit_clipboard.rs::test_polling -->
+- [ ] **Protocol detection in clipboard** <!-- test: tests/unit_clipboard.rs::test_protocol_detection -->
+- [ ] **Deduplication (ignore same content)** <!-- test: tests/unit_clipboard.rs::test_dedup -->
+- [ ] **Stage content for apply** <!-- test: tests/unit_daemon.rs::test_staging -->
+
+### Global Hotkey
+- [ ] **Register global hotkey (default ⌘⇧L / Ctrl+Shift+L)** <!-- test: tests/unit_hotkey.rs::test_register -->
+- [ ] **Configurable hotkey binding** <!-- test: tests/unit_hotkey.rs::test_custom_binding -->
+- [ ] **Hotkey triggers apply** <!-- test: tests/unit_hotkey.rs::test_triggers_apply -->
+
+### System Notifications
+- [ ] **"Ready" notification on protocol detect** <!-- test: tests/unit_notify.rs::test_ready_notification -->
+- [ ] **Success notification with file count** <!-- test: tests/unit_notify.rs::test_success_notification -->
+- [ ] **Failure notification with error summary** <!-- test: tests/unit_notify.rs::test_failure_notification -->
+- [ ] **Cross-platform notification (Linux/macOS/Windows)** <!-- test: tests/unit_notify.rs::test_cross_platform -->
+
+### Configuration
+- [ ] **[watch] section in slopchop.toml** <!-- test: tests/unit_config.rs::test_watch_config -->
+- [ ] **hotkey option** <!-- test: tests/unit_config.rs::test_hotkey_option -->
+- [ ] **auto_commit option** <!-- test: tests/unit_config.rs::test_auto_commit_option -->
+- [ ] **notify option (enable/disable)** <!-- test: tests/unit_config.rs::test_notify_option -->
 
 ### Import Extraction — Rust
 - [x] **Rust use declaration extraction** <!-- test: tests/unit_graph.rs::test_rust_use_extraction -->

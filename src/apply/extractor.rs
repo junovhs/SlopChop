@@ -16,7 +16,7 @@ pub fn extract_plan(response: &str) -> Option<String> {
     Some(content.trim().to_string())
 }
 
-/// Extracts file blocks using the SlopChop Delimiter Protocol.
+/// Extracts file blocks using the `SlopChop` Delimiter Protocol.
 ///
 /// Format:
 /// `#__SLOPCHOP_FILE__#` path/to/file.rs
