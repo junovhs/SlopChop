@@ -1,3 +1,5 @@
+#__SLOPCHOP_FILE__#
+ROADMAP.md
 # SlopChop Protocol Roadmap
 
 ## Philosophy
@@ -329,6 +331,9 @@
 *Build the import graph for smart context generation.*
 
 ### Daemon Core
+- [ ] **slopchop watch command** <!-- test: tests/cli_watch.rs::test_watch_starts -->
+- [ ] **Background process management** <!-- test: tests/unit_daemon.rs::test_daemon_lifecycle -->
+- [ ] **Graceful shutdown (SIGTERM)** <!-- test: tests/unit_daemon.rs::test_graceful_shutdown -->
 - [ ] **Single instance enforcement** <!-- test: tests/unit_daemon.rs::test_single_instance -->
 
 ### Clipboard Monitoring
@@ -354,72 +359,27 @@
 - [ ] **auto_commit option** <!-- test: tests/unit_config.rs::test_auto_commit_option -->
 - [ ] **notify option (enable/disable)** <!-- test: tests/unit_config.rs::test_notify_option -->
 
-### Import Extraction — Rust
-- [x] **Rust use declaration extraction** <!-- test: tests/unit_graph.rs::test_rust_use_extraction -->
-- [x] **Rust mod declaration extraction** <!-- test: src/graph/imports.rs::test_rust_imports -->
-- [x] **Rust re-export handling (pub use)** <!-- test: src/graph/imports.rs::test_rust_reexport -->
-- [x] **Rust crate:: path resolution** <!-- test: src/graph/resolver.rs::test_resolve_rust_crate -->
-- [x] **Rust self:: path resolution** <!-- test: src/graph/resolver.rs::test_resolve_rust_self -->
-- [x] **Rust super:: path resolution** <!-- test: src/graph/resolver.rs::test_resolve_rust_super -->
-- [x] **Rust mod.rs index resolution** <!-- test: src/graph/resolver.rs::test_resolve_rust_mod_index -->
-
-### Import Extraction — Python
-- [x] **Python import statement extraction** <!-- test: tests/unit_graph.rs::test_python_import -->
-- [x] **Python from...import extraction** <!-- test: tests/unit_graph.rs::test_python_from_import -->
-- [ ] **Python relative import handling (.module)** <!-- test: tests/unit_graph.rs::test_python_relative -->
-- [ ] **Python __init__.py resolution** <!-- test: tests/unit_graph.rs::test_python_init -->
-
-### Import Extraction — TypeScript/JavaScript
+### Import Extraction
+- [x] **Rust use/mod extraction** <!-- test: src/graph/imports.rs::test_rust_imports -->
+- [x] **Rust path resolution** <!-- test: src/graph/resolver.rs::test_resolve_rust_crate -->
+- [x] **Python import extraction** <!-- test: tests/unit_graph.rs::test_python_import -->
 - [x] **TypeScript import extraction** <!-- test: tests/unit_graph.rs::test_ts_import -->
-- [ ] **TypeScript require() extraction** <!-- test: tests/unit_graph.rs::test_ts_require -->
-- [ ] **TypeScript re-export extraction** <!-- test: tests/unit_graph.rs::test_ts_reexport -->
-- [ ] **JavaScript ESM/CJS detection** <!-- test: tests/unit_graph.rs::test_js_module_type -->
-- [ ] **TypeScript index.ts resolution** <!-- test: tests/unit_graph.rs::test_ts_index -->
-- [ ] **TypeScript path alias resolution (tsconfig)** <!-- test: tests/unit_graph.rs::test_ts_path_alias -->
-
-### Import Resolution — General
-- [ ] **Relative path resolution (./)** <!-- test: tests/unit_resolver.rs::test_relative_path -->
-- [ ] **Parent path resolution (../)** <!-- test: tests/unit_resolver.rs::test_parent_path -->
-- [ ] **External dependency detection (skip)** <!-- test: tests/unit_resolver.rs::test_external_skipped -->
-- [x] **Extraction" "**Rust use/mod extraction** <!-- test: src/graph/imports.rs::test_rust_imports -->"**
-- [x] **Extraction" "**Rust path resolution** <!-- test: src/graph/resolver.rs::test_resolve_rust_crate -->"**
-- [x] **Extraction" "**Python import extraction** <!-- test: tests/unit_graph.rs::test_python_import -->"**
-- [ ] **Extraction" "**TypeScript import extraction** <!-- test: tests/unit_graph.rs::test_ts_import -->"**
 
 ### Graph Construction
-- [x] **Graph edge creation (import → directed edge)** <!-- test: tests/unit_graph_build.rs::test_edge_creation -->
-- [ ] **Cycle detection (tarjan or DFS)** <!-- test: tests/unit_graph_build.rs::test_cycle_detection -->
-- [ ] **Hub file detection (high in-degree)** <!-- test: tests/unit_graph_build.rs::test_hub_detection -->
-- [ ] **Leaf file detection (zero out-degree)** <!-- test: tests/unit_graph_build.rs::test_leaf_detection -->
-- [ ] **Orphan file detection (zero in-degree)** <!-- test: tests/unit_graph_build.rs::test_orphan_detection -->
-- [ ] **Graph serialization (debug output)** <!-- test: tests/unit_graph_build.rs::test_serialization -->
+- [x] **Graph node/edge creation** <!-- test: tests/unit_graph_build.rs::test_node_creation -->
+- [x] **Reverse index construction** <!-- test: tests/unit_graph_build.rs::test_reverse_index -->
 
-### Graph Traversal
-- [ ] **BFS traversal from entry point** <!-- test: tests/unit_graph_walk.rs::test_bfs -->
-- [ ] **DFS traversal from entry point** <!-- test: tests/unit_graph_walk.rs::test_dfs -->
-- [ ] **Depth-limited traversal (--depth N)** <!-- test: tests/unit_graph_walk.rs::test_depth_limit -->
-- [ ] **Forward walk (dependencies)** <!-- test: tests/unit_graph_walk.rs::test_forward -->
-- [ ] **Reverse walk (dependents)** <!-- test: tests/unit_graph_walk.rs::test_reverse -->
-- [ ] **Bidirectional walk (both)** <!-- test: tests/unit_graph_walk.rs::test_bidirectional -->
-- [ ] **Subgraph extraction** <!-- test: tests/unit_graph_walk.rs::test_subgraph -->
-- [ ] **Topological sort for output ordering** <!-- test: tests/unit_graph_walk.rs::test_topo_sort -->
-
-### Cluster Detection
-- [ ] **Directory-based cluster inference** <!-- test: tests/unit_cluster.rs::test_dir_cluster -->
-- [ ] **Strongly connected component detection** <!-- test: tests/unit_cluster.rs::test_scc -->
-- [ ] **Cluster boundary identification** <!-- test: tests/unit_cluster.rs::test_boundary -->
-- [ ] **Cross-cluster edge detection** <!-- test: tests/unit_cluster.rs::test_cross_cluster -->
-- [ ] **Cluster size metrics (files, tokens)** <!-- test: tests/unit_cluster.rs::test_metrics -->
-- [ ] **slopchop.toml [clusters] definition** <!-- test: tests/unit_cluster.rs::test_toml_clusters -->
-- [ ] **// slopchop:cluster(name) annotation** <!-- test: tests/unit_cluster.rs::test_annotation -->
+### TUI Mission Control
+- [x] **Unified Dashboard** (Single entry point `slopchop dashboard`)
+- [x] **Check Runner** (Live test/lint output in pane)
+- [x] **Roadmap Explorer** (Navigate and check tasks interactively)
+- [x] **Log Stream** (Replace stdout scrolling)
+- [ ] **View Filters** (Pending/Done/All)
+- [ ] **Copy View to Clipboard**
+- [ ] **Mouse Support** (Clickable Buttons)
+- [ ] **Interactive Staging Workflow** (Apply -> Diff -> Confirm)
 
 ---
-
-
-### - Dependency Graph ?" "Import Extraction"
-
-
-### - Dependency Graph ?" "Graph Construction"
 
 ## v0.9.0 — Smart Context ✅
 
@@ -607,43 +567,4 @@
 - **Full LSP implementation** — Use tree-sitter queries, not language servers
 - **Multi-repo support** — One project at a time
 - **Incremental graph updates** — Rebuild on each run (fast enough)
-
-## v0.99.0 — Future
-- [ ] ****
-- [ ] **New feature**
-- [ ] **New feature**
-- [ ] **New feature**
-
-## v0.99.0 — Future
-
-## v0.99.0 — Future
-
-## v0.99.0 - Future
-
-## TUI Consolidation (Mission Control)
-- [ ] **Consolidation (Mission Control)" "TUI: View Filters (Pending/Done/All)"**
-- [ ] **Mission Control (v0.8.0)" "View Filters** (Pending/Done/All)"**
-- [x] **Mission Control (v0.8.0)" "Unified Dashboard** (Single entry point `slopchop dashboard`)"**
-- [x] **Mission Control (v0.8.0)" "Check Runner** (Live test/lint output in pane)"**
-- [x] **Mission Control (v0.8.0)" "Roadmap Explorer** (Navigate and check tasks interactively)"**
-- [x] **Mission Control (v0.8.0)" "Log Stream** (Replace stdout scrolling)"**
-- [ ] **Mission Control (v0.8.0)" "View Filters** (Pending/Done/All)"**
-- [ ] **Mission Control (v0.8.0)" "Copy View to Clipboard"**
-- [ ] **Mission Control (v0.8.0)" "Mouse Support** (Clickable Buttons)"**
-- [ ] **Mission Control (v0.8.0)" "Interactive Staging Workflow** (Apply -> Diff -> Confirm)"**
-
-## v0.8.0 - Dependency Graph ?
-- [ ] **- Dependency Graph ?" "**slopchop watch command** <!-- test: tests/cli_watch.rs::test_watch_starts -->"**
-- [ ] **- Dependency Graph ?" "**Background process management** <!-- test: tests/unit_daemon.rs::test_daemon_lifecycle -->"**
-- [ ] **- Dependency Graph ?" "**Graceful shutdown (SIGTERM)** <!-- test: tests/unit_daemon.rs::test_graceful_shutdown -->"**
-- [ ] **- Dependency Graph ?" "**slopchop watch command** <!-- test: tests/cli_watch.rs::test_watch_starts -->"**
-- [ ] **- Dependency Graph ?" "**Background process management** <!-- test: tests/unit_daemon.rs::test_daemon_lifecycle -->"**
-- [ ] **- Dependency Graph ?" "**Graceful shutdown (SIGTERM)** <!-- test: tests/unit_daemon.rs::test_graceful_shutdown -->"**
-
-## TUI Mission Control (v0.8.0)
-
-## v0.8.0 - Dependency Graph ?
-
-## TUI Mission Control (v0.8.0)
-
-## v0.8.0 - Dependency Graph ?
+#__SLOPCHOP_END__#
