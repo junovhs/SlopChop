@@ -1,9 +1,9 @@
 // src/apply/verification.rs
 use crate::apply::types::ApplyContext;
+use crate::spinner::Spinner;
 use anyhow::Result;
 use colored::Colorize;
 use std::fmt::Write as FmtWrite;
-use std::io::{self, Write};
 use std::process::Command;
 
 /// Runs configured checks and `SlopChop` scan to verify application.
@@ -34,12 +34,10 @@ pub fn verify_application(ctx: &ApplyContext) -> Result<(bool, String)> {
 }
 
 fn run_check_command(cmd: &str) -> Result<(bool, String)> {
-    print!("   {} {} ", ">".blue(), cmd.dimmed());
-    let _ = io::stdout().flush();
-
+    let sp = Spinner::start(cmd);
     let parts: Vec<&str> = cmd.split_whitespace().collect();
     let Some((prog, args)) = parts.split_first() else {
-        println!("{}", "ok".green());
+        sp.stop(true);
         return Ok((true, String::new()));
     };
 
@@ -48,18 +46,21 @@ fn run_check_command(cmd: &str) -> Result<(bool, String)> {
     let stderr = String::from_utf8_lossy(&output.stderr);
     let combined = format!("{stdout}\n{stderr}");
 
-    if output.status.success() {
-        println!("{}", "ok".green());
-        Ok((true, combined))
-    } else {
-        println!("{}", "err".red());
+    let success = output.status.success();
+    sp.stop(success);
+
+    if !success {
         print!("{stdout}");
         eprint!("{stderr}");
-        Ok((false, combined))
     }
+
+    Ok((success, combined))
 }
 
 fn run_slopchop_check() -> Result<(bool, String)> {
+    // slopchop check is fast, but we can spin on it too for consistency if needed.
+    // However, it outputs its own colorized report.
+    // For now, let's keep it simple as it was.
     let output = Command::new("slopchop").output()?;
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);

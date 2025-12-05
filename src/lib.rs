@@ -26,6 +26,7 @@ pub mod prompt;
 pub mod reporting;
 pub mod roadmap;
 pub mod skeleton;
+pub mod spinner;
 pub mod tokens;
 pub mod trace;
 pub mod tui;
@@ -33,4 +34,4 @@ pub mod types;
 pub mod wizard;
 
 // Legacy/Test compatibility aliases
-pub use analysis as rules;
+pub use analysis as rules;

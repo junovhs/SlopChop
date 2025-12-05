@@ -1,7 +1,6 @@
 // src/cli/handlers.rs
 //! Command handlers for the slopchop CLI.
 
-use std::io::{self, Write};
 use std::path::Path;
 use std::process::{self, Command, Stdio};
 
@@ -13,6 +12,7 @@ use crate::config::Config;
 use crate::context::{self, ContextOptions};
 use crate::pack::{self, OutputFormat, PackOptions};
 use crate::prompt::PromptGenerator;
+use crate::spinner::Spinner;
 use crate::trace::{self, TraceOptions};
 
 /// Runs the check pipeline.
@@ -154,19 +154,24 @@ fn run_pipeline(name: &str) {
 }
 
 fn exec_cmd_filtered(cmd: &str) -> bool {
-    print!("   {} {} ", ">".blue(), cmd.dimmed());
-    let _ = io::stdout().flush();
+    // Spinner starts on a new line and handles animation
+    let sp = Spinner::start(cmd);
 
     let parts: Vec<&str> = cmd.split_whitespace().collect();
     let Some((prog, args)) = parts.split_first() else {
-        println!("{}", "ok".green());
+        sp.stop(true);
         return true;
     };
 
-    match execute_command(prog, args) {
-        Ok(output) => handle_command_output(cmd, &output),
+    let result = execute_command(prog, args);
+    match result {
+        Ok(output) => {
+            let success = output.status.success();
+            sp.stop(success);
+            handle_command_output(success, &output)
+        }
         Err(e) => {
-            println!("{}", "err".red());
+            sp.stop(false);
             eprintln!("     {} {e}", "error:".red());
             false
         }
@@ -181,24 +186,23 @@ fn execute_command(prog: &str, args: &[&str]) -> std::io::Result<std::process::O
         .output()
 }
 
-fn handle_command_output(cmd: &str, output: &std::process::Output) -> bool {
-    if output.status.success() {
-        println!("{}", "ok".green());
+fn handle_command_output(success: bool, output: &std::process::Output) -> bool {
+    if success {
         return true;
     }
 
-    println!("{}", "err".red());
     let stderr = String::from_utf8_lossy(&output.stderr);
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    print_failure_details(cmd, &stdout, &stderr);
+    print_failure_details(&stdout, &stderr);
     false
 }
 
-fn print_failure_details(cmd: &str, stdout: &str, stderr: &str) {
-    if cmd.contains("cargo test") {
+fn print_failure_details(stdout: &str, stderr: &str) {
+    // Determine type of error from output content heuristics
+    if stdout.contains("running") && stdout.contains("test") {
         print_test_failures(stdout, stderr);
-    } else if cmd.contains("clippy") {
+    } else if stderr.contains("error:") || stderr.contains("warning:") {
         print_clippy_errors(stderr);
     } else {
         print_generic_error(stdout, stderr);
