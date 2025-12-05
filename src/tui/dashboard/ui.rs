@@ -59,9 +59,9 @@ fn draw_main(f: &mut Frame, app: &mut DashboardApp, area: Rect) {
     match app.active_tab {
         Tab::Roadmap => draw_roadmap(f, app, area),
         Tab::Checks => draw_checks(f, app, area),
+        Tab::Context => draw_context(f, app, area),
         Tab::Config => config_view::draw_embed(f, &app.config, area),
         Tab::Logs => draw_logs(f, app, area),
-        Tab::Context => draw_placeholder(f, app, area),
     }
 }
 
@@ -89,64 +89,65 @@ fn draw_roadmap(f: &mut Frame, app: &mut DashboardApp, area: Rect) {
         })
         .collect();
 
-    let block = Block::default()
-        .borders(Borders::ALL)
-        .title(" [ FLIGHT PLAN ] ");
-
+    let block = Block::default().borders(Borders::ALL).title(" [ FLIGHT PLAN ] ");
     let list = List::new(items)
         .block(block)
         .highlight_style(Style::default().bg(Color::DarkGray).add_modifier(Modifier::BOLD));
 
     let mut state = ListState::default();
     state.select(Some(app.selected_task));
-    
+    f.render_stateful_widget(list, area, &mut state);
+}
+
+fn draw_context(f: &mut Frame, app: &mut DashboardApp, area: Rect) {
+    let items: Vec<ListItem> = app
+        .context_items
+        .iter()
+        .map(|item| {
+            let path = item.path.to_string_lossy();
+            let tokens = item.tokens;
+            
+            // Heatmap Coloring
+            let color = if tokens > 1500 {
+                Color::Red
+            } else if tokens > 500 {
+                Color::Yellow
+            } else {
+                Color::Green
+            };
+
+            let text = format!("{path:<50} {tokens:>5} toks");
+            ListItem::new(text).style(Style::default().fg(color))
+        })
+        .collect();
+
+    let block = Block::default().borders(Borders::ALL).title(" [ CONTEXT EXPLORER ] ");
+    let list = List::new(items)
+        .block(block)
+        .highlight_style(Style::default().bg(Color::DarkGray).add_modifier(Modifier::BOLD));
+
+    let mut state = ListState::default();
+    state.select(Some(app.selected_file));
     f.render_stateful_widget(list, area, &mut state);
 }
 
 fn draw_checks(f: &mut Frame, app: &DashboardApp, area: Rect) {
-    let status_color = if app.check_running {
-        Color::Yellow
-    } else {
-        Color::Green
-    };
-    
+    let status_color = if app.check_running { Color::Yellow } else { Color::Green };
     let block = Block::default()
         .borders(Borders::ALL)
         .border_style(Style::default().fg(status_color))
         .title(if app.check_running { " [ RUNNING ] " } else { " [ IDLE ] " });
 
     let text = app.check_logs.join("\n");
-    let lines = text.lines().count();
-    let height = area.height as usize;
-    
-    // Allow truncation for TUI display logic
-    #[allow(clippy::cast_possible_truncation)]
-    let scroll = if lines > height { (lines - height) as u16 } else { 0 };
-
-    let p = Paragraph::new(text).block(block).scroll((scroll, 0));
+    let p = Paragraph::new(text).block(block).scroll((app.scroll, 0));
     f.render_widget(p, area);
 }
 
 fn draw_logs(f: &mut Frame, app: &DashboardApp, area: Rect) {
-    let block = Block::default()
-        .borders(Borders::ALL)
-        .title(" [ SYSTEM LOGS ] ");
-
+    let block = Block::default().borders(Borders::ALL).title(" [ SYSTEM LOGS ] ");
     let text = app.system_logs.join("\n");
-    let p = Paragraph::new(text).block(block);
+    let p = Paragraph::new(text).block(block).scroll((app.scroll, 0));
     f.render_widget(p, area);
-}
-
-fn draw_placeholder(f: &mut Frame, app: &DashboardApp, area: Rect) {
-    let content = format!("{:?} View (Coming Soon)", app.active_tab);
-    let block = Block::default()
-        .borders(Borders::ALL)
-        .title(format!(" [{:?}] ", app.active_tab));
-
-    f.render_widget(
-        Paragraph::new(content).block(block).alignment(Alignment::Center),
-        area,
-    );
 }
 
 fn draw_footer(f: &mut Frame, app: &DashboardApp, area: Rect) {
@@ -157,7 +158,8 @@ fn draw_footer(f: &mut Frame, app: &DashboardApp, area: Rect) {
 
     match app.active_tab {
         Tab::Roadmap => controls.insert(1, Span::raw(" [j/k] Select | [SPACE] Toggle | ")),
-        Tab::Checks => controls.insert(1, Span::raw(" [r] Run Checks | ")),
+        Tab::Checks => controls.insert(1, Span::raw(" [r] Run | [c] Clear | ")),
+        Tab::Context => controls.insert(1, Span::raw(" [j/k] Select | [c] Copy | ")),
         _ => {}
     }
 
@@ -179,7 +181,6 @@ fn draw_popup(f: &mut Frame, area: Rect) {
         .style(Style::default().bg(Color::DarkGray).fg(Color::White));
 
     let content = "SlopChop Protocol detected in clipboard.\n\nApply changes?\n\n[y] Apply & Verify\n[n] Discard";
-    
     let p = Paragraph::new(content).block(block).alignment(Alignment::Center);
     f.render_widget(p, popup_area);
 }

@@ -1,11 +1,14 @@
 // src/tui/dashboard/state.rs
+use crate::config::Config;
+use crate::discovery;
 use crate::roadmap::types::Section;
 use crate::roadmap::{Roadmap, TaskStatus};
+use crate::tokens::Tokenizer;
 use crate::tui::config::state::ConfigApp;
 use crate::tui::runner::CheckEvent;
 use crate::tui::watcher::WatcherEvent;
 use anyhow::Result;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, Receiver, Sender};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -26,6 +29,12 @@ pub struct FlatTask {
     pub is_header: bool,
 }
 
+#[derive(Debug, Clone)]
+pub struct ContextItem {
+    pub path: PathBuf,
+    pub tokens: usize,
+}
+
 pub struct DashboardApp {
     pub active_tab: Tab,
     pub running: bool,
@@ -41,12 +50,19 @@ pub struct DashboardApp {
     pub check_tx: Sender<CheckEvent>,
     pub check_rx: Receiver<CheckEvent>,
 
+    // Context Tab State
+    pub context_items: Vec<ContextItem>,
+    pub selected_file: usize,
+
     // Watcher State
     pub watch_tx: Sender<WatcherEvent>,
     pub watch_rx: Receiver<WatcherEvent>,
     pub pending_payload: Option<String>,
     pub show_popup: bool,
     pub system_logs: Vec<String>,
+
+    // Generic Scroll State (Logs/Checks)
+    pub scroll: u16,
 }
 
 impl Default for DashboardApp {
@@ -66,11 +82,14 @@ impl Default for DashboardApp {
                 check_running: false,
                 check_tx: ctx,
                 check_rx: crx,
+                context_items: Vec::new(),
+                selected_file: 0,
                 watch_tx: wtx,
                 watch_rx: wrx,
                 pending_payload: None,
                 show_popup: false,
                 system_logs: Vec::new(),
+                scroll: 0,
             }
         })
     }
@@ -94,13 +113,17 @@ impl DashboardApp {
             check_running: false,
             check_tx: ctx,
             check_rx: crx,
+            context_items: Vec::new(),
+            selected_file: 0,
             watch_tx: wtx,
             watch_rx: wrx,
             pending_payload: None,
             show_popup: false,
             system_logs: vec!["System initialized.".into()],
+            scroll: 0,
         };
         app.refresh_flat_roadmap();
+        app.refresh_context_items();
         Ok(app)
     }
 
@@ -113,21 +136,62 @@ impl DashboardApp {
         }
     }
 
+    pub fn refresh_context_items(&mut self) {
+        let mut config = Config::new();
+        config.load_local_config();
+        
+        if let Ok(files) = discovery::discover(&config) {
+            self.context_items = files.into_iter().filter_map(|path| {
+                let content = std::fs::read_to_string(&path).ok()?;
+                let tokens = Tokenizer::count(&content);
+                Some(ContextItem { path, tokens })
+            }).collect();
+
+            self.context_items.sort_by(|a, b| b.tokens.cmp(&a.tokens));
+        }
+    }
+
     pub fn switch_tab(&mut self, tab: Tab) {
         self.active_tab = tab;
+        self.scroll = 0; // Reset text scroll
+        // Note: We preserve list selections (selected_task, selected_file)
     }
 
     pub fn scroll_up(&mut self) {
-        if self.active_tab == Tab::Roadmap && self.selected_task > 0 {
-            self.selected_task -= 1;
+        match self.active_tab {
+            Tab::Roadmap => {
+                if self.selected_task > 0 {
+                    self.selected_task -= 1;
+                }
+            }
+            Tab::Context => {
+                if self.selected_file > 0 {
+                    self.selected_file -= 1;
+                }
+            }
+            Tab::Checks | Tab::Logs => {
+                self.scroll = self.scroll.saturating_sub(1);
+            }
+            Tab::Config => {}
         }
     }
 
     pub fn scroll_down(&mut self) {
-        if self.active_tab == Tab::Roadmap
-            && self.selected_task < self.flat_roadmap.len().saturating_sub(1)
-        {
-            self.selected_task += 1;
+        match self.active_tab {
+            Tab::Roadmap => {
+                if self.selected_task < self.flat_roadmap.len().saturating_sub(1) {
+                    self.selected_task += 1;
+                }
+            }
+            Tab::Context => {
+                if self.selected_file < self.context_items.len().saturating_sub(1) {
+                    self.selected_file += 1;
+                }
+            }
+            Tab::Checks | Tab::Logs => {
+                self.scroll = self.scroll.saturating_add(1);
+            }
+            Tab::Config => {}
         }
     }
 

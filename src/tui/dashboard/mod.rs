@@ -8,6 +8,7 @@ use state::DashboardApp;
 use std::path::Path;
 use std::time::Duration;
 use crate::apply::{self, types::ApplyContext};
+use crate::clipboard;
 use crate::roadmap::{cmd_handlers, Roadmap, TaskStatus};
 use crate::tui::runner::{spawn_checks, CheckEvent};
 use crate::tui::watcher::{spawn_watcher, WatcherEvent};
@@ -104,9 +105,9 @@ fn apply_payload(app: &mut DashboardApp, content: &str) {
     match apply::process_input(content, &ctx) {
         Ok(outcome) => {
             app.log_system(format!("Apply complete: {outcome:?}"));
-            // Reload roadmap as it might have changed
             app.roadmap = Roadmap::from_file(Path::new("ROADMAP.md")).ok();
             app.refresh_flat_roadmap();
+            app.refresh_context_items();
             
             app.switch_tab(state::Tab::Checks);
             app.check_running = true;
@@ -143,7 +144,8 @@ fn route_tab_input(app: &mut DashboardApp, key: KeyCode) {
         state::Tab::Config => app.config.handle_input(key),
         state::Tab::Checks => handle_checks_input(app, key),
         state::Tab::Roadmap => handle_roadmap_input(app, key),
-        _ => {}
+        state::Tab::Context => handle_context_input(app, key),
+        state::Tab::Logs => handle_scroll(app, key),
     }
 }
 
@@ -167,6 +169,30 @@ fn handle_roadmap_input(app: &mut DashboardApp, key: KeyCode) {
     match key {
         KeyCode::Char(' ') | KeyCode::Enter => toggle_roadmap_task(app),
         _ => handle_scroll(app, key),
+    }
+}
+
+fn handle_context_input(app: &mut DashboardApp, key: KeyCode) {
+    match key {
+        KeyCode::Char('c') => copy_context_file(app),
+        _ => handle_scroll(app, key),
+    }
+}
+
+fn copy_context_file(app: &mut DashboardApp) {
+    if let Some(item) = app.context_items.get(app.selected_file) {
+        if let Ok(content) = std::fs::read_to_string(&item.path) {
+            let wrapped = format!(
+                "#__SLOPCHOP_FILE__# {}\n{}\n#__SLOPCHOP_END__#", 
+                item.path.to_string_lossy(),
+                content
+            );
+            if clipboard::copy_to_clipboard(&wrapped).is_ok() {
+                app.log_system(format!("Copied context: {}", item.path.display()));
+            } else {
+                app.log_system("Failed to copy to clipboard.");
+            }
+        }
     }
 }
 
@@ -207,11 +233,7 @@ fn update_roadmap_task(app: &mut DashboardApp, path: &str, status: TaskStatus) -
 
     if matches!(res, crate::roadmap::ApplyResult::Success(_)) {
         let _ = roadmap.save(Path::new("ROADMAP.md"));
-        
-        // CRITICAL FIX: The UI depends on `sections` structure, but commands modify `raw` string.
-        // We must re-parse `raw` to update `sections` so the UI reflects the change.
         *roadmap = Roadmap::parse(&roadmap.raw);
-        
         return true;
     }
     false
