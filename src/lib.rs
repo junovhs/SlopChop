@@ -1,4 +1,14 @@
 // src/lib.rs
+//! SlopChop - Code quality guardian for AI-assisted development.
+
+// Allow noisy pedantic lints that are pure style, not correctness.
+// Keeps pedantic enabled for the valuable lints while reducing churn.
+#![allow(clippy::doc_markdown)]
+#![allow(clippy::needless_raw_string_hashes)]
+#![allow(clippy::must_use_candidate)]
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::format_push_string)]
+
 pub mod analysis;
 pub mod apply;
 pub mod clean;
