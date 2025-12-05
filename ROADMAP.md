@@ -267,6 +267,7 @@
 ---
 
 ## v0.7.0 — Test Traceability 🔄 CURRENT
+- [ ] **Clean check output (failures only)**
 
 *Enforce the contract: every feature has verified tests.*
 

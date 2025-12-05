@@ -2,6 +2,7 @@
 //! Command handlers for the slopchop CLI.
 
 use std::path::Path;
+use std::process::{self, Command, Stdio};
 
 use anyhow::Result;
 use colored::Colorize;
@@ -56,7 +57,7 @@ pub fn handle_context(verbose: bool, copy: bool) -> Result<()> {
 
     if copy {
         crate::clipboard::copy_to_clipboard(&output)?;
-        println!("{}", "✓ Context map copied to clipboard".green());
+        println!("{}", "� Context map copied to clipboard".green());
     } else {
         println!("{output}");
     }
@@ -75,7 +76,7 @@ pub fn handle_prompt(copy: bool) -> Result<()> {
 
     if copy {
         crate::clipboard::copy_to_clipboard(&prompt)?;
-        println!("{}", "✓ Copied to clipboard".green());
+        println!("{}", "� Copied to clipboard".green());
     } else {
         println!("{prompt}");
     }
@@ -133,43 +134,106 @@ pub fn handle_pack(args: PackArgs) -> Result<()> {
 }
 
 fn run_pipeline(name: &str) {
-    use std::process;
-
     let mut config = Config::new();
     config.load_local_config();
 
     let Some(commands) = config.commands.get(name) else {
-        eprintln!("{} No '{}' command configured", "error:".red(), name);
+        eprintln!("{} No '{}' command configured", "?".red(), name);
         process::exit(1);
     };
 
-    println!("{} Running '{}' pipeline...", "✨".green(), name);
+    println!("{} Running '{}' pipeline...", "?".cyan(), name);
     for cmd in commands {
-        exec_cmd(cmd);
+        if !exec_cmd_filtered(cmd) {
+            process::exit(1);
+        }
     }
+    println!("{} All checks passed!", "�".green().bold());
 }
 
-fn exec_cmd(cmd: &str) {
-    use std::io;
-    use std::process::{self, Command};
+fn exec_cmd_filtered(cmd: &str) -> bool {
+    print!("   {} {} ", "?".blue(), cmd.dimmed());
 
-    println!("   {} {}", "exec:".dimmed(), cmd.dimmed());
     let parts: Vec<&str> = cmd.split_whitespace().collect();
-    let (prog, args) = parts.split_first().unwrap_or((&"", &[]));
+    let Some((prog, args)) = parts.split_first() else {
+        println!("{}", "�".green());
+        return true;
+    };
 
-    match Command::new(prog).args(args).status() {
-        Ok(s) if s.success() => {}
-        Ok(s) => {
-            eprintln!("{} Exit code {}", "✗".red(), s.code().unwrap_or(1));
-            process::exit(s.code().unwrap_or(1));
-        }
-        Err(e) if e.kind() == io::ErrorKind::NotFound => {
-            eprintln!("{} Not found: {prog}", "error:".red());
-            process::exit(1);
-        }
+    let output = match Command::new(prog)
+        .args(args)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .output()
+    {
+        Ok(o) => o,
         Err(e) => {
-            eprintln!("{} {e}", "error:".red());
-            process::exit(1);
+            println!("{}", "?".red());
+            eprintln!("     {} {e}", "error:".red());
+            return false;
+        }
+    };
+
+    if output.status.success() {
+        println!("{}", "�".green());
+        return true;
+    }
+
+    println!("{}", "?".red());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    if cmd.contains("cargo test") {
+        print_test_failures(&stdout, &stderr);
+    } else if cmd.contains("clippy") {
+        print_clippy_errors(&stderr);
+    } else {
+        print_generic_error(&stdout, &stderr);
+    }
+
+    false
+}
+
+fn print_test_failures(stdout: &str, stderr: &str) {
+    println!("\n{}", "��� Test Failures ���".red().bold());
+
+    for line in stdout.lines().chain(stderr.lines()) {
+        if line.contains("FAILED") {
+            println!("  {} {}", "?".red(), line.trim());
         }
     }
+
+    for line in stderr.lines() {
+        if line.contains("panicked at") {
+            println!("\n  {}", line.trim().yellow());
+        }
+    }
+    println!();
 }
+
+fn print_clippy_errors(stderr: &str) {
+    println!("\n{}", "��� Clippy Errors ���".red().bold());
+
+    for line in stderr.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("error[") || trimmed.starts_with("error:") {
+            println!("  {}", trimmed.red());
+        } else if trimmed.starts_with("-->") {
+            println!("    {}", trimmed.dimmed());
+        } else if trimmed.contains("could not compile") {
+            break;
+        }
+    }
+    println!();
+}
+
+fn print_generic_error(stdout: &str, stderr: &str) {
+    println!("\n{}", "��� Output ���".red().bold());
+    let combined = format!("{stdout}\n{stderr}");
+    for line in combined.lines().take(20) {
+        if !line.trim().is_empty() {
+            println!("  {line}");
+        }
+    }
+    println!();
+}
