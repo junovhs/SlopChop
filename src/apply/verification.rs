@@ -12,7 +12,7 @@ use std::process::Command;
 /// # Errors
 /// Returns error if command execution fails.
 pub fn verify_application(ctx: &ApplyContext) -> Result<(bool, String)> {
-    println!("{}", "\n?? Verifying changes...".blue().bold());
+    println!("{}", "\n> Verifying changes...".blue().bold());
     let mut log_buffer = String::new();
 
     if let Some(commands) = ctx.config.commands.get("check") {
@@ -34,12 +34,12 @@ pub fn verify_application(ctx: &ApplyContext) -> Result<(bool, String)> {
 }
 
 fn run_check_command(cmd: &str) -> Result<(bool, String)> {
-    print!("   {} {} ", "".blue(), cmd.dimmed());
+    print!("   {} {} ", ">".blue(), cmd.dimmed());
     let _ = io::stdout().flush();
 
     let parts: Vec<&str> = cmd.split_whitespace().collect();
     let Some((prog, args)) = parts.split_first() else {
-        println!("{}", "�".green());
+        println!("{}", "ok".green());
         return Ok((true, String::new()));
     };
 
@@ -49,10 +49,10 @@ fn run_check_command(cmd: &str) -> Result<(bool, String)> {
     let combined = format!("{stdout}\n{stderr}");
 
     if output.status.success() {
-        println!("{}", "�".green());
+        println!("{}", "ok".green());
         Ok((true, combined))
     } else {
-        println!("{}", "?".red());
+        println!("{}", "err".red());
         print!("{stdout}");
         eprint!("{stderr}");
         Ok((false, combined))
@@ -65,7 +65,6 @@ fn run_slopchop_check() -> Result<(bool, String)> {
     let stderr = String::from_utf8_lossy(&output.stderr);
     let combined = format!("{stdout}\n{stderr}");
 
-    // We print slopchop output because it contains summary stats (tokens, etc.)
     print!("{stdout}");
     eprint!("{stderr}");
 

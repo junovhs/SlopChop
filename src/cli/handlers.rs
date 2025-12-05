@@ -58,7 +58,7 @@ pub fn handle_context(verbose: bool, copy: bool) -> Result<()> {
 
     if copy {
         crate::clipboard::copy_to_clipboard(&output)?;
-        println!("{}", "? Context map copied to clipboard".green());
+        println!("{}", "ok Context map copied to clipboard".green());
     } else {
         println!("{output}");
     }
@@ -77,7 +77,7 @@ pub fn handle_prompt(copy: bool) -> Result<()> {
 
     if copy {
         crate::clipboard::copy_to_clipboard(&prompt)?;
-        println!("{}", "? Copied to clipboard".green());
+        println!("{}", "ok Copied to clipboard".green());
     } else {
         println!("{prompt}");
     }
@@ -139,7 +139,7 @@ fn run_pipeline(name: &str) {
     config.load_local_config();
 
     let Some(commands) = config.commands.get(name) else {
-        eprintln!("{} No '{}' command configured", "?".red(), name);
+        eprintln!("{} No '{}' command configured", "err".red(), name);
         process::exit(1);
     };
 
@@ -149,8 +149,8 @@ fn run_pipeline(name: &str) {
             process::exit(1);
         }
     }
-    
-    println!("{}", "? All checks passed!".green().bold());
+
+    println!("{}", "ok All checks passed!".green().bold());
 }
 
 fn exec_cmd_filtered(cmd: &str) -> bool {
@@ -159,14 +159,14 @@ fn exec_cmd_filtered(cmd: &str) -> bool {
 
     let parts: Vec<&str> = cmd.split_whitespace().collect();
     let Some((prog, args)) = parts.split_first() else {
-        println!("{}", "?".green());
+        println!("{}", "ok".green());
         return true;
     };
 
     match execute_command(prog, args) {
         Ok(output) => handle_command_output(cmd, &output),
         Err(e) => {
-            println!("{}", "?".red());
+            println!("{}", "err".red());
             eprintln!("     {} {e}", "error:".red());
             false
         }
@@ -183,11 +183,11 @@ fn execute_command(prog: &str, args: &[&str]) -> std::io::Result<std::process::O
 
 fn handle_command_output(cmd: &str, output: &std::process::Output) -> bool {
     if output.status.success() {
-        println!("{}", "?".green());
+        println!("{}", "ok".green());
         return true;
     }
 
-    println!("{}", "?".red());
+    println!("{}", "err".red());
     let stderr = String::from_utf8_lossy(&output.stderr);
     let stdout = String::from_utf8_lossy(&output.stdout);
 
@@ -210,7 +210,7 @@ fn print_test_failures(stdout: &str, stderr: &str) {
 
     for line in stdout.lines().chain(stderr.lines()) {
         if line.contains("FAILED") {
-            println!("  {} {}", "?".red(), line.trim());
+            println!("  {} {}", "x".red(), line.trim());
         }
     }
 
