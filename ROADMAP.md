@@ -1,5 +1,3 @@
-#__SLOPCHOP_FILE__#
-ROADMAP.md
 # SlopChop Protocol Roadmap
 
 ## Philosophy
@@ -567,4 +565,3 @@ ROADMAP.md
 - **Full LSP implementation** — Use tree-sitter queries, not language servers
 - **Multi-repo support** — One project at a time
 - **Incremental graph updates** — Rebuild on each run (fast enough)
-#__SLOPCHOP_END__#
