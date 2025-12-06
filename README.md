@@ -6,24 +6,12 @@
 
 ## The Story
 
-I'm mainly a product designer. This tool is the embodiment of a workflow I've developed over the last several years playing with LLMs. Every line came from whatever smarty-pants AI model was kicking ass that week.
+I'm a product designer, not a developer. But I ship production code, entirely through conversation with LLMs.
 
-While senior devs and teams can use this as a sort of structural/code quality linter (same rules, no AI required), the full suite is really geared at low/no-code folk like myself who are building entire projects through conversation with a traditional chat interface for the AI.
+That only works if you're rigorous. Small files the AI can reason about fully. Low complexity so logic stays testable. No truncation, ever. Hard constraints, enforced at every commit.
 
-How does that even work?
-
-By enforcing rules that keep AI output clean. Small files. Simple functions. No lazy truncation. The AI learns on the spot via rejection.
-If vibe coding is building a house of cards, SlopChop is building a house of cards with glue. At every step, you refuse code that doesn't meet strict quality standards. You never have to "go back and fix something later" — that's where projects collapse. I mean, as much as possible, anyway.
-
-Here's what that actually means in practice:
-
-* **Small files** — AI reasons better over code it can see entirely. So does your reviewer (you).
-* **Low complexity** — Deeply nested logic confuses AI. It confuses humans too. Keep it flat. Why not be draconian about it? If AI is writing the code, who cares if in the end you used fewer tokens and the outcome is cleaner.
-* **No panic paths** — In Rust, .unwrap() is a hidden crash. SlopChop bans it, forcing proper error handling.
-* **No truncation** — When AI writes // ... rest of implementation, that's not code. That's giving up. Rejected. <!-- slopchop:ignore -->
-
-The result: code that's modular, testable, and honest. Not because AI is smart, but because you refused to let it be lazy.
-This tool is the proof. It passes its own rules.
+I built **SlopChop** to hold that line. It's the gatekeeper between AI output and my codebase: if the code doesn't meet the spec, it doesn't land.
+Every line of this tool was written by AI. It passes its own rules.
 
 ---
 
