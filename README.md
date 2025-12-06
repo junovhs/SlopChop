@@ -42,60 +42,74 @@ SlopChop **fixes all of this.**
 
 ---
 
-## The Workflow: Self-Driving Context
+Looking at this, the core issue is that it's hard to *see* the flow. The steps blend together, and the human/AI back-and-forth gets lost in the formatting.
 
-SlopChop doesn't just check code; it teaches the AI how to navigate your repo.
+Here's a rewrite that separates the one-time setup from the repeating loop, and makes the conversation dance visually obvious:
 
-### 1. Setup
-Copy the system prompt into your AI settings (Claude Project / ChatGPT Instructions).
-```bash
-slopchop prompt --copy
-```
+---
 
-### 2. Diagnosis (The Map)
-When you have a bug or need a feature, but don't know where to start:
+## The Workflow
+
+SlopChop teaches the AI to navigate your repo through a simple loop: **Map → Pack → Apply**.
+
+### The Loop
+
+flowchart TD
+    subgraph Loop
+        M[🗺️ Map<br><i>you show codebase</i>]
+        P[📦 Pack<br><i>AI asks, you provide</i>]
+        A[⚡ Apply<br><i>you land or reject</i>]
+    end
+    
+    M --> P --> A
+    A -->|"✗ Rejected"| P
+    A -->|"✓ Committed"| E(( ))
+
+#### 1. Map — Show the AI your codebase
+
 ```bash
 slopchop signatures
 ```
-*Copies a high-level map of all types and functions to your clipboard.*
-*Automatically includes the System Prompt & Rules.*
 
-**You:** "I'm getting error X. Here is the map."
-**AI:** "I see the issue. It's likely in `src/config.rs`. Please pack that file."
+Copies a high-level map of every type and function to your clipboard.
 
-### 3. Surgery (The Pack)
-The AI tells you what it needs. You execute.
+> **You:** "I'm getting error X. Here's my codebase."  
+> **AI:** "I see the issue. It's likely in `src/config.rs`. Can you pack that file?"
+
+#### 2. Pack — Run the command it gives you, to give the AI what it wants
+
 ```bash
 slopchop pack --focus src/config.rs
 ```
-*Copies `src/config.rs` (Full Source) + Dependencies (Skeletons).*
-*Smart Copy automatically puts it in clipboard (or attaches file if huge).*
 
-**You:** "Here is the context."
-**AI:** [Responds with corrected code in SlopChop format]
+Copies the full file + skeletons of its dependencies.
 
-### 4. Application
-You copy the AI's response.
+> **You:** *\*pastes\**  
+> **AI:** *\*responds with fixed code in SlopChop format\**
+
+#### 3. Apply — Land the changes (or reject the slop)
+
+Copy the AI's **entire** response, then:
+
 ```bash
 slopchop apply
 ```
-*Validates constraints, runs tests, and commits changes automatically.*
-
-If the AI gives you slop:
+If clean: tests and lints run, changes commit.  
+If slop is detected:
 
 ```
-    slopchop apply
-    
-    ✗ REJECTED
-    - src/auth/login.rs: complexity 12 (max 8)
-    - src/auth/login.rs: detected "// ..." truncation <!-- slopchop:ignore -->
-    
-    [error copied to clipboard]
+✗ REJECTED
+- src/auth/login.rs: complexity 12 (max 8)
+- src/auth/login.rs: detected "// ..." truncation
+
+[error automatically copied to clipboard]
 ```
 
-Paste the error back. AI apologizes. Fixes it. Resubmit.
+Paste the error back. AI fixes it. Repeat.
 
-**The AI learns your standards through rejection, not instruction.**
+---
+
+**The AI learns your (configurable) standards through rejection + automatic corrections.**
 
 ---
 
@@ -107,8 +121,8 @@ slopchop watch
 
 Runs in background. Watches your clipboard.
 
-1. You copy from Claude
-2. Notification: "3 files ready. ⌘⇧L to land"
+1. You copy from your AI of choice
+2. Notification: "3 files ready. ⌘⇧L to apply"
 3. Press hotkey
 4. Done. Never left the browser.
 
@@ -152,7 +166,7 @@ cargo install --path .
 Then:
 
 ```bash
-slopchop --init    # interactive setup
+slopchop config  # interactive setup
 ```
 
 Or just run `slopchop` and it auto-generates config.
