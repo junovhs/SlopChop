@@ -8,8 +8,10 @@ use crate::pack::{self, OutputFormat, PackOptions};
 use crate::prompt::PromptGenerator;
 use crate::reporting;
 use crate::trace::{self, TraceOptions};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use colored::Colorize;
 
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone)]
@@ -71,19 +73,28 @@ pub fn handle_check() -> Result<()> {
 }
 
 fn run_check_command(cmd: &str) -> Result<()> {
-    print!("   > {cmd} ");
+    print!("   > {cmd} ... ");
+    
+    // Flush stdout to ensure the "..." appears before the command runs
+    let _ = std::io::stdout().flush();
+
     let parts: Vec<&str> = cmd.split_whitespace().collect();
     
     let Some((prog, args)) = parts.split_first() else {
+        println!("{}", "skipped (empty)".yellow());
         return Ok(());
     };
 
-    let status = Command::new(prog).args(args).status()?;
-    if status.success() {
-        println!("ok");
+    let output = Command::new(prog).args(args).output()?;
+
+    if output.status.success() {
+        println!("{}", "ok".green());
         Ok(())
     } else {
-        println!("err");
+        println!("{}", "err".red());
+        println!("{}", "--- STDERR ---".red());
+        println!("{}", String::from_utf8_lossy(&output.stderr));
+        println!("{}", "--------------".red());
         Err(crate::error::SlopChopError::Other(format!(
             "Command failed: {cmd}"
         )))
