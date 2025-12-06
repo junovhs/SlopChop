@@ -1675,7 +1675,7 @@ order = 42
 id = "slopchop-watch-command"
 text = "slopchop watch command"
 status = "pending"
-section = "v0.8.0"
+section = "v0.9.0"
 group = "Daemon Core"
 order = 0
 
