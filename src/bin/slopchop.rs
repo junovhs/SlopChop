@@ -15,7 +15,7 @@ use slopchop_core::discovery;
 use slopchop_core::pack::OutputFormat;
 use slopchop_core::project;
 use slopchop_core::reporting;
-use slopchop_core::roadmap::cli::{handle_command, RoadmapCommand};
+use slopchop_core::roadmap_v2::{handle_command, RoadmapV2Command};
 use slopchop_core::tui::state::App;
 use slopchop_core::wizard;
 
@@ -44,9 +44,9 @@ enum Commands {
         commit: bool,
     },
     Config,
-    Dashboard, // Mission Control
+    Dashboard,
     #[command(subcommand)]
-    Roadmap(RoadmapCommand),
+    Roadmap(RoadmapV2Command),
     Pack {
         #[arg(long, short)]
         stdout: bool,
@@ -263,4 +263,4 @@ fn ensure_config_exists() {
     if fs::write("slopchop.toml", &content).is_ok() {
         eprintln!("{}", "? Created slopchop.toml".dimmed());
     }
-}
+}
