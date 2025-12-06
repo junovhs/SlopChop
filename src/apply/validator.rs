@@ -1,4 +1,3 @@
-// slopchop:ignore
 // src/apply/validator.rs
 use crate::apply::types::{ExtractedFiles, Manifest};
 use crate::apply::ApplyOutcome;
@@ -63,21 +62,37 @@ pub fn validate(manifest: &Manifest, extracted: &ExtractedFiles) -> ApplyOutcome
 }
 
 fn validate_path(path_str: &str) -> Result<(), String> {
+    // 1. Manual check for Windows Absolute paths (Drive letter or UNC)
+    // We do this manually because Path::is_absolute depends on the running OS.
+    let is_drive = path_str.len() >= 2
+        && path_str.chars().nth(1) == Some(':')
+        && path_str
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_alphabetic());
+
+    if is_drive || path_str.starts_with('\\') || path_str.starts_with('/') {
+        return Err(format!("Absolute paths not allowed: {path_str}"));
+    }
+
+    // 2. Standard Path checks
     let path = Path::new(path_str);
     if path.is_absolute() {
         return Err(format!("Absolute paths not allowed: {path_str}"));
     }
+
     if path.components().any(|c| matches!(c, Component::ParentDir)) {
         return Err(format!("Path traversal not allowed: {path_str}"));
     }
+
     for component in path.components() {
         if let Component::Normal(os_str) = component {
             let s = os_str.to_string_lossy();
             if BLOCKED_DIRS.contains(&s.as_ref()) {
                 return Err(format!("Access to sensitive directory blocked: {s}"));
             }
-            if s.starts_with('.') 
-                && !s.eq(".gitignore") 
+            if s.starts_with('.')
+                && !s.eq(".gitignore")
                 && !s.eq(".slopchopignore")
                 && !s.eq(".github")
             {
@@ -96,25 +111,35 @@ fn validate_content(path: &str, content: &str) -> Result<(), String> {
     if content.trim().is_empty() {
         return Err(format!("File is empty: {path}"));
     }
-    if content.contains("```") || content.contains("~~~") {
-        return Err(format!("Markdown fences detected in {path}. Content must be raw code."));
+
+    // Use escape sequences to prevent self-rejection
+    // \x60 = backtick, \x7E = tilde
+    if content.contains("\x60\x60\x60") || content.contains("\x7E\x7E\x7E") {
+        return Err(format!(
+            "Markdown fences detected in {path}. Content must be raw code."
+        ));
     }
+
     if let Some(line) = detect_truncation(content) {
-        return Err(format!("Truncation detected in {path} at line {line}: AI gave up."));
+        return Err(format!(
+            "Truncation detected in {path} at line {line}: AI gave up."
+        ));
     }
     Ok(())
 }
 
 fn detect_truncation(content: &str) -> Option<usize> {
+    // We add slopchop:ignore to these lines so the CURRENT version of the tool
+    // doesn't flag this NEW version of the source code as truncated.
     let truncation_patterns = [
-        "// ...",
-        "/* ... */",
-        "# ...",
-        "// rest of",
-        "// remaining",
-        "# rest of",
-        "# remaining",
-        "<!-- ... -->",
+        "// ...",         // slopchop:ignore
+        "/* ... */",      // slopchop:ignore
+        "# ...",          // slopchop:ignore
+        "// rest of",     // slopchop:ignore
+        "// remaining",   // slopchop:ignore
+        "# rest of",      // slopchop:ignore
+        "# remaining",    // slopchop:ignore
+        "<!-- ... -->",   // slopchop:ignore
     ];
     for (i, line) in content.lines().enumerate() {
         let trimmed = line.trim();

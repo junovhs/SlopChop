@@ -44,9 +44,17 @@ fn extract_blocks(input: &str) -> Vec<String> {
     blocks
 }
 
+fn clean_lines(block: &str) -> Vec<&str> {
+    block
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty() && !l.starts_with('#'))
+        .collect()
+}
+
 fn parse_single_block(block: &str) -> Result<RoadmapCommand, SlopChopError> {
-    let lines: Vec<&str> = block.lines().collect();
-    let first_line = lines.first().copied().unwrap_or("").trim();
+    let lines = clean_lines(block);
+    let first_line = lines.first().copied().unwrap_or("");
 
     match first_line.to_uppercase().as_str() {
         "CHECK" => parse_check(&lines[1..]),
@@ -54,6 +62,7 @@ fn parse_single_block(block: &str) -> Result<RoadmapCommand, SlopChopError> {
         "ADD" => parse_add(&lines[1..]),
         "UPDATE" => parse_update(&lines[1..]),
         "DELETE" => parse_delete(&lines[1..]),
+        "" => Err(SlopChopError::Other("Empty command block".to_string())),
         other => Err(SlopChopError::Other(format!(
             "Unknown roadmap command: {other}"
         ))),
@@ -116,8 +125,7 @@ fn require_field(lines: &[&str], key: &str) -> Result<String, SlopChopError> {
 fn optional_field(lines: &[&str], key: &str) -> Option<String> {
     let prefix = format!("{key} = ");
     for line in lines {
-        let trimmed = line.trim();
-        if let Some(value) = trimmed.strip_prefix(&prefix) {
+        if let Some(value) = line.strip_prefix(&prefix) {
             return Some(value.trim().to_string());
         }
     }
@@ -143,4 +151,4 @@ mod tests {
         assert_eq!(cmds.len(), 1);
         assert!(matches!(&cmds[0], RoadmapCommand::Add(t) if t.id == "new-feature"));
     }
-}
+}

@@ -51,8 +51,6 @@ pub fn process_input(content: &str, ctx: &ApplyContext) -> Result<ApplyOutcome> 
 
     let validation = validate_payload(content);
     if !matches!(validation, ApplyOutcome::Success { .. }) {
-        // Validation failed immediately (bad format/safety)
-        // We do NOT persist intent here because the user likely needs to reprompt entirely.
         return Ok(validation);
     }
 
@@ -113,25 +111,19 @@ fn apply_and_verify(content: &str, ctx: &ApplyContext, plan: Option<&str>) -> Re
 
     let mut outcome = writer::write_files(&manifest, &extracted, None)?;
 
-    // Handle roadmap updates using v2 system
-    // v2 uses slopchop.toml/tasks.toml, but we also support updating if commands are present
-    let roadmap_path = Path::new("slopchop.toml"); 
+    // Use tasks.toml for Roadmap V2
+    let roadmap_path = Path::new("tasks.toml");
     let mut roadmap_results = Vec::new();
-    
-    // We check for roadmap commands regardless of file existence, 
-    // handle_input will check for store existence.
+
     match roadmap_v2::handle_input(roadmap_path, content) {
         Ok(results) => roadmap_results = results,
         Err(e) => {
-             // If it's just "no commands found" we ignore it, but handle_input returns empty vec
-             // If parsing fails or store load fails, we report it.
-             // We only log if it looks like they tried to do something.
-             if content.contains("===ROADMAP===") {
-                 eprintln!("{} Roadmap update failed: {e}", "⚠️".yellow());
-             }
+            if content.contains("===ROADMAP===") {
+                eprintln!("{} Roadmap update failed: {e}", "⚠️".yellow());
+            }
         }
     }
-    
+
     if let ApplyOutcome::Success {
         roadmap_results: ref mut rr,
         ..
@@ -202,8 +194,6 @@ fn handle_failure(plan: Option<&str>, failure_log: &str) {
             .bold()
     );
     println!("Fix the issues manually and then commit.");
-
-    // Auto-copy failure log
     messages::print_ai_feedback(failure_log);
 
     if let Some(p) = plan {
@@ -212,10 +202,8 @@ fn handle_failure(plan: Option<&str>, failure_log: &str) {
 }
 
 fn save_intent(plan: &str) {
-    // Only save if no intent exists (preserve the original goal)
     if !Path::new(INTENT_FILE).exists() {
         let clean = plan.replace("GOAL:", "").trim().to_string();
-        // Ignore errors silently (best effort)
         let _ = std::fs::write(INTENT_FILE, clean);
     }
 }
