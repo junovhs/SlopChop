@@ -1,4 +1,5 @@
 // src/apply/validator.rs
+use crate::apply::messages::format_ai_rejection;
 use crate::apply::types::{ExtractedFiles, Manifest};
 use crate::apply::ApplyOutcome;
 use std::path::{Component, Path};
@@ -53,10 +54,11 @@ pub fn validate(manifest: &Manifest, extracted: &ExtractedFiles) -> ApplyOutcome
             backed_up: false,
         }
     } else {
+        let ai_message = format_ai_rejection(&[], &errors);
         ApplyOutcome::ValidationFailure {
             errors,
             missing: vec![],
-            ai_message: String::new(),
+            ai_message,
         }
     }
 }
