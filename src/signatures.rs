@@ -28,10 +28,7 @@ pub fn run(opts: &SignatureOptions) -> Result<()> {
     println!("{}", "🔍 Scanning type surface...".cyan());
 
     let files = discovery::discover(&config)?;
-    let signatures: Vec<String> = files
-        .par_iter()
-        .filter_map(|p| process_file(p))
-        .collect();
+    let signatures: Vec<String> = files.par_iter().filter_map(|p| process_file(p)).collect();
 
     let output = format_output(&signatures);
     let tokens = Tokenizer::count(&output);
@@ -48,7 +45,7 @@ pub fn run(opts: &SignatureOptions) -> Result<()> {
         crate::clipboard::smart_copy(&output)?;
         println!("{}", "✓ Copied to clipboard".green());
     } else {
-        let out_path = Path::new("SIGNATURES.rs"); // Use .rs for syntax highlighting hint
+        let out_path = Path::new("SIGNATURES.txt"); // Use .rs for syntax highlighting hint
         fs::write(out_path, &output).context("Failed to write output file")?;
         println!("✓ Written to {}", out_path.display().to_string().green());
     }

@@ -51,3 +51,4 @@ chaos_examples/
 .slopchop_apply_backup/
 .slopchop_intent
 context.txt
+SIGNATURES.txt
