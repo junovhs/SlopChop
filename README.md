@@ -30,12 +30,6 @@ SlopChop **fixes all of this.**
 
 ---
 
-Looking at this, the core issue is that it's hard to *see* the flow. The steps blend together, and the human/AI back-and-forth gets lost in the formatting.
-
-Here's a rewrite that separates the one-time setup from the repeating loop, and makes the conversation dance visually obvious:
-
----
-
 ## The Workflow
 
 SlopChop teaches the AI to navigate your repo through a simple loop: **Map → Pack → Apply**.
