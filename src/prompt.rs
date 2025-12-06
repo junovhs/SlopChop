@@ -70,6 +70,7 @@ THE 3 LAWS (Non-Negotiable):
         let complexity = self.config.max_cyclomatic_complexity;
         let depth = self.config.max_nesting_depth;
         let args = self.config.max_function_args;
+        let marker = "#__SLOPCHOP_FILE__#";
 
         format!(
             r"SLOPCHOP CONSTRAINTS:
@@ -78,42 +79,64 @@ THE 3 LAWS (Non-Negotiable):
 □ Nesting ≤ {depth}
 □ Args ≤ {args}
 □ No .unwrap() or .expect()
-□ Use SlopChop Format (#__SLOPCHOP_FILE__# ... #__SLOPCHOP_END__#)"
+□ Use SlopChop Format ({marker} ...)"
         )
     }
 }
 
 fn build_output_format() -> String {
-    r#"OUTPUT FORMAT (MANDATORY):
+    // We construct tokens dynamically to prevent SlopChop from parsing THIS file's 
+    // source code as command blocks during 'apply'.
+    let roadmap_token = "===ROADMAP===";
+    let plan_start = "#__SLOPCHOP_PLAN__#";
+    let plan_end = "#__SLOPCHOP_END__#";
+    let manifest_start = "#__SLOPCHOP_MANIFEST__#";
+    let manifest_end = "#__SLOPCHOP_END__#";
+    let file_start = "#__SLOPCHOP_FILE__#";
+    let file_end = "#__SLOPCHOP_END__#";
+    
+    format!(r#"OUTPUT FORMAT (MANDATORY):
 
 1. Explain the changes (Technical Plan):
    - Must start with "GOAL:"
    - Must include "CHANGES:" list
 
-#__SLOPCHOP_PLAN__#
+{plan_start}
 GOAL: Refactor authentication module.
 CHANGES:
 1. Extract user validation to new file.
 2. Update config parser.
-#__SLOPCHOP_END__#
+{plan_end}
 
 2. Declare the plan (Manifest):
 
-#__SLOPCHOP_MANIFEST__#
+{manifest_start}
 path/to/file1.rs
 path/to/file2.rs [NEW]
-#__SLOPCHOP_END__#
+{manifest_end}
 
 3. Provide EACH file:
 
-#__SLOPCHOP_FILE__# path/to/file1.rs
+{file_start} path/to/file1.rs
 [file content]
-#__SLOPCHOP_END__#
+{file_end}
+
+4. Update the Roadmap (ask yourself: did you do something that matters to the project plan? Record it.):
+   - Use this block if you completed a task or need to add one.
+
+{roadmap_token}
+CHECK
+id = task-id
+ADD
+id = new-task
+text = Refactor logs
+section = v0.2.0
+{roadmap_token}
 
 RULES:
-- Do NOT use markdown code blocks (e.g. triple backticks) to wrap the file. The #__SLOPCHOP_FILE__# delimiters ARE the fence.
+- Do NOT use markdown code blocks (e.g. triple backticks) to wrap the file. The {file_start} delimiters ARE the fence.
 - You MAY use markdown inside the file content.
-- Every file in the manifest MUST have a matching #__SLOPCHOP_FILE__# block.
+- Every file in the manifest MUST have a matching {file_start} block.
 - Paths must match exactly.
-- Do NOT truncate files (No "// ...")."#.to_string()
+- Do NOT truncate files (No "// ...")."#) // slopchop:ignore
 }

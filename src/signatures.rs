@@ -4,7 +4,7 @@ use crate::discovery;
 use crate::lang::Lang;
 use crate::skeleton;
 use crate::tokens::Tokenizer;
-use anyhow::{Context, Result};
+use anyhow::Result;
 use colored::Colorize;
 use rayon::prelude::*;
 use std::fs;
@@ -28,7 +28,10 @@ pub fn run(opts: &SignatureOptions) -> Result<()> {
     println!("{}", "🔍 Scanning type surface...".cyan());
 
     let files = discovery::discover(&config)?;
-    let signatures: Vec<String> = files.par_iter().filter_map(|p| process_file(p)).collect();
+    let signatures: Vec<String> = files
+        .par_iter()
+        .filter_map(|p| process_file(p))
+        .collect();
 
     let output = format_output(&signatures);
     let tokens = Tokenizer::count(&output);
@@ -41,13 +44,11 @@ pub fn run(opts: &SignatureOptions) -> Result<()> {
 
     if opts.stdout {
         println!("{output}");
-    } else if opts.copy {
-        crate::clipboard::smart_copy(&output)?;
-        println!("{}", "✓ Copied to clipboard".green());
     } else {
-        let out_path = Path::new("SIGNATURES.txt"); // Use .rs for syntax highlighting hint
-        fs::write(out_path, &output).context("Failed to write output file")?;
-        println!("✓ Written to {}", out_path.display().to_string().green());
+        // Default behavior is now smart copy, even without --copy
+        let msg = crate::clipboard::smart_copy(&output)?;
+        println!("{}", "✓ Copied to clipboard".green());
+        println!("  ({msg})");
     }
 
     Ok(())

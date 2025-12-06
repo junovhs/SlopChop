@@ -17,7 +17,7 @@ pub fn smart_copy(text: &str) -> Result<String> {
     // 2. Check Size
     let token_count = Tokenizer::count(text);
 
-    if token_count < 1500 {
+    if token_count < 2000 {
         // Small? Text Copy.
         platform::perform_copy(text)?;
         Ok("Text copied to clipboard".to_string())
