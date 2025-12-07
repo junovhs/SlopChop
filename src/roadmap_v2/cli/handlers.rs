@@ -190,7 +190,8 @@ fn verify_test_exists(root: &Path, test_path: &str) -> bool {
     }
 
     if parts.len() > 1 {
-        let fn_name = parts[1];
+        // Use the last part as the function name to handle modules (e.g. file::mod::test)
+        let fn_name = parts.last().unwrap_or(&"");
         if let Ok(content) = std::fs::read_to_string(&file_path) {
             return content.contains(&format!("fn {fn_name}"));
         }
