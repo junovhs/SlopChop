@@ -300,7 +300,7 @@
 - [ ] **Quarantine report in slopchop scan**
 
 ### God Tier Audit
-- [x] **Fix existing violations in src/audit**
+- [x] **Fix existing violations in src/audit** <!-- test: tests/unit_god_tier.rs::test_enhance_plan_generation -->
 - [ ] **Implement Structural Diff Engine (diff.rs)**
 - [ ] **Implement Parameterization Inference (parameterize.rs)**
 - [ ] **Implement Code Generation (codegen.rs)**
@@ -424,10 +424,10 @@
 - [ ] **Request validation (cluster/file exists)**
 
 ### God Tier Audit
-- [x] **God Tier Audit: AST Diffing (diff.rs)**
-- [x] **God Tier Audit: Parameterization Inference (parameterize.rs)**
-- [x] **God Tier Audit: Refactor CodeGen (codegen.rs)**
-- [x] **God Tier Audit: Opportunity Enhancement (enhance.rs)**
+- [x] **God Tier Audit: AST Diffing (diff.rs)** <!-- test: tests/unit_god_tier.rs::test_diff_simple_variant -->
+- [x] **God Tier Audit: Parameterization Inference (parameterize.rs)** <!-- test: tests/unit_god_tier.rs::test_parameterize_strategy_enum -->
+- [x] **God Tier Audit: Refactor CodeGen (codegen.rs)** <!-- test: tests/unit_god_tier.rs::test_codegen_enum -->
+- [x] **God Tier Audit: Opportunity Enhancement (enhance.rs)** <!-- test: tests/unit_god_tier.rs::test_enhance_plan_generation -->
 
 ---
 
