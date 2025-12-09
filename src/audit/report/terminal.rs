@@ -141,6 +141,14 @@ fn write_opportunity(out: &mut String, index: usize, opp: &Opportunity) {
 
     let _ = writeln!(out, "   {} {}", "💡".dimmed(), opp.recommendation.dimmed());
 
+    if let Some(plan) = &opp.refactoring_plan {
+        let _ = writeln!(out);
+        let _ = writeln!(out, "   {}", "🤖 GOD TIER PLAN:".magenta().bold());
+        for line in plan.lines() {
+            let _ = writeln!(out, "   {} {}", "│".magenta(), line.dimmed());
+        }
+    }
+
     let _ = writeln!(out);
 }
 
