@@ -237,6 +237,13 @@
 - [x] **Split TUI dashboard into smaller modules (input/apply)** <!-- test: [no-test] -->
 - [x] **Implement interactive roadmap in TUI (scroll, toggle)** <!-- test: [no-test] -->
 - [x] **Add config option to require plan blocks** <!-- test: [no-test] -->
+- [x] **Implement Weisfeiler-Lehman AST fingerprinting for structural similarity** <!-- test: [no-test] -->
+- [x] **Implement Union-Find clustering for duplicate detection** <!-- test: [no-test] -->
+- [x] **Implement call graph reachability for dead code detection** <!-- test: [no-test] -->
+- [x] **Implement tree-sitter pattern matching for idiom detection** <!-- test: [no-test] -->
+- [x] **Implement impact scoring and prioritization system** <!-- test: [no-test] -->
+- [x] **Add slopchop audit command with format options** <!-- test: [no-test] -->
+- [x] **Implement terminal, JSON, and AI output formatters** <!-- test: [no-test] -->
 
 ### Parser Hardening
 - [ ] **Empty task ID filtering**
@@ -291,6 +298,14 @@
 - [ ] **slopchop apply --force flag**
 - [ ] **Quarantine mode (// slopchop:quarantine marker)**
 - [ ] **Quarantine report in slopchop scan**
+
+### God Tier Audit
+- [x] **Fix existing violations in src/audit**
+- [ ] **Implement Structural Diff Engine (diff.rs)**
+- [ ] **Implement Parameterization Inference (parameterize.rs)**
+- [ ] **Implement Code Generation (codegen.rs)**
+- [ ] **Implement Call Site Analysis (callsites.rs)**
+- [ ] **Implement Diagnostic Display (rustc-style)**
 
 ---
 
@@ -407,6 +422,12 @@
 - [ ] **AI can emit file requests**
 - [ ] **slopchop fulfill command (parse AI request)**
 - [ ] **Request validation (cluster/file exists)**
+
+### God Tier Audit
+- [x] **God Tier Audit: AST Diffing (diff.rs)**
+- [x] **God Tier Audit: Parameterization Inference (parameterize.rs)**
+- [x] **God Tier Audit: Refactor CodeGen (codegen.rs)**
+- [x] **God Tier Audit: Opportunity Enhancement (enhance.rs)**
 
 ---
 
