@@ -6,10 +6,11 @@
 
 use std::collections::HashSet;
 use std::path::PathBuf;
+use serde::{Deserialize, Serialize};
 
 /// A structural fingerprint of a code unit (function, struct, impl block).
 /// Uses a hash that is invariant to identifier names but sensitive to structure.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Fingerprint {
     /// The structural hash (Weisfeiler-Lehman style).
     pub hash: u64,
@@ -20,7 +21,7 @@ pub struct Fingerprint {
 }
 
 /// A code unit that can be fingerprinted and compared.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CodeUnit {
     /// File containing this unit.
     pub file: PathBuf,
@@ -47,7 +48,7 @@ impl CodeUnit {
 }
 
 /// The kind of code unit being analyzed.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum CodeUnitKind {
     Function,
     Method,
@@ -75,7 +76,7 @@ impl CodeUnitKind {
 }
 
 /// A cluster of similar code units (potential duplicates).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SimilarityCluster {
     /// The units in this cluster.
     pub units: Vec<CodeUnit>,
@@ -94,7 +95,7 @@ impl SimilarityCluster {
 }
 
 /// A code unit that appears to be unreachable (dead code).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeadCode {
     /// The unreachable unit.
     pub unit: CodeUnit,
@@ -103,7 +104,7 @@ pub struct DeadCode {
 }
 
 /// Reason a code unit is considered dead.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DeadCodeReason {
     /// Not reachable from any entry point.
     Unreachable,
@@ -126,7 +127,7 @@ impl DeadCodeReason {
 }
 
 /// A detected pattern that appears multiple times.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RepeatedPattern {
     /// Human-readable description of the pattern.
     pub description: String,
@@ -139,7 +140,7 @@ pub struct RepeatedPattern {
 }
 
 /// Location of a pattern occurrence.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PatternLocation {
     pub file: PathBuf,
     pub start_line: usize,
@@ -147,7 +148,7 @@ pub struct PatternLocation {
 }
 
 /// A consolidation opportunity with impact scoring.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Opportunity {
     /// Unique identifier for this opportunity.
     pub id: String,
@@ -163,10 +164,15 @@ pub struct Opportunity {
     pub affected_files: HashSet<PathBuf>,
     /// Specific recommendation.
     pub recommendation: String,
+    /// Generated `SlopChop` refactoring plan (God Tier only).
+    pub refactoring_plan: Option<String>,
+    /// The code units involved (for internal use by God Tier analysis).
+    #[serde(skip)]
+    pub units: Vec<CodeUnit>,
 }
 
 /// The kind of consolidation opportunity.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum OpportunityKind {
     /// Near-duplicate code that could be merged.
     Duplication,
@@ -191,7 +197,7 @@ impl OpportunityKind {
 }
 
 /// Impact score for prioritization.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Impact {
     /// Estimated lines that could be removed/consolidated.
     pub lines_saved: usize,
@@ -216,7 +222,7 @@ impl Impact {
 }
 
 /// The complete audit report.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct AuditReport {
     /// All detected opportunities, sorted by impact.
     pub opportunities: Vec<Opportunity>,
@@ -225,7 +231,7 @@ pub struct AuditReport {
 }
 
 /// Summary statistics from the audit.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct AuditStats {
     /// Total files analyzed.
     pub files_analyzed: usize,

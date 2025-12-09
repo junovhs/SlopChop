@@ -47,6 +47,8 @@ pub fn score_duplication(cluster: &SimilarityCluster, id_prefix: &str) -> Opport
         },
         affected_files,
         recommendation,
+        refactoring_plan: None,
+        units: cluster.units.clone(),
     }
 }
 
@@ -96,6 +98,8 @@ pub fn score_dead_code(dead: &DeadCode, id_prefix: &str) -> Opportunity {
         },
         affected_files,
         recommendation,
+        refactoring_plan: None,
+        units: Vec::new(),
     }
 }
 
@@ -174,6 +178,8 @@ pub fn score_pattern(pattern: &RepeatedPattern, id_prefix: &str) -> Opportunity 
         },
         affected_files,
         recommendation,
+        refactoring_plan: None,
+        units: Vec::new(),
     }
 }
 

@@ -17,7 +17,10 @@ pub mod patterns;
 pub mod report;
 pub mod scoring;
 pub mod similarity;
+
 pub mod types;
+pub mod enhance; // [God Tier Audit]
+
 
 pub use types::{AuditReport, AuditStats, Opportunity, OpportunityKind};
 
@@ -110,8 +113,20 @@ pub fn run(options: &AuditOptions) -> Result<AuditReport> {
         opportunities.push(scoring::score_pattern(pattern, "audit"));
     }
 
+
+    // [God Tier Audit] Enhance top duplication opportunities with refactoring plans
+    // Sort first to ensure we only spend compute on the most impactful items.
     opportunities = scoring::rank_opportunities(opportunities);
-    opportunities.truncate(options.max_opportunities);
+    
+    // We enhance in-place for the top results before truncating.
+    // The complexity of diffing is high, so we limit it.
+    let enhance_limit = options.max_opportunities.min(10);
+    
+    enhance::enhance_opportunities(&mut opportunities, enhance_limit, &config);
+
+    if opportunities.len() > options.max_opportunities {
+        opportunities.truncate(options.max_opportunities);
+    }
 
     let total_potential_savings: usize = opportunities.iter().map(|o| o.impact.lines_saved).sum();
 
@@ -265,4 +280,5 @@ fn detect_dead_code(units: &[CodeUnit], file_contents: &HashMap<PathBuf, String>
 
     dead_code::detect(units, &all_refs, &entry_points)
 }
+
 
