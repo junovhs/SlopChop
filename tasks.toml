@@ -2755,3 +2755,59 @@ status = "done"
 section = "v0.7.0"
 test = "[no-test]"
 order = 0
+
+[[tasks]]
+id = "audit-fingerprint"
+text = "Implement Weisfeiler-Lehman AST fingerprinting for structural similarity"
+status = "done"
+section = "v0.7.0"
+test = "[no-test]"
+order = 0
+
+[[tasks]]
+id = "audit-similarity"
+text = "Implement Union-Find clustering for duplicate detection"
+status = "done"
+section = "v0.7.0"
+test = "[no-test]"
+order = 0
+
+[[tasks]]
+id = "audit-dead-code"
+text = "Implement call graph reachability for dead code detection"
+status = "done"
+section = "v0.7.0"
+test = "[no-test]"
+order = 0
+
+[[tasks]]
+id = "audit-patterns"
+text = "Implement tree-sitter pattern matching for idiom detection"
+status = "done"
+section = "v0.7.0"
+test = "[no-test]"
+order = 0
+
+[[tasks]]
+id = "audit-scoring"
+text = "Implement impact scoring and prioritization system"
+status = "done"
+section = "v0.7.0"
+test = "[no-test]"
+order = 0
+
+[[tasks]]
+id = "audit-cli"
+text = "Add slopchop audit command with format options"
+status = "done"
+section = "v0.7.0"
+test = "[no-test]"
+order = 0
+
+[[tasks]]
+id = "audit-report"
+text = "Implement terminal, JSON, and AI output formatters"
+status = "done"
+section = "v0.7.0"
+test = "[no-test]"
+order = 0
