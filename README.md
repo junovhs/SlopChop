@@ -6,12 +6,30 @@
 
 ## The Story
 
-I'm a product designer, not a developer. But I ship production code, entirely through conversation with LLMs.
+SlopChop started with a simple thought: almost all tools trying to “fix” AI code are **top-down**. They try to anticipate every failure mode, invent rules and heuristics for all of them, and then bolt that onto your workflow.
 
-That only works if you're rigorous. Small files the AI can reason about fully. Low complexity so logic stays testable. No truncation, ever. Hard constraints, enforced at every commit.
+My bet is the opposite: go **bottom-up** and make the system **antifragile**.
 
-I built **SlopChop** to hold that line. It's the gatekeeper between AI output and my codebase: if the code doesn't meet the spec, it doesn't land.
-Every line of this tool was written by AI. It passes its own rules.
+AI can write really good code. It can also write garbage and casually destroy things you care about. Instead of trying to make it perfect, SlopChop treats AI like a noisy generator and makes one promise:
+
+> The bad stuff simply doesn’t land.
+
+I’m a product designer, not a developer. Before code, I went through this same cycle with AI image generators. Even when 99% of the outputs were unusable, some of them were **gold**—a great composition, a color palette that sang, an interesting character design.
+
+So I built a workflow around that:
+
+- Generate **thousands** of variants  
+- Narrow down to the **20 most promising**  
+- Cannibalize the best parts: crop, cut, mask, composite  
+- End up with **one** verified, high-quality design
+
+I wasn’t asking the model to be a perfect artist. I was acting as a **filter**: take the good, ruthlessly reject the bad, and do the glue work in between.
+
+SlopChop is that philosophy applied to code.
+
+It doesn’t try to predict every way AI can fail. It just enforces a small set of hard constraints at the boundary of your repo. If the code is too complex, too big, truncated, or unsafe, it gets rejected. The good changes get through. The bad ones become feedback.
+
+Every line of this tool started life as AI output. SlopChop enforces its own rules on this repo too—when it finds new slop, that’s a bug, and it blocks the change.
 
 ---
 
@@ -35,6 +53,7 @@ SlopChop **fixes all of this.**
 SlopChop teaches the AI to navigate your repo through a simple loop: **Map → Pack → Apply**.
 
 ### The Loop
+
 ```mermaid
 flowchart TD
     subgraph Loop
@@ -46,7 +65,8 @@ flowchart TD
     M --> P --> A
     A -->|"✗ Rejected"| P
     A -->|"✓ Committed"| E(( ))
-```
+````
+
 #### 1. Map — Show the AI your codebase
 
 ```bash
@@ -55,7 +75,7 @@ slopchop signatures
 
 Copies a high-level map of every type and function to your clipboard.
 
-> **You:** "I'm getting error X. Here's my codebase."  
+> **You:** "I'm getting error X. Here's my codebase."
 > **AI:** "I see the issue. It's likely in `src/config.rs`. Can you pack that file?"
 
 #### 2. Pack — Run the command it gives you, to give the AI what it wants
@@ -66,8 +86,8 @@ slopchop pack --focus src/config.rs
 
 Copies the full file + skeletons of its dependencies.
 
-> **You:** *\*pastes\**  
-> **AI:** *\*responds with fixed code in SlopChop format\**
+> **You:** **pastes**
+> **AI:** **responds with fixed code in SlopChop format**
 
 #### 3. Apply — Land the changes (or reject the slop)
 
@@ -76,10 +96,11 @@ Copy the AI's **entire** response, then:
 ```bash
 slopchop apply
 ```
-If clean: tests and lints run, changes commit.  
+
+If clean: tests and lints run, changes commit.
 If slop is detected:
 
-```
+```text
 ✗ REJECTED
 - src/auth/login.rs: complexity 12 (max 8)
 - src/auth/login.rs: detected "// ..." truncation
@@ -95,13 +116,13 @@ Paste the error back. AI fixes it. Repeat.
 
 ---
 
-## The Killer Feature: Watch Mode (Coming Soon)
+## The Killer Feature: Watch Mode (Coming Soon / Experimental)
 
-```
+```bash
 slopchop watch
 ```
 
-Runs in background. Watches your clipboard.
+Runs in the background. Watches your clipboard.
 
 1. You copy from your AI of choice
 2. Notification: "3 files ready. ⌘⇧L to apply"
@@ -115,27 +136,93 @@ Runs in background. Watches your clipboard.
 SlopChop enforces structural constraints. These are what keep AI code from becoming spaghetti.
 
 ### Law of Atomicity
+
 Files must be small enough to review.
-```
+
+```text
 max_file_tokens = 2000  (~500 lines)
 ```
 
 ### Law of Complexity
+
 Functions must be simple enough to test.
-```
+
+```text
 max_cyclomatic_complexity = 8
 max_nesting_depth = 3
 max_function_args = 5
 ```
 
 ### Law of Paranoia (Rust)
+
 No hidden crash paths.
+
+```text
+.unwrap()      → rejected
+.expect()      → rejected
+.unwrap_or()   → allowed
+?              → allowed
 ```
-.unwrap()  → rejected
-.expect()  → rejected
-.unwrap_or() → allowed
-?          → allowed
+
+---
+
+## Consolidation Audit (GOD TIER)
+
+Once your code passes the basic laws, you still have a different problem: **duplication and dead weight**.
+
+```bash
+slopchop audit
 ```
+
+This runs a structural audit over your repo:
+
+* Finds **near-duplicate functions** and suggests enum-based consolidation.
+* Flags **repeated patterns** (formatting, error wrapping, spawn/pipe/wait, etc.).
+* Builds a **call graph** to look for dead code (entrypoints that are never reached).
+* Estimates how many **lines you could delete or merge**.
+
+Example:
+
+```text
+📊 SUMMARY
+
+   Files analyzed:    114
+   Code units found:  661
+   Similarity clusters: 22
+   Dead code units:     0
+   Repeated patterns:   683
+
+   💡 987 lines could potentially be removed/consolidated
+```
+
+And it surfaces concrete opportunities:
+
+```text
+1. [HIGH] 4 similar functions: q_complexity, q_imports, q_defs, q_exports
+   📈 ~72 lines | difficulty: 1/5 | confidence: 100% | score: 72.0
+   📁 src/lang.rs
+   💡 Consolidate these 4 functions into a single parameterized implementation
+
+   🤖 GOD TIER PLAN:
+   │ #[derive(Debug, Clone, Copy)]
+   │ pub enum QueryKind {
+   │     Complexity,
+   │     Imports,
+   │     Defs,
+   │     Exports,
+   │ }
+   │
+   │ pub fn query(&self, kind: QueryKind) -> &'static str {
+   │     match (self, kind) {
+   │         (Self::Rust, QueryKind::Complexity) => todo!(),
+   │         (Self::Rust, QueryKind::Imports)    => todo!(),
+   │         (Self::Rust, QueryKind::Defs)       => todo!(),
+   │         (Self::Rust, QueryKind::Exports)    => todo!(),
+   │     }
+   │ }
+```
+
+You can hand-roll the refactor, or feed that “GOD TIER PLAN” back into your AI and let it do the mechanical work.
 
 ---
 
@@ -159,30 +246,33 @@ Or just run `slopchop` and it auto-generates config.
 
 ### Core Workflow
 
-| Command | What it does |
-|---------|--------------|
-| `slopchop` | Scan codebase for violations |
-| `slopchop apply` | Apply AI response from clipboard |
-| `slopchop pack <file>` | Pack specific file (full source) |
-| `slopchop pack --focus <file>` | Pack file + skeleton of dependencies |
+| Command                        | What it does                                           |
+| ------------------------------ | ------------------------------------------------------ |
+| `slopchop`                     | Scan codebase for violations                           |
+| `slopchop apply`               | Apply AI response from clipboard                       |
+| `slopchop pack <file>`         | Pack specific file (full source)                       |
+| `slopchop pack --focus <file>` | Pack file + skeleton of dependencies                   |
+| `slopchop audit`               | Analyze repo for duplication & dead-code opportunities |
 
 ### Context Tools
 
-| Command | What it does |
-|---------|--------------|
-| `slopchop signatures` | Generate Map (Header + Signatures + Footer) |
-| `slopchop map` | Show directory tree & sizes |
-| `slopchop map --deps` | Show dependency graph visual |
-| `slopchop trace <file>` | Trace dependencies deep |
-| `slopchop prompt` | Generate system prompt text |
+| Command                 | What it does                                |
+| ----------------------- | ------------------------------------------- |
+| `slopchop signatures`   | Generate Map (Header + Signatures + Footer) |
+| `slopchop map`          | Show directory tree & sizes                 |
+| `slopchop map --deps`   | Show dependency graph visual                |
+| `slopchop trace <file>` | Trace dependencies deep                     |
+| `slopchop prompt`       | Generate system prompt text                 |
 
 ### Project Management
 
-| Command | What it does |
-|---------|--------------|
-| `slopchop roadmap show` | Display progress |
+> Experimental project-management commands. API may change.
+
+| Command                  | What it does           |
+| ------------------------ | ---------------------- |
+| `slopchop roadmap show`  | Display progress       |
 | `slopchop roadmap apply` | Update roadmap from AI |
-| `slopchop roadmap audit` | Verify test coverage |
+| `slopchop roadmap audit` | Verify test coverage   |
 
 ---
 
@@ -208,9 +298,12 @@ fix = "cargo fmt"
 
 AI outputs code in this format:
 
-```
+```text
 #__SLOPCHOP_FILE__# src/auth/login.rs
 pub fn login(creds: &Credentials) -> Result<Session, AuthError> {
     // complete implementation
     // no truncation
 }
+```
+
+You copy the whole response, run `slopchop apply`, and let the tool decide if it lands or gets chopped.
