@@ -12,23 +12,14 @@ impl PromptGenerator {
         Self { config }
     }
 
-    /// Generates the full system prompt.
-    /// # Errors
-    /// Currently infallible, returns Result for API consistency.
     pub fn generate(&self) -> Result<String> {
         Ok(self.build_system_prompt())
     }
 
-    /// Generates a short reminder prompt for context footers.
-    /// # Errors
-    /// Currently infallible, returns Result for API consistency.
     pub fn generate_reminder(&self) -> Result<String> {
         Ok(self.build_reminder())
     }
 
-    /// Alias for `generate()` — used by knit for context headers.
-    /// # Errors
-    /// Currently infallible, returns Result for API consistency.
     pub fn wrap_header(&self) -> Result<String> {
         self.generate()
     }
@@ -41,7 +32,7 @@ impl PromptGenerator {
         let output_format = build_output_format();
 
         format!(
-            r"🛡️ SYSTEM MANDATE: THE SLOPCHOP PROTOCOL
+            r"SYSTEM MANDATE: THE SLOPCHOP PROTOCOL
 ROLE: High-Integrity Systems Architect (NASA/JPL Standard).
 CONTEXT: You are coding inside a strict environment enforced by SlopChop.
 
@@ -74,8 +65,35 @@ CONTEXT STRATEGY (How to drive):
    - You have the implementation details.
    - PROCEED to write the solution using the Output Format below.
 
-{output_format}
-"
+### ROADMAP SYSTEM
+- Update exclusively via the ===ROADMAP=== block using this exact syntax:
+
+===ROADMAP===
+CHECK
+id = task-id
+UNCHECK
+id = another-task-id
+ADD
+id = new-task-123
+text = Description of the new task
+section = v0.9.0
+test = tests/some_test.rs::test_name
+UPDATE
+id = existing-task
+text = Updated description
+DELETE
+id = obsolete-task
+===ROADMAP===
+
+Valid commands:
+- CHECK / UNCHECK → toggle done/pending
+- ADD → create new task (id + text required, section and test optional)
+- UPDATE → modify existing task
+- DELETE → remove task
+
+Never emit or reference ROADMAP.md or the old markdown checklist format.
+
+{output_format}"
         )
     }
 
@@ -85,7 +103,6 @@ CONTEXT STRATEGY (How to drive):
         let depth = self.config.max_nesting_depth;
         let args = self.config.max_function_args;
         let marker = "#__SLOPCHOP_FILE__#";
-
         format!(
             r"SLOPCHOP CONSTRAINTS:
 □ Files < {tokens} tokens
@@ -93,23 +110,23 @@ CONTEXT STRATEGY (How to drive):
 □ Nesting ≤ {depth}
 □ Args ≤ {args}
 □ No .unwrap() or .expect()
-□ Use SlopChop Format ({marker} ...)"
+□ Use SlopChop Format ({marker} ...)
+□ Roadmap updates → tasks.toml via ===ROADMAP=== block only"
         )
     }
 }
 
 fn build_output_format() -> String {
-    // Note: We construct these strings to avoid the tool parsing THIS file as a command block.
-    // We add a space to the file marker in the format string to break the regex match if printed raw.
     let plan = "#__SLOPCHOP_PLAN__#";
     let plan_end = "#__SLOPCHOP_END__#";
     let manifest = "#__SLOPCHOP_MANIFEST__#";
     let manifest_end = "#__SLOPCHOP_END__#";
-    let file_header = "#__SLOPCHOP_FILE__#";
+    let file_header = "#__SLOPCHOP_FILE__# ";
     let file_footer = "#__SLOPCHOP_END__#";
     let roadmap = "===ROADMAP===";
 
-    format!(r#"OUTPUT FORMAT (MANDATORY):
+    format!(
+        r#"OUTPUT FORMAT (MANDATORY):
 
 1. Explain the changes (Technical Plan):
    - Must start with "GOAL:"
@@ -132,25 +149,26 @@ path/to/file2.rs [NEW]
 3. Provide EACH file:
 
 {file_header} path/to/file1.rs
-[file content]
+// Complete file content – no truncation allowed
 {file_footer}
 
-4. Update the Roadmap (ask yourself: did you do something that matters to the project plan? Record it.):
-   - Use this block if you completed a task or need to add one.
+4. Update the Roadmap (if applicable):
+   - Use this block to CHECK/ADD/UPDATE tasks in tasks.toml
 
 {roadmap}
 CHECK
 id = task-id
 ADD
-id = new-task
-text = Refactor logs
-section = v0.2.0
+id = new-task-123
+text = Implement dead-code audit
+section = v0.9.0
 {roadmap}
 
 RULES:
-- Do NOT use markdown code blocks (e.g. triple backticks) to wrap the file. The {file_header} delimiters ARE the fence.
-- You MAY use markdown inside the file content.
+- Do NOT use markdown code blocks (triple backticks). The {file_header} delimiters ARE the fence.
+- You MAY use markdown inside file content.
 - Every file in the manifest MUST have a matching {file_header} block.
 - Paths must match exactly.
-- Do NOT truncate files (No "// ...")."#) // slopchop:ignore
+- Do NOT truncate files (No "// ...")."#
+    )
 }
