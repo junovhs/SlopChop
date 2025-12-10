@@ -1325,7 +1325,7 @@ order = 0
 [[tasks]]
 id = "empty-task-id-filtering"
 text = "Empty task ID filtering"
-status = "pending"
+status = "done"
 section = "v0.7.0"
 group = "Parser Hardening"
 order = 1

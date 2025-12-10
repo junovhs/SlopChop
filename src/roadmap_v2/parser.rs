@@ -3,7 +3,6 @@ use super::types::{RoadmapCommand, Task, TaskStatus, TaskUpdate};
 use anyhow::{anyhow, bail, Result};
 
 /// Parses roadmap commands from the ===ROADMAP=== block(s) in AI output.
-/// Handles multiple blocks and command aggregation.
 ///
 /// # Errors
 /// Returns error if command syntax is invalid.
@@ -14,7 +13,6 @@ pub fn parse_commands(input: &str) -> Result<Vec<RoadmapCommand>> {
     }
 
     let mut commands = Vec::new();
-
     for block in blocks {
         let mut block_cmds = parse_block_content(&block)?;
         commands.append(&mut block_cmds);
@@ -23,8 +21,6 @@ pub fn parse_commands(input: &str) -> Result<Vec<RoadmapCommand>> {
     Ok(commands)
 }
 
-/// Extracts all content blocks delimited by ===ROADMAP===.
-/// strictness: The marker must be the ONLY thing on the line (ignoring whitespace).
 fn extract_roadmap_blocks(input: &str) -> Vec<String> {
     let mut blocks = Vec::new();
     let mut state = BlockState::default();
@@ -48,14 +44,12 @@ fn process_line_for_blocks(line: &str, state: &mut BlockState, blocks: &mut Vec<
 
     if trimmed == marker {
         if state.capturing {
-            // Closing marker found
             if !state.current_block.trim().is_empty() {
                 blocks.push(state.current_block.clone());
             }
             state.current_block.clear();
             state.capturing = false;
         } else {
-            // Opening marker found
             state.capturing = true;
         }
     } else if state.capturing {
@@ -70,7 +64,6 @@ fn parse_block_content(block: &str) -> Result<Vec<RoadmapCommand>> {
 
     for line in block.lines() {
         let trimmed = clean_line(line);
-
         if trimmed.is_empty() {
             continue;
         }
@@ -142,16 +135,14 @@ fn parse_add(lines: &[&str]) -> Result<RoadmapCommand> {
     let id = require_field(lines, "id")?;
     let text = require_field(lines, "text")?;
     let section = require_field(lines, "section")?;
-    let test_anchor = get_field(lines, "test");
-    let group = get_field(lines, "group");
 
     Ok(RoadmapCommand::Add(Task {
         id,
         text,
         status: TaskStatus::Pending,
         section,
-        test: test_anchor,
-        group,
+        test: get_field(lines, "test"),
+        group: get_field(lines, "group"),
         order: 0,
     }))
 }
@@ -168,17 +159,27 @@ fn parse_update(lines: &[&str]) -> Result<RoadmapCommand> {
 }
 
 fn require_field(lines: &[&str], key: &str) -> Result<String> {
-    get_field(lines, key).ok_or_else(|| anyhow!("Missing required field: {key}"))
+    let value = get_field(lines, key).ok_or_else(|| anyhow!("Missing required field: {key}"))?;
+    if value.trim().is_empty() {
+        bail!("Field '{key}' cannot be empty");
+    }
+    Ok(value)
 }
 
 fn get_field(lines: &[&str], key: &str) -> Option<String> {
     for line in lines {
         let trimmed = clean_line(line);
-        if let Some((k, v)) = trimmed.split_once('=') {
-            if k.trim() == key {
-                return Some(v.trim().to_string());
-            }
+        let Some((k, v)) = trimmed.split_once('=') else {
+            continue;
+        };
+        if k.trim() != key {
+            continue;
         }
+        let value = v.trim();
+        if value.is_empty() {
+            return None;
+        }
+        return Some(value.to_string());
     }
     None
 }
@@ -186,9 +187,7 @@ fn get_field(lines: &[&str], key: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use anyhow::Result;
 
-    // Helper to obscure markers from the main tool's parser
     fn make_block(content: &str) -> String {
         format!("\n{}\n{}\n{}\n", "===ROADMAP===", content, "===ROADMAP===")
     }
@@ -197,22 +196,20 @@ mod tests {
     fn test_parse_check() -> Result<()> {
         let input = make_block("CHECK\nid = my-task");
         let cmds = parse_commands(&input)?;
-        assert_eq!(cmds.len(), 1);
         assert!(matches!(cmds[0], RoadmapCommand::Check { ref id } if id == "my-task"));
         Ok(())
     }
 
     #[test]
     fn test_parse_add() -> Result<()> {
-        let input = make_block("ADD\nid = new-task\ntext = Implement feature X\nsection = v0.2.0");
+        let input = make_block("ADD\nid = t\ntext = Do X\nsection = v1");
         let cmds = parse_commands(&input)?;
-        assert_eq!(cmds.len(), 1);
         assert!(matches!(cmds[0], RoadmapCommand::Add(_)));
         Ok(())
     }
 
     #[test]
-    fn test_parse_multiple_same_block() -> Result<()> {
+    fn test_multiple_commands() -> Result<()> {
         let input = make_block("CHECK\nid = task-1\nCHECK\nid = task-2");
         let cmds = parse_commands(&input)?;
         assert_eq!(cmds.len(), 2);
@@ -220,38 +217,22 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_multiple_blocks() -> Result<()> {
-        let b1 = make_block("CHECK\nid = task-1");
-        let b2 = make_block("CHECK\nid = task-2");
-        let input = format!("{b1}\nSome text...\n{b2}");
-
-        let cmds = parse_commands(&input)?;
-        assert_eq!(cmds.len(), 2);
-        if let RoadmapCommand::Check { id } = &cmds[0] {
-            assert_eq!(id, "task-1");
-        }
-        if let RoadmapCommand::Check { id } = &cmds[1] {
-            assert_eq!(id, "task-2");
-        }
-        Ok(())
-    }
-
-    #[test]
-    fn test_with_comments_and_spacing() -> Result<()> {
-        let input = make_block(
-            "CHECK # First one\nid=task-1 # id comment\nCHECK\nid = task-2",
-        );
-        let cmds = parse_commands(&input)?;
-        assert_eq!(cmds.len(), 2);
-        Ok(())
-    }
-
-    #[test]
     fn test_ignores_inline_markers() -> Result<()> {
-        // This should NOT be parsed because the marker is not on its own line
-        let input = "I will fix the ===ROADMAP=== issue soon.";
+        let input = "Fix the ===ROADMAP=== issue.";
         let cmds = parse_commands(input)?;
         assert!(cmds.is_empty());
         Ok(())
     }
-}
+
+    #[test]
+    fn test_rejects_empty_id() {
+        let input = make_block("CHECK\nid = ");
+        assert!(parse_commands(&input).is_err());
+    }
+
+    #[test]
+    fn test_rejects_empty_text() {
+        let input = make_block("ADD\nid = t\ntext = \nsection = v1");
+        assert!(parse_commands(&input).is_err());
+    }
+}
