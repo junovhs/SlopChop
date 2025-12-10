@@ -2954,3 +2954,10 @@ text = "Simplify apply workflow: Non-blocking git check, summary reporting, auto
 status = "done"
 section = "v0.8.0"
 order = 0
+
+[[tasks]]
+id = "god-tier-audit-cleanup"
+text = "Final polish of God Tier Audit (clippy fixes, test fixes)"
+status = "done"
+section = "v0.7.1"
+order = 0
