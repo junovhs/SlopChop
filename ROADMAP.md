@@ -244,10 +244,10 @@
 - [x] **Implement impact scoring and prioritization system** <!-- test: [no-test] -->
 - [x] **Add slopchop audit command with format options** <!-- test: [no-test] -->
 - [x] **Implement terminal, JSON, and AI output formatters** <!-- test: [no-test] -->
-- [ ] **Integrate RepoGraph into signatures command (switch from alphabetical to graph-based)**
-- [ ] **Implement Topological Sort for signature output (base dependencies first)**
-- [ ] **Add PageRank importance tags (e.g., [CORE ARCHITECTURE]) to signatures**
-- [ ] **Extract and display first-line docstrings in signature output**
+- [x] **Integrate RepoGraph into signatures command (switch from alphabetical to graph-based)**
+- [x] **Implement Topological Sort for signature output (base dependencies first)**
+- [x] **Add PageRank importance tags (e.g., [CORE ARCHITECTURE]) to signatures**
+- [x] **Extract and display first-line docstrings in signature output**
 
 ### Parser Hardening
 - [ ] **Empty task ID filtering**
