@@ -9,10 +9,17 @@ use super::types::{CodeUnit, SimilarityCluster};
 use std::collections::HashMap;
 
 /// Minimum similarity threshold for considering units as duplicates.
-const SIMILARITY_THRESHOLD: f64 = 0.85;
+const SIMILARITY_THRESHOLD: f64 = 0.92;
+
+/// Minimum fingerprint similarity before considering structural similarity.
+/// This gates the expensive comparison and prevents unrelated code from clustering.
+const MIN_FINGERPRINT_SIMILARITY: f64 = 0.6;
 
 /// Minimum size (in lines) for a unit to be considered for duplication.
 const MIN_UNIT_SIZE: usize = 5;
+
+/// Maximum cluster size. Clusters larger than this are likely noise and are discarded.
+const MAX_CLUSTER_SIZE: usize = 30;
 
 /// Finds clusters of similar code units.
 #[must_use]
@@ -23,7 +30,7 @@ pub fn find_clusters(units: &[CodeUnit]) -> Vec<SimilarityCluster> {
     let mut clusters = Vec::new();
 
     for group in exact_groups.into_values() {
-        if group.len() >= 2 {
+        if group.len() >= 2 && group.len() <= MAX_CLUSTER_SIZE {
             if let Some(cluster) = create_cluster(group, 1.0) {
                 clusters.push(cluster);
             }
@@ -31,8 +38,10 @@ pub fn find_clusters(units: &[CodeUnit]) -> Vec<SimilarityCluster> {
     }
 
     for group in near_groups {
-        if let Some(cluster) = create_cluster(group.units, group.avg_similarity) {
-            clusters.push(cluster);
+        if group.units.len() <= MAX_CLUSTER_SIZE {
+            if let Some(cluster) = create_cluster(group.units, group.avg_similarity) {
+                clusters.push(cluster);
+            }
         }
     }
 
@@ -83,13 +92,19 @@ fn find_near_duplicates(
 
     for i in 0..singleton_units.len() {
         for j in (i + 1)..singleton_units.len() {
-            let sim = fingerprint::similarity(
+            // First check fingerprint similarity as a gate
+            let fp_sim = fingerprint::similarity(
                 &singleton_units[i].fingerprint,
                 &singleton_units[j].fingerprint,
             );
 
+            // Skip if fingerprints are too different - no point comparing further
+            if fp_sim < MIN_FINGERPRINT_SIMILARITY {
+                continue;
+            }
+
             let struct_sim = structural_similarity(singleton_units[i], singleton_units[j]);
-            let combined_sim = f64::midpoint(sim, struct_sim);
+            let combined_sim = f64::midpoint(fp_sim, struct_sim);
 
             if combined_sim >= SIMILARITY_THRESHOLD {
                 uf.union(i, j);
@@ -136,7 +151,8 @@ fn structural_similarity(a: &CodeUnit, b: &CodeUnit) -> f64 {
 
     let fp_sim = fingerprint::similarity(&a.fingerprint, &b.fingerprint);
 
-    line_sim * 0.2 + tok_sim * 0.3 + fp_sim * 0.5
+    // Weight fingerprint more heavily - it captures actual structure
+    line_sim * 0.1 + tok_sim * 0.2 + fp_sim * 0.7
 }
 
 fn compute_avg_similarity(units: &[CodeUnit]) -> f64 {
@@ -240,4 +256,4 @@ pub fn describe_cluster(cluster: &SimilarityCluster) -> String {
             unique_files.len()
         )
     }
-}
+}
