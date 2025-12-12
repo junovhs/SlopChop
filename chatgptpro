@@ -1,0 +1,631 @@
+## Executive sit-rep
+
+Conceptually, SlopChop is a strong, coherent product: a **hard boundary filter** that makes “AI-assisted coding” viable by refusing bad outputs (instead of trying to coax the model into perfection). Your docs explicitly frame it that way (“hard filter in front of your repo”, “enforces a few hard rules at the boundary”).
+
+Where you’re *currently* leaking risk/drag is less about the vision and more about “closing loops”:
+
+1. **Doc/roadmap/version drift** (v1.0 is described as essentially shipped in ROADMAP.md, but Cargo.toml is still 0.7.0 and DESIGN.md positions v1.0 as upcoming).
+2. **Apply pipeline correctness/safety gaps** (a few sharp edges remain before I’d call it 1.0).
+3. **“Self-hosting truth”** (your own scan output embedded in the bundle shows Paranoia violations in tests; this undermines the “tool passes its own rules” story unless you define/encode an exception policy).
+
+Everything else (TUI, daemon watch, “God Tier audit”) is optional value—but these three are what prevent a clean v1.0.
+
+Below is a candid audit + what I’d change if I took over today + a concrete plan to get you to a clean, defensible 1.0.
+
+---
+
+## What is amazing
+
+### 1) The core bet is correct: enforce a few invariants, don’t “fix” AI
+
+This is the right systems move. Your positioning is consistent: SlopChop is a boundary filter, not a fragile pile of heuristics.
+
+This is a better long-term stance than competing with models at “being careful,” because you’re building a deterministic gate.
+
+### 2) The loop is productizable: Map → Pack → Apply
+
+The workflow loop is clear and teachable, and the README actually sells it in a way that a developer can adopt.
+
+### 3) “Smart copy” is an underappreciated wedge
+
+The “copy to clipboard unless too big, then write a temp file and copy a file-handle” is exactly the kind of pragmatic UX that makes this usable in real life.
+This is also explicitly part of the design surface in DESIGN.md.
+
+### 4) Apply validator content safety and truncation detection are genuinely strong
+
+Two highlights:
+
+* You **block markdown fences in non-markdown files** (both ``` and ~~~) which prevents one of the most common “LLM output accidentally lands” failure modes.
+* Your truncation marker list is broad and practical (`// rest of implementation`, `TODO: implement`, `raise NotImplementedError`, etc.).
+
+This is the right kind of “small set of hard invariants”.
+
+### 5) Verification/auto-commit is a coherent end-to-end story
+
+DESIGN.md describes the apply pipeline as “write → run checks → scan → commit → push”.
+And the implementation does auto-commit and push in the success path.
+
+Even if I’d change the defaults (more on that below), the *coherence* is there.
+
+---
+
+## What is good
+
+### 1) The split into `slopchop_core` + binary is right
+
+Cargo.toml defines a library (`slopchop_core`) and a CLI binary.
+That’s exactly what you want if you later ship editors, daemons, or a server mode.
+
+### 2) “Focus mode” / graph-based packing is a real differentiator
+
+The packing system is already structured to support “foveal vs peripheral” context selection.
+This is more ambitious than most tools in this space, and it’s actually aligned with the real constraint (context budgets).
+
+### 3) Roadmap v2 model (tasks.toml + constrained command DSL) is a smart idea
+
+It’s “AI-compatible planning” with strict parsing instead of natural language. That is the same philosophy as your file protocol—good symmetry.
+
+---
+
+## What you’re missing / overlooking (the important stuff)
+
+### 1) Roadmap + version + docs are not telling one truth
+
+* ROADMAP.md has a **v1.0.0 section** that reads like most of the release/distribution work is complete.
+* Cargo.toml says the crate is **0.7.0**.
+* DESIGN.md is written like v1.0 is still upcoming.
+
+This isn’t a cosmetic issue: it makes it hard to know what “done” means. If you want a clean v1.0, you need a single source of truth and an explicit “definition of done”.
+
+**If I took over today:** the first action would be to re-baseline the roadmap to reality, bump or re-scope versions accordingly, and explicitly label outdated docs as such until updated.
+
+---
+
+### 2) Apply has a correctness hole: manifest entries can silently not apply
+
+Your validator checks that **every extracted file appears in the manifest**.
+But there is no reciprocal guarantee shown here that **every `New/Update` manifest entry has extracted content**.
+
+Writer behavior makes the risk concrete: it only writes if content is present:
+
+* For `Update | New`, it does `if let Some(file_data) = files.get(&entry.path) { write_single_file(...) }`.
+
+So a model can claim it updated 5 files in the manifest, but only supply 4 file blocks; SlopChop will **quietly apply 4**, and the missing one just never lands.
+
+That’s a “silent partial apply” class of bug—exactly what this tool exists to prevent.
+
+**Fix for v1.0:** enforce manifest completeness:
+
+* For every manifest entry with `Operation::New|Update`, extracted **must** contain that file.
+* For every `Operation::Delete`, extracted **must not** contain a file block for it (optional, but good hygiene).
+* If any mismatch exists, return `ValidationFailure` with an AI-facing message.
+
+This is one of the highest-ROI v1.0 hardening changes.
+
+---
+
+### 3) The manifest is described as optional in docs, but effectively required in behavior
+
+DESIGN.md says the MANIFEST block is “optional but validated”.
+
+But validator logic says: if extracted contains a file that isn’t in manifest, it errors.
+And your parsing step returns an empty manifest when no manifest exists.
+
+That combination means: **any real apply payload without a manifest will fail** (because extracted files won’t be listed).
+
+This may be the right product choice (I actually think it is), but then the docs should stop calling it optional.
+
+**Decision you need to make for 1.0:**
+
+* Either: “Manifest is mandatory” (my recommendation—safer and deterministic)
+* Or: “Manifest is optional, and if omitted we infer it from file blocks” (more permissive, more footguns)
+
+Right now you’re in an inconsistent middle.
+
+---
+
+### 4) DESIGN.md claims atomic writes; the current writer is not atomic
+
+DESIGN.md shows “writer writes file (atomic)” in the apply pipeline diagram.
+
+But `write_single_file` is currently doing a direct `fs::write(...)` (non-atomic in the sense you mean; a crash can truncate the file).
+
+You *do* create backups, which helps.
+But “atomic” is a stronger guarantee than “backed up”.
+
+**For v1.0:** implement temp-file + rename in the same directory (standard atomic pattern), and update docs to match reality.
+
+---
+
+### 5) Path safety is good lexically, but you likely have a symlink escape hatch
+
+You validate strings (no `..`, no absolute paths, block sensitive dirs).
+That’s necessary, but not sufficient if a repo contains symlinks:
+
+* `root/safe_path` could be a symlink to `/etc/…` (or any outside path).
+* `fs::write(root.join(path))` will follow symlinks.
+
+I don’t see a canonicalization / symlink-metadata check in the apply path in the excerpts we looked at, and writer uses normal filesystem APIs.
+
+**For v1.0, if you want “security boundary” credibility:** add a “no symlinks in path components” check (or a `canonicalize`-and-ensure-within-root check, done carefully because canonicalize itself follows symlinks). The safest route in Rust is capability-based file APIs (e.g., `cap-std`/openat patterns), but even a conservative `symlink_metadata` walk is a big improvement.
+
+---
+
+### 6) Auto-*push* is probably too aggressive as a default
+
+Your success path explicitly does “Committing & Pushing…” and calls `git::commit_and_push`.
+
+That’s a bold, opinionated workflow. It can be great for a solo project, but it’s risky in teams, on protected branches, or on repos without remotes.
+
+**If I took over:** I’d keep auto-commit as the default “velocity move,” but make push opt-in (`auto_push = false` by default). Pushing should be a conscious decision.
+
+---
+
+### 7) You have `force` and `dry_run` in ApplyContext, but the CLI exposes neither
+
+ApplyContext supports `force` and `dry_run`.
+But the CLI `Apply` command takes no args.
+
+This matters because “safe finalize to 1.0” usually means you add **escape hatches**:
+
+* `--dry-run` (show what would happen)
+* `--force` (skip prompts for automation)
+* `--stdin` / `--file` (so apply can be used in scripted pipelines, not only clipboard)
+* `--no-commit` / `--no-push`
+
+Your roadmap even calls out `slopchop apply --force` as pending.
+
+---
+
+### 8) Panic paths weaken the “paranoia” posture
+
+You compile tree-sitter queries and panic on errors.
+Graph defs query compilation also panics.
+
+Yes, these are “should never happen” unless you ship a broken build—but v1.0 tools should generally avoid panicking in library-like components. Return structured errors and fail gracefully.
+
+---
+
+### 9) Your own embedded scan output shows you’re not yet “self-hosting clean”
+
+Your bundle includes output showing Paranoia violations in `tests/unit_project.rs` (banned `.unwrap()`).
+
+This is solvable, but you need a policy:
+
+* Either “tests are subject to the same rules” (then fix tests)
+* Or “tests are exempt from some rules” (then encode that in config: you currently only have `ignore_naming_on` and `ignore_tokens_on`).
+
+Right now it reads like you want the strict posture, but you haven’t completed the self-dogfood.
+
+---
+
+## Where you’re overthinking / making it harder than it needs to be
+
+### 1) The daemon / hotkey / system notifications are a “tax magnet”
+
+In ROADMAP.md, v0.8.0 pushes toward a full daemon with hotkeys and OS notifications.
+
+This is exactly the kind of cross-platform surface area that can burn months and still feel flaky. It’s also not necessary for a clean v1.0 if the core CLI loop is excellent.
+
+**Recommendation:** freeze daemon/hotkey as “experimental” until after v1.0, unless you have a very specific user story that depends on it.
+
+### 2) “God Tier audit” is cool—but it’s not part of the critical path
+
+Audit/graph/refactor planning is a second product. It can be a major v2 line, but it’s not required for “a safe and lovable apply gate.” If you push too hard on it before 1.0, you’ll keep diffusing effort across features.
+
+---
+
+## Roadmap assessment: agree/disagree
+
+### I agree with:
+
+* The hardening tasks: apply validation, protected file list, backup system, etc. (These are essential for trust.)
+* The distribution tasks for 1.0 (crates.io + prebuilt binaries + docs) as the “last mile” once the core is truly stable.
+
+### I disagree with (or would re-sequence):
+
+* Shipping a daemon/hotkey/notification system *before* the apply pipeline is airtight (atomic writes + completeness validation + safer defaults).
+* Treating ROADMAP.md as active truth while the codebase says “ROADMAP.md is dead; tasks.toml is handled by roadmap_v2.”
+
+### Also: parts of the roadmap are already implemented but not reflected
+
+For example, v0.10.0 includes “reject markdown fences,” which is already in `validate_content` (``` and ~~~ for non-markdown paths).
+That’s another sign the roadmap needs a re-baseline pass.
+
+---
+
+## If I took over today: what I would change immediately
+
+1. **Define v1.0 scope as “Scan + Pack + Apply are rock-solid; everything else is optional.”**
+2. **Re-baseline the roadmap** so checked boxes correspond to actual shipping behavior; align version numbers to reality (either bump roadmap back to 0.x or bump crate forward).
+3. **Harden apply correctness** (manifest completeness, explicit manifest requirement, atomic writes, symlink containment).
+4. **Change default behavior to reduce surprise:** auto-commit ok; auto-push opt-in.
+5. **Make apply usable in automation:** `--stdin`, `--dry-run`, `--force`, `--no-commit`, `--no-push`.
+6. **Kill panics in core paths** (tree-sitter query compilation should be `Result`, not `panic!`).
+
+---
+
+## A concrete plan to get to a clean v1.0
+
+### Phase 1: “Single truth” baseline (docs + version + roadmap)
+
+Deliverable: anyone reading the repo can tell what’s real.
+
+* Pick the canonical planning artifact:
+
+  * If tasks.toml is canonical, make ROADMAP.md an auto-generated artifact (and label it that way).
+* Update DESIGN.md to match actual behavior:
+
+  * Manifest requirement (mandatory vs optional).
+  * Atomic writes claim vs implementation.
+* Align versioning:
+
+  * Either keep 0.x and adjust ROADMAP’s v1.0 claims, or actually execute the v1.0 checklist and bump Cargo.toml.
+
+### Phase 2: Apply pipeline hardening (this is the real “v1.0 gate”)
+
+Deliverable: apply is deterministic, safe, and scriptable.
+
+1. **Manifest is mandatory and complete**
+
+   * Explicitly require a manifest whenever file blocks exist. (Your current behavior effectively does this; make it intentional and documented.)
+   * Add completeness checks:
+
+     * For each `New|Update`, extracted must include file content (prevent silent partial apply).
+     * For each `Delete`, extracted must not include a file block (nice-to-have, but keeps the protocol clean).
+
+2. **Atomic writes**
+
+   * Implement: write to temp file in same directory → fsync (optional) → rename.
+   * Keep backup folder as a fallback, but don’t call the write atomic unless it is.
+
+3. **Symlink containment**
+
+   * Block writing through symlinks (component-wise check) or use capability-based file APIs.
+   * This is important if you want to claim “safe boundary.”
+
+4. **Safer defaults for git automation**
+
+   * Keep `auto_commit`, but split:
+
+     * `auto_commit = true`
+     * `auto_push = false` (default)
+   * Provide CLI overrides (`--push` / `--no-push`).
+
+5. **Expose apply runtime flags in CLI**
+
+   * You already have the plumbing (`force`, `dry_run`).
+   * Expose them:
+
+     * `slopchop apply --stdin` (or `--file path`)
+     * `slopchop apply --dry-run`
+     * `slopchop apply --force`
+     * `slopchop apply --no-commit`
+     * `slopchop apply --no-push`
+     * `slopchop apply --no-roadmap` (so roadmap parsing can’t surprise users)
+
+### Phase 3: Self-hosting + CI “trust lock”
+
+Deliverable: the repo proves its own claims on every commit.
+
+* Decide the tests policy:
+
+  * Either make tests comply with “no unwrap/expect” and fix them, or encode a config-level exemption.
+* Add CI step: run `slopchop scan` on the repo and fail on violations.
+
+This is the moment SlopChop becomes self-reinforcing.
+
+### Phase 4: Remove panic paths in core
+
+Deliverable: v1.0 doesn’t crash on internal invariants.
+
+* Replace `panic!("Invalid tree-sitter query pattern…")` with `Result` and propagate to caller with context.
+* Same for defs query compilation.
+
+### Phase 5: V1.0 release checklist (distribution + docs)
+
+Deliverable: installable, understandable, reproducible.
+
+ROADMAP.md lists the right kinds of distribution tasks for v1.0 (crates.io, binaries, docs, semver discipline).
+But I would only execute/publish once Phases 1–4 are complete, because otherwise you “cement” unstable defaults into 1.0 expectations.
+
+---
+
+## Final take
+
+You’re not far from a strong 1.0, but right now the project is trying to be **two things at once**:
+
+* A **trust boundary** for AI output (this wants correctness, determinism, conservative defaults)
+* A **productivity suite** (TUI, daemon watch, audit/refactor engine)
+
+Both are valid, but v1.0 becomes clean when you bias hard toward the trust boundary and treat everything else as optional/experimental until the core is airtight.
+
+
+
+***
+
+
+
+
+A few concrete “truth fixes” drove this rewrite:
+
+* Your **system prompt** says the manifest is mandatory (“Every file in the manifest MUST have a matching … block”) and also says “Never emit or reference ROADMAP.md…”.
+* Your **design doc** still says the MANIFEST is “Optional but validated” and even lists `ROADMAP.md` as a protected file.
+* The **apply validator** currently enforces “no extracted file unless it’s in the manifest” but does **not** enforce the inverse (manifest entries that are missing file blocks).
+* The existing `ROADMAP.md` claims a few things are pending that appear already implemented (e.g., rejecting markdown fences), and a few things are “done” that clearly need re-verification (e.g., distribution tasks). Compare ROADMAP’s pending fence tasks  vs. validator fence rejection , and ROADMAP’s “Published to crates.io / Homebrew / Winget” marked done  vs. design doc “planned for v1.0”  plus current crate version `0.7.0`.
+* ROADMAP lists “cargo test verification” + “Feature ID → test mapping” as pending , but roadmap audit execution and ID→test inference exist in code.
+
+Below is a **fully rewritten v0.7.0+ roadmap** that (1) is opinionated about what *must* be true for v1.0, (2) de-scopes optional “cool stuff” from blocking v1.0, and (3) bakes in a **v1.0 Definition-of-Done** checklist as release gates.
+
+---
+
+# SlopChop Roadmap (v0.7.0 → v1.0.0)
+
+**Purpose:** Ship a clean, boring, reliable **v1.0.0** CLI that you can trust to land code safely. Everything else is either a *release gate* or *post‑1.0 expansion*.
+
+**Legend:**
+
+* `[x]` Done (verified in code or tests)
+* `[ ]` Not done / planned
+* `[ ] (VERIFY)` Claimed done somewhere, but must be confirmed by reality (CI, release artifacts, or a reproducible command)
+
+---
+
+## Roadmap Operating Model
+
+### Source of truth (recommended)
+
+* **Canonical tasks:** `tasks.toml` (roadmap_v2)
+* **Human view:** `ROADMAP.md` should be **generated** from `tasks.toml` and treated as a read-only snapshot.
+
+### “Epoch files” (your idea, recommended after v1.0)
+
+When you switch, don’t split the *system*—split the *presentation*:
+
+* Keep `tasks.toml` as the DB.
+* Add `roadmap/epochs/v0.7.x.md`, `roadmap/epochs/v1.0.0.md`, etc. that are generated (filtered views).
+* `ROADMAP.md` becomes an index + high-level narrative.
+
+This prevents the “docs drift” you’re currently fighting.
+
+---
+
+## v0.7.0 — CURRENT BASELINE (What exists today)
+
+### Already implemented (snapshot, not exhaustive)
+
+* Roadmap v2 system (tasks.toml, parser, apply, show, audit)
+* Roadmap audit **can execute tests** via `--exec` (but the markdown roadmap says otherwise)
+* Apply validation already rejects markdown fences in non-markdown files
+* Watcher infrastructure exists in TUI (clipboard polling thread)
+
+### Remaining from the old v0.7.0 list
+
+* [ ] **Enhance Biome/ESLint detection logic**
+  *Why it matters:* auto-config quality determines whether first-run UX feels “magical” or “unfinished”.
+
+---
+
+# v1.0.0 Definition of Done (Release Gates)
+
+These are **hard gates**. If any box is unchecked, you do not ship v1.0.0.
+
+## Gate A — Apply is Safe, Deterministic, and Transactional
+
+* [ ] **Manifest semantics are single-source-of-truth and enforced both directions**
+
+  * If a file is in MANIFEST → it must have a FILE block (except `[DELETE]`).
+  * If a FILE block exists → it must be listed in MANIFEST.
+  * Rejection message lists **missing** and **extraneous** paths explicitly.
+* [ ] **Apply is atomic at the “apply session” level (all-or-nothing)**
+
+  * Either all writes land, or repo returns to pre-apply state.
+* [ ] **File writes are atomic at the file level (temp → rename)**
+
+  * No partial writes if process is killed mid-write.
+* [ ] **Backups are correct, predictable, and bounded**
+
+  * Backup folder naming is stable; retention is enforced (old backups cleaned).
+* [ ] **Path safety is robust across OS + case**
+
+  * Case-insensitive protections where needed (Windows/macOS reality).
+  * No writes through symlinks that escape repo root.
+  * “Protected files” policy is explicit and matches docs.
+
+## Gate B — Verification + Git Automation Are Not Surprising
+
+* [ ] **Verification pipeline is reproducible and cross-platform**
+
+  * Command parsing supports quoted args / flags safely.
+  * Output is concise and predictable.
+* [ ] **Commit/push behavior is controlled by config + CLI overrides**
+
+  * No “always push” surprises.
+  * Clear behavior when repo is dirty vs `allow_dirty_git`.
+* [ ] **Exit codes are stable and documented**
+
+  * `0` = clean success
+  * `1` = violations / failed checks
+  * `2` = internal error / misconfiguration
+
+## Gate C — Self-Hosting is Real
+
+Pick exactly one and document it:
+
+* [ ] **Option 1 (preferred):** `slopchop scan` passes on the SlopChop repo with default config
+* [ ] **Option 2:** If you intentionally exempt parts (tests, benches), the exemptions are explicit, minimal, and justified (no “hand waving”)
+
+Also required:
+
+* [ ] **All tests pass in CI** (including integration apply tests and roadmap audit tests)
+
+## Gate D — Documentation Matches Reality
+
+* [ ] README install + quickstart works end-to-end (fresh machine assumption)
+* [ ] DESIGN.md matches current behavior (manifest rules, protected files, roadmap system, watch mode scope)
+* [ ] “Roadmap system” guidance matches actual workflow (tasks.toml vs ROADMAP.md)
+
+## Gate E — Distribution is Verified (Not Assumed)
+
+* [ ] (VERIFY) Published to crates.io
+* [ ] (VERIFY) Homebrew formula (or official tap instructions)
+* [ ] (VERIFY) Windows install path (Scoop/Winget or a documented alternative)
+* [ ] (VERIFY) GitHub Releases binaries (linux/mac/windows)
+* [ ] License + dependency license audit passes (and is reproducible)
+
+---
+
+# Release Track (v0.7.1 → v1.0.0)
+
+## v0.7.1 — Truth Pass + Roadmap Hardening
+
+**Goal:** Stop roadmap/doc drift; make the plan executable.
+
+### Roadmap correctness
+
+* [ ] **Reconcile ROADMAP.md vs tasks.toml vs code reality**
+* [ ] **Mark “actually already done” items as done** (e.g., fence rejection; roadmap audit exec)
+* [ ] **Convert ROADMAP.md into generated output** (or clearly label it as non-authoritative)
+
+### Documentation sync
+
+* [ ] **Unify MANIFEST semantics across prompt, validator, and DESIGN.md**
+* [ ] **Update “Protected files” policy** (what’s blocked and why)
+* [ ] **Write “v1.0 release gates” section into docs** (copy/paste from this DoD)
+
+---
+
+## v0.7.2 — Apply Transactionality (The Core v1.0 Risk)
+
+**Goal:** You should be willing to run `slopchop apply` on a real repo without sweating.
+
+### Manifest enforcement
+
+* [ ] **Missing MANIFEST entries are detected and reported**
+* [ ] **Extra FILE blocks not in MANIFEST are detected and reported**
+* [ ] **DELETE entries cannot include a FILE block** (reject if present; prevents ambiguity)
+
+### Transactionality & backups
+
+* [ ] **Implement atomic file writes (temp → rename)**
+* [ ] **Implement apply-level rollback**
+  (If any write fails, restore from backup.)
+* [ ] **Backup retention cleanup** (bounded growth)
+* [ ] **Dry-run mode** that shows plan + diff summary without writing
+
+### Path & filesystem safety
+
+* [ ] **Case-insensitive blocking for protected/sensitive targets**
+* [ ] **Symlink escape prevention** (target path containment check)
+* [ ] **Consistent behavior across Linux/macOS/Windows**
+
+---
+
+## v0.7.3 — Verification, Exit Codes, and Git Controls
+
+**Goal:** The tool behaves like a serious CI-grade CLI.
+
+### Verification pipeline
+
+* [ ] **Command execution supports quoting + complex args** (no naive split-whitespace)
+* [ ] **Clear stage reporting** (which check failed, why, and what to run manually)
+* [ ] **Configurable strictness** (fail-fast vs report-all) *without* changing semantics
+
+### Git automation controls
+
+* [ ] **Honor `preferences.auto_commit` and `preferences.auto_push`**
+* [ ] **CLI overrides** (`--no-commit`, `--no-push`, `--allow-dirty`, `--require-clean`)
+* [ ] **No network side effects by default** (strongly recommended for v1.0)
+
+### Exit codes
+
+* [ ] Standardize and document exit codes (0/1/2)
+* [ ] Ensure all commands follow the policy (`scan`, `apply`, `check`, `roadmap audit`, etc.)
+
+---
+
+## v0.7.4 — Self-Hosting + CI Baseline
+
+**Goal:** SlopChop can defend itself.
+
+### Self-hosting
+
+* [ ] Remove `.unwrap()`/`.expect()` from repo *or* explicitly exempt test files with justification
+* [ ] Ensure token/complexity constraints are met (or documented exemptions)
+
+### CI baseline
+
+* [ ] GitHub Actions (or equivalent) runs:
+
+  * `cargo test`
+  * `cargo clippy -- -D warnings`
+  * `slopchop scan`
+  * `slopchop roadmap audit --strict --exec` (if you want “test traceability” as a gate)
+
+---
+
+## v0.8.0 — Release Candidate (Polish Only)
+
+**Goal:** No new core features; only reliability, documentation, packaging.
+
+* [ ] Lock CLI help text + examples (no breaking flags)
+* [ ] Harden error messages (especially apply rejection UX)
+* [ ] Performance sanity (startup time + scan speed)
+* [ ] Final doc pass (README/DESIGN/CHANGELOG)
+
+---
+
+## v1.0.0 — RELEASE
+
+**Goal:** Verified distribution + verified safety.
+
+### Distribution (all must be verified by an external repro step)
+
+* [ ] Published to crates.io
+* [ ] Homebrew formula / tap instructions
+* [ ] Windows install path (Scoop/Winget or documented alternative)
+* [ ] GitHub Releases binaries
+
+### Repo hygiene
+
+* [ ] License + dependency license audit is reproducible
+* [ ] Security policy is real (even if minimal)
+
+---
+
+# Post‑v1.0 Backlog (Do not block 1.0)
+
+These are valuable, but they create long tails. Ship them after the core is solid.
+
+## Watch Mode / Daemon / Hotkeys
+
+* Global hotkey registration
+* System notifications
+* Diff preview / staging workflow
+* Single-instance enforcement, graceful shutdown
+
+## Smart Context (Error-driven packing)
+
+* Parse compiler/linter errors → pack only relevant files (+ tests)
+* “AI context request” protocol + fulfill command
+
+## Graph Visualization
+
+* `slopchop graph` + DOT/Mermaid/HTML export
+
+## Legacy Adoption
+
+* Baseline mode (“only report new violations”)
+* Auto-generate ignore/baseline entries for large repos
+
+## God-Tier Audit (auto-refactor rewriting)
+
+* Call-site rewriting
+* Full-function body threading
+* Source markers / before-after patch output
+
+---
+
+## If you want the *single fastest path* to v1.0
+
+Treat **v0.7.2 + v0.7.3** as the actual “make-or-break.” Everything else is secondary until apply is transactional and git behavior is not surprising.

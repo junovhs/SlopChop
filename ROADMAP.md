@@ -283,18 +283,18 @@
 - [x] **SECTION command (create version headers)** <!-- test: [no-test] -->
 - [x] **SUBSECTION command (create ### headers)** <!-- test: [no-test] -->
 - [x] **CHAIN command (sequential adds)** <!-- test: [no-test] -->
-- [ ] **AFTER PREVIOUS keyword**
-- [ ] **AFTER TEXT "exact" match**
-- [ ] **AFTER LINE N match**
+- [x] **AFTER PREVIOUS keyword**
+- [x] **AFTER TEXT "exact" match**
+- [x] **AFTER LINE N match**
 - [ ] **IN "section/subsection" location**
 - [ ] **Slug echo on ADD (show generated slug)**
-- [ ] **Pre-validation: all AFTER targets exist**
-- [ ] **Pre-validation: no slug collisions**
-- [ ] **Pre-validation: no circular AFTER chains**
+- [x] **Pre-validation: all AFTER targets exist**
+- [x] **Pre-validation: no slug collisions**
+- [x] **Pre-validation: no circular AFTER chains**
 - [ ] **Batch dependency resolution (topological sort)**
-- [ ] **Fuzzy match suggestions on AFTER miss**
+- [x] **Fuzzy match suggestions on AFTER miss**
 - [ ] **Dry-run mode (--dry-run flag)**
-- [ ] **Atomic file write (temp → rename)**
+- [x] **Atomic file write (temp → rename)**
 - [ ] **Backup creation (.md.bak)**
 - [ ] **All-or-nothing execution (rollback on error)**
 - [ ] **Verbose plan output**

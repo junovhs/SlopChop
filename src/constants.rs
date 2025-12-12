@@ -30,7 +30,7 @@ pub const PRUNE_FILES: &[&str] = &[
     "Gemfile.lock",
 ];
 
-pub const SKIP_DIRS: &[&str] = &["tests", "test", "spec", "docs", "examples", "fixtures"];
+pub const SKIP_DIRS: &[&str] = &["spec", "examples", "fixtures"];
 
 pub const BIN_EXT_PATTERN: &str =
     r"(?i)\.(png|jpg|gif|svg|ico|webp|woff2?|ttf|pdf|mp4|zip|gz|tar|exe|dll|so|dylib|class|pyc)$";
