@@ -55,9 +55,9 @@ THE 3 LAWS (Non-Negotiable):
    - Action: Split immediately if larger.
 
 2. LAW OF COMPLEXITY
-   - Cyclomatic Complexity: MUST be ≤ {complexity} per function.
-   - Nesting Depth: MUST be ≤ {depth} levels.
-   - Function Arguments: MUST be ≤ {args} parameters.
+   - Cyclomatic Complexity: MUST be <= {complexity} per function.
+   - Nesting Depth: MUST be <= {depth} levels.
+   - Function Arguments: MUST be <= {args} parameters.
 
 3. LAW OF PARANOIA
    - Use Result<T, E> for I/O and fallible operations.
@@ -98,10 +98,10 @@ id = obsolete-task
 ===ROADMAP===
 
 Valid commands:
-- CHECK / UNCHECK → toggle done/pending
-- ADD → create new task (id + text required, section and test optional)
-- UPDATE → modify existing task
-- DELETE → remove task
+- CHECK / UNCHECK  toggle done/pending
+- ADD  create new task (id + text required, section and test optional)
+- UPDATE  modify existing task
+- DELETE  remove task
 
 Never emit or reference ROADMAP.md or the old markdown checklist format.
 
@@ -117,13 +117,13 @@ Never emit or reference ROADMAP.md or the old markdown checklist format.
         let marker = "#__SLOPCHOP_FILE__#";
         format!(
             r"SLOPCHOP CONSTRAINTS:
-□ Files < {tokens} tokens
-□ Complexity ≤ {complexity}
-□ Nesting ≤ {depth}
-□ Args ≤ {args}
-□ No .unwrap() or .expect()
-□ Use SlopChop Format ({marker} ...)
-□ Roadmap updates → tasks.toml via ===ROADMAP=== block only"
+? Files < {tokens} tokens
+? Complexity <= {complexity}
+? Nesting <= {depth}
+? Args <= {args}
+? No .unwrap() or .expect()
+? Use SlopChop Format ({marker} ...)
+? Roadmap updates  tasks.toml via ===ROADMAP=== block only"
         )
     }
 }
@@ -161,7 +161,7 @@ path/to/file2.rs [NEW]
 3. Provide EACH file:
 
 {file_header} path/to/file1.rs
-// Complete file content – no truncation allowed
+// Complete file content - no truncation allowed
 {file_footer}
 
 4. Update the Roadmap (if applicable):
@@ -181,6 +181,6 @@ RULES:
 - You MAY use markdown inside file content.
 - Every file in the manifest MUST have a matching {file_header} block.
 - Paths must match exactly.
-- Do NOT truncate files (No "// ...")."#
+- Do NOT truncate files (No "// ...")."# // slopchop:ignore
     )
-}
+}

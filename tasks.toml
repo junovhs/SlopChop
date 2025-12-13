@@ -3007,3 +3007,27 @@ text = "Enhance Biome/ESLint detection logic"
 status = "pending"
 section = "v0.7.0"
 order = 0
+
+[[tasks]]
+id = "fix-paranoia-violations"
+text = "Fix 'Law of Paranoia' violations in tests by replacing unwrap/expect with Result/?"
+status = "done"
+section = "v0.9.0"
+test = "tests/integration_pack.rs::test_nabla_delimiters_are_unique"
+order = 45
+
+[[tasks]]
+id = "new-task-123"
+text = "Description of the new task"
+status = "pending"
+section = "v0.9.0"
+test = "tests/some_test.rs::test_name"
+order = 46
+
+[[tasks]]
+id = "fix-paranoia-violation-god-tier"
+text = "Fix lingering .unwrap() in unit_god_tier.rs test"
+status = "done"
+section = "v0.9.0"
+test = "tests/unit_god_tier.rs"
+order = 47

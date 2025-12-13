@@ -140,7 +140,8 @@ fn apply_and_verify(content: &str, ctx: &ApplyContext, plan: Option<&str>) -> Re
         });
     }
 
-    let mut outcome = writer::write_files(&manifest, &extracted, None)?;
+    let retention = ctx.config.preferences.backup_retention;
+    let mut outcome = writer::write_files(&manifest, &extracted, None, retention)?;
     let roadmap_path = Path::new("tasks.toml");
     let mut roadmap_results = Vec::new();
 

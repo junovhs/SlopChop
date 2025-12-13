@@ -15,6 +15,7 @@ pub fn write_files(
     manifest: &Manifest,
     files: &ExtractedFiles,
     root: Option<&Path>,
+    retention: usize,
 ) -> Result<ApplyOutcome> {
     let root_path = root.map_or_else(|| PathBuf::from("."), Path::to_path_buf);
     let canonical_root = root_path
@@ -22,6 +23,11 @@ pub fn write_files(
         .unwrap_or_else(|_| root_path.clone());
 
     let backup_path = create_backup(manifest, root)?;
+
+    if backup_path.is_some() && retention > 0 {
+        cleanup_old_backups(root, retention);
+    }
+
     let mut written = Vec::new();
     let mut deleted = Vec::new();
 
@@ -46,6 +52,35 @@ pub fn write_files(
         roadmap_results: Vec::new(),
         backed_up: backup_path.is_some(),
     })
+}
+
+fn cleanup_old_backups(root: Option<&Path>, retention: usize) {
+    let root_path = root.map_or_else(|| PathBuf::from("."), Path::to_path_buf);
+    let backup_dir = root_path.join(BACKUP_DIR);
+
+    if !backup_dir.exists() {
+        return;
+    }
+
+    let Ok(entries) = fs::read_dir(&backup_dir) else {
+        return;
+    };
+
+    let mut timestamps: Vec<(u64, PathBuf)> = entries
+        .filter_map(Result::ok)
+        .filter_map(|e| {
+            let path = e.path();
+            let name = path.file_name()?.to_string_lossy();
+            let ts: u64 = name.parse().ok()?;
+            Some((ts, path))
+        })
+        .collect();
+
+    timestamps.sort_by(|a, b| b.0.cmp(&a.0));
+
+    for (_, path) in timestamps.into_iter().skip(retention) {
+        let _ = fs::remove_dir_all(path);
+    }
 }
 
 fn delete_file(path_str: &str, root: Option<&Path>, canonical_root: &Path) -> Result<()> {

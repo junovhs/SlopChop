@@ -1,4 +1,5 @@
 // tests/unit_config.rs
+use anyhow::Result;
 use slopchop_core::config::Config;
 
 #[test]
@@ -29,7 +30,7 @@ fn test_defaults() {
 }
 
 #[test]
-fn test_command_single() {
+fn test_command_single() -> Result<()> {
     let toml = r#"
         [commands]
         check = "cargo check"
@@ -37,13 +38,17 @@ fn test_command_single() {
     let mut config = Config::new();
     config.parse_toml(toml);
 
-    let cmds = config.commands.get("check").expect("check command missing");
+    let cmds = config
+        .commands
+        .get("check")
+        .ok_or(anyhow::anyhow!("check command missing"))?;
     assert_eq!(cmds.len(), 1);
     assert_eq!(cmds[0], "cargo check");
+    Ok(())
 }
 
 #[test]
-fn test_command_list() {
+fn test_command_list() -> Result<()> {
     let toml = r#"
         [commands]
         check = ["cargo fmt", "cargo test"]
@@ -51,10 +56,14 @@ fn test_command_list() {
     let mut config = Config::new();
     config.parse_toml(toml);
 
-    let cmds = config.commands.get("check").expect("check command missing");
+    let cmds = config
+        .commands
+        .get("check")
+        .ok_or(anyhow::anyhow!("check command missing"))?;
     assert_eq!(cmds.len(), 2);
     assert_eq!(cmds[0], "cargo fmt");
     assert_eq!(cmds[1], "cargo test");
+    Ok(())
 }
 
 #[test]
@@ -112,4 +121,4 @@ fn test_ignore_naming_on() {
     assert!(is_ignored("tests/my_test.rs"));
     assert!(is_ignored("src/spec.rs"));
     assert!(!is_ignored("src/main.rs"));
-}
+}
