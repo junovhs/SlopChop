@@ -11,11 +11,9 @@ pub fn is_dirty() -> Result<bool> {
         .args(["status", "--porcelain"])
         .output()
         .context("Failed to run git status")?;
-
     if !output.status.success() {
         bail!("git status failed");
     }
-
     Ok(!output.stdout.is_empty())
 }
 
@@ -29,6 +27,21 @@ pub fn in_repo() -> bool {
         .unwrap_or(false)
 }
 
+/// Commits all staged changes without pushing.
+///
+/// # Errors
+/// Returns error if any git command fails.
+pub fn commit_only(message: &str) -> Result<()> {
+    run_git(&["add", "-A"])?;
+
+    if !has_staged_changes()? {
+        return Ok(());
+    }
+
+    run_git(&["commit", "-m", message])?;
+    Ok(())
+}
+
 /// Commits all staged changes and pushes to remote.
 ///
 /// # Errors
@@ -36,20 +49,24 @@ pub fn in_repo() -> bool {
 pub fn commit_and_push(message: &str) -> Result<()> {
     run_git(&["add", "-A"])?;
 
-    // Check if there's anything to commit
-    let status = Command::new("git")
-        .args(["diff", "--cached", "--quiet"])
-        .status()
-        .context("Failed to check staged changes")?;
-
-    if status.success() {
-        // Nothing staged, nothing to commit
+    if !has_staged_changes()? {
         return Ok(());
     }
 
     run_git(&["commit", "-m", message])?;
+    push_if_remote_exists()?;
+    Ok(())
+}
 
-    // Push, but don't fail if no remote configured
+fn has_staged_changes() -> Result<bool> {
+    let status = Command::new("git")
+        .args(["diff", "--cached", "--quiet"])
+        .status()
+        .context("Failed to check staged changes")?;
+    Ok(!status.success())
+}
+
+fn push_if_remote_exists() -> Result<()> {
     let push_result = Command::new("git")
         .args(["push"])
         .output()
@@ -61,12 +78,10 @@ pub fn commit_and_push(message: &str) -> Result<()> {
             || stderr.contains("no upstream branch")
             || stderr.contains("does not have any commits")
         {
-            // No remote configured, that's fine
             return Ok(());
         }
         bail!("git push failed: {}", stderr.trim());
     }
-
     Ok(())
 }
 
@@ -80,6 +95,5 @@ fn run_git(args: &[&str]) -> Result<()> {
         let stderr = String::from_utf8_lossy(&output.stderr);
         bail!("git {} failed: {}", args.join(" "), stderr.trim());
     }
-
     Ok(())
-}
+}

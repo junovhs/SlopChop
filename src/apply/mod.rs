@@ -12,20 +12,35 @@ use crate::clipboard;
 use crate::roadmap_v2;
 use anyhow::{Context, Result};
 use colored::Colorize;
-use std::io::{self, Write};
+use std::io::{self, Read, Write};
 use std::path::Path;
-use types::{ApplyContext, ApplyOutcome, ExtractedFiles, Manifest};
+use types::{ApplyContext, ApplyInput, ApplyOutcome, ExtractedFiles, Manifest};
 
 const INTENT_FILE: &str = ".slopchop_intent";
 
 /// Runs the apply command logic.
 ///
 /// # Errors
-/// Returns error if clipboard access fails or git state is invalid.
+/// Returns error if input access fails or git state is invalid.
 pub fn run_apply(ctx: &ApplyContext) -> Result<ApplyOutcome> {
     check_git_state(ctx)?;
-    let content = clipboard::read_clipboard().context("Failed to read clipboard")?;
+    let content = read_input(&ctx.input)?;
     process_input(&content, ctx)
+}
+
+fn read_input(input: &ApplyInput) -> Result<String> {
+    match input {
+        ApplyInput::Clipboard => clipboard::read_clipboard().context("Failed to read clipboard"),
+        ApplyInput::Stdin => {
+            let mut buf = String::new();
+            io::stdin()
+                .read_to_string(&mut buf)
+                .context("Failed to read stdin")?;
+            Ok(buf)
+        }
+        ApplyInput::File(path) => std::fs::read_to_string(path)
+            .with_context(|| format!("Failed to read file: {}", path.display())),
+    }
 }
 
 fn check_git_state(ctx: &ApplyContext) -> Result<()> {
@@ -34,7 +49,10 @@ fn check_git_state(ctx: &ApplyContext) -> Result<()> {
     }
 
     if git::is_dirty()? {
-        println!("{}", "[WARN] Git working tree has uncommitted changes.".yellow());
+        println!(
+            "{}",
+            "[WARN] Git working tree has uncommitted changes.".yellow()
+        );
     }
     Ok(())
 }
@@ -76,7 +94,7 @@ fn check_plan_requirement(plan: Option<&str>, ctx: &ApplyContext) -> Result<bool
         println!("{}", "-".repeat(50).dimmed());
         println!("{}", p.trim());
         println!("{}", "-".repeat(50).dimmed());
-        
+
         if !ctx.force && !ctx.dry_run {
             return confirm("Apply these changes?");
         }
@@ -155,11 +173,10 @@ fn verify_and_commit(outcome: &ApplyOutcome, ctx: &ApplyContext, plan: Option<&s
         return Ok(());
     }
 
-    // New unified pipeline: Lint -> Test -> Scan
     let success = verification::run_verification_pipeline(ctx)?;
 
     if success {
-        handle_success(plan);
+        handle_success(plan, ctx);
     } else {
         println!(
             "{}",
@@ -188,18 +205,41 @@ fn has_changes(outcome: &ApplyOutcome) -> bool {
     }
 }
 
-fn handle_success(plan: Option<&str>) {
-    println!(
-        "{}",
-        "\n[OK] Verification Passed. Committing & Pushing..."
-            .green()
-            .bold()
-    );
+fn handle_success(plan: Option<&str>, ctx: &ApplyContext) {
+    if !ctx.should_commit() {
+        println!(
+            "{}",
+            "\n[OK] Verification Passed. Skipping commit (disabled).".green()
+        );
+        return;
+    }
+
     let message = construct_commit_message(plan);
-    if let Err(e) = git::commit_and_push(&message) {
-        eprintln!("{} Git operation failed: {e}", "[WARN]".yellow());
+
+    if ctx.should_push() {
+        println!(
+            "{}",
+            "\n[OK] Verification Passed. Committing & Pushing..."
+                .green()
+                .bold()
+        );
+        if let Err(e) = git::commit_and_push(&message) {
+            eprintln!("{} Git operation failed: {e}", "[WARN]".yellow());
+        } else {
+            clear_intent();
+        }
     } else {
-        clear_intent();
+        println!(
+            "{}",
+            "\n[OK] Verification Passed. Committing (push disabled)..."
+                .green()
+                .bold()
+        );
+        if let Err(e) = git::commit_only(&message) {
+            eprintln!("{} Git commit failed: {e}", "[WARN]".yellow());
+        } else {
+            clear_intent();
+        }
     }
 }
 
