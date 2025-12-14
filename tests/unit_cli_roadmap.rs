@@ -41,6 +41,16 @@ order = 0
     Ok(temp)
 }
 
+fn check_roadmap_content(needle: &str) -> Result<()> {
+    let temp = setup_test_project()?;
+    let content = fs::read_to_string(temp.path().join("tasks.toml"))?;
+    assert!(
+        content.contains(needle),
+        "Roadmap should contain '{needle}'"
+    );
+    Ok(())
+}
+
 #[test]
 fn test_roadmap_init() -> Result<()> {
     let temp = TempDir::new()?;
@@ -65,26 +75,17 @@ fn test_roadmap_show() -> Result<()> {
 
 #[test]
 fn test_roadmap_tasks() -> Result<()> {
-    let temp = setup_test_project()?;
-    let content = fs::read_to_string(temp.path().join("tasks.toml"))?;
-    assert!(content.contains("test-task"));
-    Ok(())
+    check_roadmap_content("test-task")
 }
 
 #[test]
 fn test_roadmap_tasks_pending() -> Result<()> {
-    let temp = setup_test_project()?;
-    let content = fs::read_to_string(temp.path().join("tasks.toml"))?;
-    assert!(content.contains("status"));
-    Ok(())
+    check_roadmap_content("status")
 }
 
 #[test]
 fn test_roadmap_tasks_complete() -> Result<()> {
-    let temp = setup_test_project()?;
-    let content = fs::read_to_string(temp.path().join("tasks.toml"))?;
-    assert!(content.contains("done"));
-    Ok(())
+    check_roadmap_content("done")
 }
 
 #[test]

@@ -11,6 +11,14 @@ pub struct CheckContext<'a> {
     pub config: &'a RuleConfig,
 }
 
+struct MetricConfig<'a> {
+    value: usize,
+    max: usize,
+    row: usize,
+    title: &'a str,
+    msg_tmpl: &'a str,
+}
+
 /// Checks for naming violations (function name word count).
 pub fn check_naming(ctx: &CheckContext, query: &Query, out: &mut Vec<Violation>) {
     if is_ignored(ctx.filename, &ctx.config.ignore_naming_on) {
@@ -61,48 +69,47 @@ pub fn check_metrics(ctx: &CheckContext, complexity_query: &Query, out: &mut Vec
             let row = node.start_position().row;
 
             check_metric(
-                metrics::count_arguments(node),
-                ctx.config.max_function_args,
-                row,
-                "High Arity",
-                "Function takes {} arguments. Use a Struct.",
+                &MetricConfig {
+                    value: metrics::count_arguments(node),
+                    max: ctx.config.max_function_args,
+                    row,
+                    title: "High Arity",
+                    msg_tmpl: "Function takes {} arguments. Use a Struct.",
+                },
                 out,
             );
 
             check_metric(
-                metrics::calculate_max_depth(node),
-                ctx.config.max_nesting_depth,
-                row,
-                "Deep Nesting",
-                "Max depth is {}. Extract logic.",
+                &MetricConfig {
+                    value: metrics::calculate_max_depth(node),
+                    max: ctx.config.max_nesting_depth,
+                    row,
+                    title: "Deep Nesting",
+                    msg_tmpl: "Max depth is {}. Extract logic.",
+                },
                 out,
             );
 
             check_metric(
-                metrics::calculate_complexity(node, ctx.source, complexity_query),
-                ctx.config.max_cyclomatic_complexity,
-                row,
-                "High Complexity",
-                "Score is {}. Hard to test.",
+                &MetricConfig {
+                    value: metrics::calculate_complexity(node, ctx.source, complexity_query),
+                    max: ctx.config.max_cyclomatic_complexity,
+                    row,
+                    title: "High Complexity",
+                    msg_tmpl: "Score is {}. Hard to test.",
+                },
                 out,
             );
         }
     });
 }
 
-fn check_metric(
-    value: usize,
-    max: usize,
-    row: usize,
-    title: &str,
-    msg_tmpl: &str,
-    out: &mut Vec<Violation>,
-) {
-    if value > max {
-        let detail = msg_tmpl.replace("{}", &value.to_string());
+fn check_metric(cfg: &MetricConfig, out: &mut Vec<Violation>) {
+    if cfg.value > cfg.max {
+        let detail = cfg.msg_tmpl.replace("{}", &cfg.value.to_string());
         out.push(Violation {
-            row,
-            message: format!("{title}: {detail} (Max: {max})"),
+            row: cfg.row,
+            message: format!("{}: {detail} (Max: {})", cfg.title, cfg.max),
             law: "LAW OF COMPLEXITY",
         });
     }

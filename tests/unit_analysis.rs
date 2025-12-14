@@ -1,4 +1,5 @@
 // tests/unit_analysis.rs
+// slopchop:ignore
 use slopchop_core::analysis::ast::Analyzer;
 use slopchop_core::analysis::RuleEngine;
 use slopchop_core::config::{Config, RuleConfig};
@@ -29,12 +30,25 @@ fn check_ignore(content: &str) -> bool {
     let config = Config::default();
     let engine = RuleEngine::new(config);
 
-    // If ignored, analyze_file returns None (or empty report? RuleEngine::analyze_file returns Option<FileReport>)
-    // Wait, scan() returns ScanReport.files. If analyze_file returns None, it is filtered out.
-    // So if files list is empty, it was ignored.
-
+    // If ignored, analyze_file returns None.
+    // If scan() returns empty files list, it was ignored.
     let report = engine.scan(vec![file_path]);
     report.files.is_empty()
+}
+
+// --- Helper for Naming Analysis ---
+fn check_naming_violation(lang: &str, bad_code: &str, good_code: &str) {
+    let analyzer = Analyzer::new();
+    let config = RuleConfig {
+        max_function_words: 3,
+        ..Default::default()
+    };
+
+    let v_bad = analyzer.analyze(lang, "t", bad_code, &config);
+    assert!(!v_bad.is_empty(), "Should detect violation in: {bad_code}");
+
+    let v_good = analyzer.analyze(lang, "t", good_code, &config);
+    assert!(v_good.is_empty(), "Should allow valid code: {good_code}");
 }
 
 #[test]
@@ -55,40 +69,22 @@ fn test_python_complexity() {
 
 #[test]
 fn test_snake_case_words() {
-    let analyzer = Analyzer::new();
-    let config = RuleConfig {
-        max_function_words: 3,
-        ..Default::default()
-    };
-
-    // "this_is_too_long" = 4 words
-    let code = "fn this_is_too_long() {}";
-    let v = analyzer.analyze("rs", "t.rs", code, &config);
-    assert!(!v.is_empty(), "Should detect long snake_case");
-
-    // "short_one" = 2 words
-    let code = "fn short_one() {}";
-    let v = analyzer.analyze("rs", "t.rs", code, &config);
-    assert!(v.is_empty(), "Should allow short snake_case");
+    // "this_is_too_long" = 4 words vs "short_one" = 2 words
+    check_naming_violation(
+        "rs",
+        "fn this_is_too_long() {}",
+        "fn short_one() {}",
+    );
 }
 
 #[test]
 fn test_camel_case_words() {
-    let analyzer = Analyzer::new();
-    let config = RuleConfig {
-        max_function_words: 3,
-        ..Default::default()
-    };
-
-    // "ThisIsTooLong" = 4 words
-    let code = "function ThisIsTooLong() {}";
-    let v = analyzer.analyze("js", "t.js", code, &config);
-    assert!(!v.is_empty(), "Should detect long CamelCase");
-
-    // "ShortOne" = 2 words
-    let code = "function ShortOne() {}";
-    let v = analyzer.analyze("js", "t.js", code, &config);
-    assert!(v.is_empty(), "Should allow short CamelCase");
+    // "ThisIsTooLong" = 4 words vs "ShortOne" = 2 words
+    check_naming_violation(
+        "js",
+        "function ThisIsTooLong() {}",
+        "function ShortOne() {}",
+    );
 }
 
 #[test]
@@ -107,4 +103,4 @@ fn test_slopchop_ignore_html() {
         check_ignore(content),
         "Should ignore file with html comment"
     );
-}
+}

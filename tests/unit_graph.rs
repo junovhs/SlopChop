@@ -4,6 +4,18 @@
 use slopchop_core::graph::imports;
 use std::path::Path;
 
+fn check_imports(filename: &str, content: &str, expected: &str) {
+    let imports = imports::extract(Path::new(filename), content);
+    assert!(
+        !imports.is_empty(),
+        "Should extract imports from {filename}"
+    );
+    assert!(
+        imports.iter().any(|i| i.contains(expected)),
+        "Should find '{expected}' import in {filename}"
+    );
+}
+
 #[test]
 fn test_rust_use_extraction() {
     let content = r"
@@ -11,12 +23,7 @@ use std::collections::HashMap;
 use crate::config::Config;
 use super::types::Violation;
 ";
-    let imports = imports::extract(Path::new("src/lib.rs"), content);
-    assert!(!imports.is_empty(), "Should extract Rust use statements");
-    assert!(
-        imports.iter().any(|i| i.contains("HashMap")),
-        "Should find HashMap import"
-    );
+    check_imports("src/lib.rs", content, "HashMap");
 }
 
 #[test]
@@ -26,11 +33,7 @@ mod config;
 mod analysis;
 pub mod types;
 ";
-    let imports = imports::extract(Path::new("src/lib.rs"), content);
-    assert!(
-        imports.iter().any(|i| i.contains("config")),
-        "Should extract mod declarations"
-    );
+    check_imports("src/lib.rs", content, "config");
 }
 
 #[test]
@@ -40,12 +43,7 @@ import os
 import sys
 import json
 ";
-    let imports = imports::extract(Path::new("main.py"), content);
-    assert!(!imports.is_empty(), "Should extract Python imports");
-    assert!(
-        imports.iter().any(|i| i.contains("os")),
-        "Should find os import"
-    );
+    check_imports("main.py", content, "os");
 }
 
 #[test]
@@ -55,11 +53,7 @@ from pathlib import Path
 from typing import Optional, List
 from .utils import helper
 ";
-    let imports = imports::extract(Path::new("main.py"), content);
-    assert!(
-        !imports.is_empty(),
-        "Should extract from...import statements"
-    );
+    check_imports("main.py", content, "pathlib");
 }
 
 #[test]
@@ -69,6 +63,5 @@ import { useState } from 'react';
 import axios from 'axios';
 import * as utils from './utils';
 ";
-    let imports = imports::extract(Path::new("app.ts"), content);
-    assert!(!imports.is_empty(), "Should extract TypeScript imports");
-}
+    check_imports("app.ts", content, "react");
+}

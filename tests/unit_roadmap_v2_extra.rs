@@ -125,50 +125,28 @@ after = task-one
 }
 
 #[test]
-fn test_note_command() {
-    let input = "===ROADMAP===\nNOTE\nid = task-one\nnote = Important info\n===ROADMAP===";
-    let cmds = parse_commands(input).unwrap_or_default();
-    let _ = cmds.len();
-}
-
-#[test]
-fn test_move_command() {
-    let input = "===ROADMAP===\nMOVE\nid = task-one\nto = v0.2.0\n===ROADMAP===";
-    let cmds = parse_commands(input).unwrap_or_default();
-    let _ = cmds.len();
-}
-
-#[test]
 fn test_comment_skipping() {
     let input = "===ROADMAP===\n# This is a comment\nCHECK\nid = task-one\n===ROADMAP===";
     let cmds = parse_commands(input).unwrap_or_default();
     assert!(!cmds.is_empty());
 }
 
-#[test]
-fn test_section_command() {
-    let input = "===ROADMAP===\nSECTION\nname = v0.2.0\ntitle = New Version\n===ROADMAP===";
-    let cmds = parse_commands(input).unwrap_or_default();
-    let _ = cmds.len();
-}
+// --- Future Command Stubs ---
 
 #[test]
-fn test_subsection_command() {
-    let input = "===ROADMAP===\nSUBSECTION\nname = New Group\nsection = v0.1.0\n===ROADMAP===";
-    let cmds = parse_commands(input).unwrap_or_default();
-    let _ = cmds.len();
-}
+fn test_future_commands_stubs() {
+    // These commands are not yet implemented in parser.rs, so they return empty/error.
+    // We test that they don't crash the parser.
+    let cases = vec![
+        "===ROADMAP===\nNOTE\nid = task-one\nnote = Info\n===ROADMAP===",
+        "===ROADMAP===\nMOVE\nid = task-one\nto = v0.2.0\n===ROADMAP===",
+        "===ROADMAP===\nSECTION\nname = v0.2.0\ntitle = New\n===ROADMAP===",
+        "===ROADMAP===\nSUBSECTION\nname = Grp\nsection = v0.1.0\n===ROADMAP===",
+        "===ROADMAP===\nCHAIN\nsection = v1\ngroup = T\ntasks = A, B\n===ROADMAP===",
+    ];
 
-#[test]
-fn test_chain_command() {
-    let input = r"
-===ROADMAP===
-CHAIN
-section = v0.1.0
-group = Test
-tasks = First task, Second task, Third task
-===ROADMAP===
-";
-    let cmds = parse_commands(input).unwrap_or_default();
-    let _ = cmds.len();
+    for input in cases {
+        let cmds = parse_commands(input).unwrap_or_default();
+        let _ = cmds.len(); // Just ensure no panic
+    }
 }

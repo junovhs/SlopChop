@@ -2,39 +2,52 @@
 use slopchop_core::skeleton;
 use std::path::Path;
 
-#[test]
-fn test_clean_rust_basic() {
-    let code = "fn main() {\n    println!(\"hi\");\n}";
-    let result = skeleton::clean(Path::new("test.rs"), code);
-    assert!(result.contains("{ ... }") || result.contains("fn main"));
+fn check_clean(filename: &str, code: &str, expected_parts: &[&str]) {
+    let result = skeleton::clean(Path::new(filename), code);
+    for part in expected_parts {
+        assert!(
+            result.contains(part),
+            "Cleaned code missing '{part}'. Result:\n{result}"
+        );
+    }
 }
 
 #[test]
-fn test_clean_rust_nested() {
-    let code = "fn outer() {\n    fn inner() { 42 }\n    inner()\n}";
-    let result = skeleton::clean(Path::new("test.rs"), code);
-    assert!(result.contains("fn outer") || result.contains("{ ... }"));
-}
+fn test_clean_languages() {
+    // Rust Basic
+    check_clean(
+        "test.rs",
+        "fn main() {\n    println!(\"hi\");\n}",
+        &["fn main", "{ ... }"],
+    );
 
-#[test]
-fn test_clean_rust_impl() {
-    let code = "impl Foo {\n    fn bar(&self) { 42 }\n}";
-    let result = skeleton::clean(Path::new("test.rs"), code);
-    assert!(result.contains("impl") || result.contains("Foo"));
-}
+    // Rust Nested
+    check_clean(
+        "test.rs",
+        "fn outer() {\n    fn inner() { 42 }\n    inner()\n}",
+        &["fn outer", "{ ... }"],
+    );
 
-#[test]
-fn test_clean_python() {
-    let code = "def hello():\n    print('hi')\n";
-    let result = skeleton::clean(Path::new("test.py"), code);
-    assert!(result.contains("def hello") || result.contains("..."));
-}
+    // Rust Impl
+    check_clean(
+        "test.rs",
+        "impl Foo {\n    fn bar(&self) { 42 }\n}",
+        &["impl", "Foo"],
+    );
 
-#[test]
-fn test_clean_typescript() {
-    let code = "function hello() {\n    console.log('hi');\n}";
-    let result = skeleton::clean(Path::new("test.ts"), code);
-    assert!(result.contains("function hello") || result.contains("{ ... }"));
+    // Python
+    check_clean(
+        "test.py",
+        "def hello():\n    print('hi')\n",
+        &["def hello", "..."],
+    );
+
+    // TypeScript
+    check_clean(
+        "test.ts",
+        "function hello() {\n    console.log('hi');\n}",
+        &["function hello", "{ ... }"],
+    );
 }
 
 #[test]
@@ -42,4 +55,4 @@ fn test_clean_unsupported_extension() {
     let code = "some random text";
     let result = skeleton::clean(Path::new("test.xyz"), code);
     assert_eq!(result, code);
-}
+}

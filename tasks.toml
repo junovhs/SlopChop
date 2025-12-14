@@ -1978,3 +1978,41 @@ text = "Task at specific line position"
 status = "pending"
 section = "v0.1.0"
 order = 16
+
+[[tasks]]
+id = "fix-violations"
+text = "Fix active complexity and arity violations"
+status = "done"
+section = "v0.7.0"
+order = 47
+
+[[tasks]]
+id = "split-graph-module"
+text = "Split src/graph/rank/graph.rs into graph.rs and builder.rs to satisfy Atomicity Law"
+status = "done"
+section = "v0.7.0"
+order = 48
+
+[[tasks]]
+id = "audit-refactor-tests-naming"
+text = "Refactor naming tests in unit_analysis.rs to reduce duplication"
+status = "done"
+section = "v0.7.0"
+test = "tests/unit_analysis.rs::test_snake_case_words"
+order = 49
+
+[[tasks]]
+id = "audit-refactor-tests-graph"
+text = "Refactor graph extraction tests to reduce duplication"
+status = "done"
+section = "v0.7.0"
+test = "tests/unit_graph.rs::test_rust_use_extraction"
+order = 50
+
+[[tasks]]
+id = "audit-refactor-tests-cli-roadmap"
+text = "Refactor cli roadmap tests to reduce duplication"
+status = "done"
+section = "v0.7.0"
+test = "tests/unit_cli_roadmap.rs::test_roadmap_tasks"
+order = 51

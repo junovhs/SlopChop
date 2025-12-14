@@ -266,6 +266,8 @@ The path to a hardened v1.0.0 trust boundary.
 - [x] **Delete src/audit/mod_append.rs** <!-- test: [no-test] -->
 - [x] **Extract node matching logic in enhance.rs** <!-- test: [no-test] -->
 - [x] **Final polish of God Tier Audit** <!-- test: [no-test] -->
+- [x] **Fix active complexity and arity violations**
+- [x] **Split src/graph/rank/graph.rs into graph.rs and builder.rs to satisfy Atomicity Law**
 
 ---
 
@@ -292,7 +294,7 @@ The path to a hardened v1.0.0 trust boundary.
 ### Transactionality
 - [x] **Apply-level rollback (restore from backup on failure)** <!-- test: tests/integration_backup.rs::test_backup_dir_created -->
 - [x] **Backup retention cleanup (bounded growth)** <!-- test: tests/integration_backup.rs::test_timestamp_folder -->
-- [x] **Dry-run mode (show plan + diff summary)** <!-- test: tests/unit_cli_check.rs::test_dry_run_no_writes -->
+- [x] **Dry-run mode (show plan + diff summary)** <!-- test: tests/repro_dry_run.rs::test_dry_run_prevents_writes -->
 
 ### Stability
 - [x] **Remove panics from AST analysis queries** <!-- test: src/analysis/ast.rs::compile_query -->
@@ -371,3 +373,4 @@ The path to a hardened v1.0.0 trust boundary.
 - [ ] **Legacy adoption baseline mode**
 
 ---
+
