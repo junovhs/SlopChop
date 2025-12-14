@@ -1,6 +1,7 @@
 # SlopChop Design Document
 
-> **Audience:** Developers (human or AI) working on or extending SlopChop.  
+> **Status:** V1.0 Hardening Complete (Phase 2)
+> **Audience:** Developers (human or AI) working on or extending SlopChop.
 > **See also:** [README.md](README.md) for user guide.
 
 ---
@@ -12,16 +13,14 @@
 3. [The Three Laws](#the-three-laws)
 4. [The SlopChop Protocol](#the-slopchop-protocol)
 5. [Analysis Engine](#analysis-engine)
-6. [Apply System](#apply-system)
+6. [Apply System (V1.0 Hardened)](#apply-system-v10-hardened)
 7. [Context Generation](#context-generation)
 8. [Dependency Graph](#dependency-graph)
 9. [Roadmap System (V2)](#roadmap-system-v2)
 10. [TUI Dashboard](#tui-dashboard)
 11. [Security Model](#security-model)
 12. [Key Decisions & Rationale](#key-decisions--rationale)
-13. [Module Map](#module-map)
-14. [Testing Philosophy](#testing-philosophy)
-15. [Future Work](#future-work)
+13. [Future Work](#future-work)
 
 ---
 
@@ -89,102 +88,87 @@ src/
 │   ├── metrics.rs     # Complexity, depth, arity calculations
 │   └── mod.rs         # RuleEngine orchestration
 │
-├── apply/             # AI response → filesystem
+├── apply/             # AI response → filesystem (V1.0 Hardened)
+│   ├── backup.rs      # Backup creation & rollback logic
 │   ├── extractor.rs   # Protocol parsing
 │   ├── manifest.rs    # MANIFEST block parsing
-│   ├── validator.rs   # Path safety, truncation detection
-│   ├── writer.rs      # Atomic file writes with backup
+│   ├── validator.rs   # Integrity & Path Safety
+│   ├── writer.rs      # Atomic Transactional Writes
 │   ├── verification.rs# Post-apply check commands
 │   ├── git.rs         # Git commit/push operations
 │   ├── messages.rs    # Error message formatting
 │   ├── types.rs       # ApplyContext, ApplyOutcome types
-│   └── mod.rs         # Orchestration and flow control
+│   └── mod.rs         # Orchestration
 │
-├── graph/             # Dependency analysis
-│   ├── imports.rs     # Import extraction per language
-│   ├── resolver.rs    # Import → file path resolution
-│   ├── defs/          # Definition extraction
-│   │   ├── extract.rs # Symbol extraction from source
-│   │   ├── queries.rs # Tree-sitter queries for symbols
-│   │   └── mod.rs
-│   └── rank/          # PageRank-based importance
-│       ├── graph.rs   # RepoGraph structure
-│       ├── pagerank.rs# PageRank algorithm
-│       ├── tags.rs    # Tag kinds and definitions
-│       └── mod.rs
-│
-├── pack/              # Context generation for AI
-│   ├── formats.rs     # Output format handling
-│   ├── focus.rs       # Focus mode computation
-│   └── mod.rs         # Pack orchestration
-│
-├── trace/             # Smart context generation
-│   ├── options.rs     # TraceOptions configuration
-│   ├── output.rs      # Trace output rendering
-│   ├── runner.rs      # Trace execution logic
-│   └── mod.rs
-│
-├── roadmap_v2/        # TOML-based task management
-│   ├── types.rs       # TaskStore, Task, Section types
-│   ├── parser.rs      # Command parsing
-│   ├── executor.rs    # Command execution
-│   ├── storage.rs     # TOML serialization
-│   └── cli/           # Subcommand handlers
-│       ├── display.rs # Output formatting
-│       ├── handlers.rs# Command implementations
-│       └── mod.rs
-│
-├── tui/               # Terminal UI
-│   ├── dashboard/     # Main dashboard with tabs
-│   │   ├── mod.rs
-│   │   ├── state.rs   # DashboardApp state
-│   │   └── ui.rs      # Ratatui rendering
-│   ├── config/        # Configuration editor
-│   │   ├── components.rs
-│   │   ├── helpers.rs
-│   │   ├── state.rs   # ConfigApp state
-│   │   └── view.rs
-│   ├── view/          # Scan results viewer
-│   │   ├── components.rs
-│   │   └── layout.rs
-│   ├── watcher.rs     # Clipboard monitoring
-│   ├── runner.rs      # Terminal setup/restore
-│   ├── state.rs       # App state for scan view
-│   └── mod.rs
+├── audit/             # Consolidation Audit (God Tier)
+│   ├── dead_code/     # Reachability analysis
+│   ├── patterns/      # Structural pattern matching
+│   ├── report/        # AI/JSON/Terminal reporting
+│   ├── fingerprint.rs # AST hashing (Weisfeiler-Lehman)
+│   ├── similarity.rs  # Clustering & duplication detection
+│   ├── diff.rs        # Structural diffing
+│   ├── enhance.rs     # Refactoring plan generation
+│   └── scoring.rs     # Opportunity impact analysis
 │
 ├── clipboard/         # Cross-platform clipboard
-│   ├── linux.rs       # xclip/wl-copy + WSL support
-│   ├── macos.rs       # pbcopy/pbpaste
-│   ├── windows.rs     # PowerShell clipboard
-│   ├── platform.rs    # Platform detection
-│   ├── temp.rs        # Temp file management for large content
-│   └── mod.rs         # smart_copy logic
+│   ├── platform.rs    # OS abstraction
+│   ├── temp.rs        # Smart copy (temp file)
+│   └── mod.rs         # Helper functions
 │
-├── cli/               # CLI command handlers
-│   ├── handlers.rs    # All command implementations
-│   └── mod.rs
+├── graph/             # Dependency analysis
+│   ├── defs/          # Symbol definition extraction
+│   ├── rank/          # PageRank importance
+│   ├── imports.rs     # Import extraction
+│   └── resolver.rs    # File resolution
 │
-├── config/            # Configuration management
-│   ├── io.rs          # File I/O, TOML parsing
-│   ├── types.rs       # Config, RuleConfig, Preferences
-│   └── mod.rs
+├── pack/              # Context generation
+│   ├── focus.rs       # Foveal/Peripheral calculation
+│   ├── formats.rs     # XML/Text formatting
+│   └── mod.rs         # CLI entry point
 │
-├── lang.rs            # Language detection and queries
-├── skeleton.rs        # Code → signatures compression
-├── signatures.rs      # Type surface map generation
-├── discovery.rs       # File enumeration (git + walk)
-├── tokens.rs          # tiktoken integration
-├── prompt.rs          # System prompt generation
-├── reporting.rs       # Scan report formatting
-├── spinner.rs         # Loading indicator
-├── project.rs         # Project type detection
-├── wizard.rs          # Interactive config wizard
+├── roadmap_v2/        # Task management (tasks.toml)
+│   ├── cli/           # Subcommands
+│   ├── parser.rs      # Command parsing
+│   ├── storage.rs     # TOML persistence
+│   └── validation.rs  # Logic checks
+│
+├── trace/             # Dependency tracing
+│   ├── runner.rs      # Recursive tracer
+│   └── output.rs      # Graph rendering
+│
+├── tui/               # Terminal Dashboard
+│   ├── dashboard/     # Interactive UI
+│   ├── config/        # Config editor
+│   ├── watcher.rs     # Clipboard monitoring
+│   └── runner.rs      # Crossterm setup
+│
+├── cli/               # CLI Argument Parsing
+│   ├── args.rs        # Clap struct definitions
+│   └── handlers.rs    # Command dispatch
+│
+├── config/            # Configuration
+│   ├── io.rs          # File loading
+│   └── types.rs       # Struct definitions
+│
+├── bin/
+│   └── slopchop.rs    # Binary entry point
+│
 ├── clean.rs           # Cleanup utilities
-├── constants.rs       # Global constants
-├── detection.rs       # File type detection
+├── constants.rs       # Global patterns
+├── detection.rs       # Project type detection
+├── discovery.rs       # File finding (git/walk)
 ├── error.rs           # Error types
-├── types.rs           # Shared types (Violation, FileReport, ScanReport)
-└── lib.rs             # Public API (slopchop_core)
+├── lang.rs            # Language definitions
+├── project.rs         # Project metadata
+├── prompt.rs          # System prompt generator
+├── reporting.rs       # Scan reports
+├── signatures.rs      # Signature map generation
+├── skeleton.rs        # Code minimization
+├── spinner.rs         # UX utils
+├── tokens.rs          # Token counting (tiktoken)
+├── types.rs           # Shared domain types
+├── wizard.rs          # Setup wizard
+└── lib.rs             # Crate root
 ```
 
 ### Data Flow
@@ -209,8 +193,10 @@ User runs "slopchop pack --focus file.rs"
                                                          ▼
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
 │    extractor    │────►│    validator    │────►│     writer      │
-│ (parse blocks)  │     │ (safety checks) │     │ (atomic write)  │
+│ (parse blocks)  │     │ (check integrity)│    │(atomic transact)│
 └─────────────────┘     └─────────────────┘     └─────────────────┘
+                                                         │
+                                                  [FAIL? Rollback]
                                                          │
                                                          ▼
                                                  ┌───────────────┐
@@ -223,7 +209,7 @@ User runs "slopchop pack --focus file.rs"
                               [PASS: commit]                          [FAIL: reject]
                                     │                                         │
                                     ▼                                         ▼
-                              git commit/push                      copy feedback to clipboard
+                              git commit/(push)                    copy feedback to clipboard
 ```
 
 ---
@@ -255,7 +241,7 @@ max_function_args = 5           # Parameter count
 max_function_words = 5          # Words in function name
 ```
 
-**Why:** 
+**Why:**
 - High complexity = hard to test exhaustively
 - Deep nesting = hard to follow control flow
 - Many arguments = function doing too much
@@ -338,7 +324,7 @@ section = v0.2.0
 | Block | Purpose | Required |
 |-------|---------|----------|
 | `PLAN` | Human-readable summary | Recommended |
-| `MANIFEST` | Declares all files being touched | Optional but validated |
+| `MANIFEST` | Declares all files being touched | **MANDATORY** (V1.0) |
 | File blocks | Actual file content | Required |
 | `ROADMAP` | Task updates | Optional |
 
@@ -352,37 +338,28 @@ section = v0.2.0
 
 ---
 
-## Analysis Engine
+## Apply System (V1.0 Hardened)
 
-### Language Support
+### Integrity Checks
 
-| Language | Complexity | Skeleton | Imports | Banned Patterns |
-|----------|:----------:|:--------:|:-------:|:---------------:|
-| Rust | ✅ | ✅ | ✅ | `.unwrap()/.expect()` |
-| TypeScript | ✅ | ✅ | ✅ | — |
-| JavaScript | ✅ | ✅ | ✅ | — |
-| Python | ✅ | ✅ | ✅ | — |
+SlopChop V1.0 strictly enforces **Manifest Integrity**:
+- **Completeness:** Every file in the `MANIFEST` (marked New/Update) MUST have a corresponding `#__SLOPCHOP_FILE__#` block.
+- **Consistency:** Every `#__SLOPCHOP_FILE__#` block MUST be listed in the `MANIFEST`.
+- **Delete Safety:** Files marked `[DELETE]` MUST NOT have content blocks.
 
-Languages are defined in `src/lang.rs` with their tree-sitter grammars and query patterns.
+If any check fails, the **entire** operation is rejected. Silent partial applies are impossible.
 
-### Query Architecture
+### Atomic Transactions & Rollback
 
-Each language defines:
-- `q_naming()` — Function definition queries
-- `q_complexity()` — Branch/loop queries  
-- `q_skeleton()` — Function body queries for skeletonization
-- `q_exports()` — Public API queries for signatures
-- `q_banned()` — Optional banned pattern queries (Rust only)
+`slopchop apply` is fully transactional:
 
----
+1. **Backup Phase:** All target files are backed up to `.slopchop_apply_backup/`.
+2. **Write Phase:** Files are written using **Atomic Rename** (write temp → rename).
+3. **Rollback Phase:** If any write fails (IO error, permission, symlink escape), the system **automatically rolls back**:
+   - Restores modified files from backup.
+   - Deletes newly created files.
 
-## Apply System
-
-### The Pipeline
-
-```
-Clipboard ──► Extract ──► Validate ──► Backup ──► Write ──► Verify ──► Commit
-```
+The repo is guaranteed to be in either the "Pre-Apply" or "Post-Apply" state. Never a broken middle state.
 
 ### Validation Rules
 
@@ -390,7 +367,7 @@ Clipboard ──► Extract ──► Validate ──► Backup ──► Write 
 - No `../` traversal
 - No absolute paths
 - No sensitive directories (`.git`, `.env`, `.ssh`, `.aws`)
-- No hidden files (except `.gitignore`, `.slopchopignore`, `.github`)
+- **Symlink Protection:** Writes through symlinks that point outside the repo root are blocked.
 
 **Protected Files:**
 - `ROADMAP.md` — Use roadmap commands instead
@@ -402,109 +379,30 @@ Clipboard ──► Extract ──► Validate ──► Backup ──► Write 
 - No empty files
 - No markdown fences in non-markdown files
 
-### Backup System
-
-Before any write:
-```
-.slopchop_apply_backup/
-└── {timestamp}/
-    └── src/
-        └── modified.rs
-```
-
 ### Git Integration
 
 On verification pass:
 1. Stage all changes (`git add -A`)
 2. Commit with PLAN's GOAL as message
-3. Push to remote
+3. Push (Optional, defaults to **false** in V1.0)
 
-Failed verifications leave changes uncommitted with error copied to clipboard.
-
----
-
-## Context Generation
-
-### Commands
-
-| Command | Output |
-|---------|--------|
-| `slopchop signatures` | Type map of all exports (skeletonized) |
-| `slopchop pack <file>` | Full file content |
-| `slopchop pack --focus <file>` | Full file + dependency skeletons |
-| `slopchop trace <file>` | Full file + dependency graph visualization |
-
-### Smart Copy
-
-For context > 2000 tokens:
-1. Write to temp file
-2. Copy file handle to clipboard (not text)
-3. User can paste as file attachment
-
-This prevents clipboard overflow and enables larger context windows.
-
-### Skeleton System
-
-Converts implementation to signatures:
-
-**Before:**
-```rust
-pub fn validate(input: &str) -> Result<User> {
-    let email = input.trim();
-    if email.is_empty() {
-        return Err(ValidationError::Empty);
-    }
-    // ... 40 more lines
-}
-```
-
-**After:**
-```rust
-pub fn validate(input: &str) -> Result<User> { ... }
-```
-
----
-
-## Dependency Graph
-
-### PageRank Ranking
-
-The `graph/rank` module builds a dependency graph and ranks files by importance using PageRank:
-
-1. **Extract definitions** — Functions, structs, types from each file
-2. **Extract references** — Imports and usages
-3. **Build edges** — File A imports from File B = edge A→B
-4. **Compute PageRank** — Iterate until convergence
-
-Files with high fan-in (many dependents) rank higher.
-
-### Focus Mode
-
-`slopchop pack --focus file.rs`:
-1. Re-runs PageRank with anchor file as seed
-2. Includes full content of anchor
-3. Includes skeletonized content of neighbors
-4. Respects token budget
+**CLI Overrides:**
+- `--no-commit`: Skip git operations completely.
+- `--no-push`: Commit locally, do not push.
+- `--force`: Skip interactive confirmation.
+- `--dry-run`: Show plan and verify integrity without writing files.
 
 ---
 
 ## Roadmap System (V2)
 
-### Storage Format
+### The Source of Truth
 
-Tasks are stored in `tasks.toml`:
+**`tasks.toml`** is the database. `ROADMAP.md` is a generated artifact.
+
+AI interacts exclusively with `tasks.toml` via the `===ROADMAP===` block protocol.
 
 ```toml
-[meta]
-title = "Project Roadmap"
-description = ""
-
-[[sections]]
-id = "v0.1.0"
-title = "v0.1.0"
-status = "complete"
-order = 0
-
 [[tasks]]
 id = "feature-x"
 text = "Implement feature X"
@@ -512,54 +410,6 @@ status = "done"
 section = "v0.1.0"
 test = "tests/feature_x.rs::test_feature"
 ```
-
-### Commands
-
-AI can update the roadmap via the `===ROADMAP===` block:
-
-```
-===ROADMAP===
-CHECK
-id = feature-x
-
-ADD
-id = feature-y
-text = New feature
-section = v0.2.0
-===ROADMAP===
-```
-
-| Command | Syntax |
-|---------|--------|
-| `CHECK` | Mark task done |
-| `UNCHECK` | Mark task pending |
-| `ADD` | Create new task |
-| `UPDATE` | Modify task fields |
-| `DELETE` | Remove task |
-
-### Unified Apply
-
-`slopchop apply` handles both code files and roadmap updates atomically.
-
----
-
-## TUI Dashboard
-
-### Tabs
-
-| Tab | Purpose |
-|-----|---------|
-| **Dashboard** | Live scan status, recent activity |
-| **Roadmap** | Task list with filtering |
-| **Config** | Interactive settings editor |
-| **Logs** | System log stream |
-
-### Watcher (In Progress)
-
-`src/tui/watcher.rs` polls clipboard for SlopChop payloads:
-- Detects `#__SLOPCHOP_FILE__#` markers
-- Sends `PayloadDetected` event to TUI
-- Enables future "watch mode" hotkey application
 
 ---
 
@@ -573,10 +423,11 @@ section = v0.2.0
 
 | Threat | Defense |
 |--------|---------|
+| Partial Apply | Manifest integrity checks + Atomic Rollback |
 | Path traversal | Block `..` in any path component |
+| Symlink Escape | Resolve & block paths outside root |
 | Absolute paths | Block `/` or `C:\` prefixes |
 | Sensitive files | Blocklist: `.env`, `.ssh/`, `.aws/`, `.gnupg/`, `credentials` |
-| Hidden files | Block `.*` except allowlist |
 | Backup overwrite | Block `.slopchop_apply_backup/` |
 | Truncation | Detect comment patterns and lazy phrases |
 | Protected files | Block config/lock file overwrites |
@@ -599,12 +450,6 @@ section = v0.2.0
 - **Language-agnostic queries:** Same patterns for all languages
 - **Simpler deployment:** No language server installation
 
-### Why CLI Over IDE Plugin?
-
-- **Editor-agnostic:** Works everywhere
-- **Composable:** Pipes, scripts, CI
-- **Maintainable:** One codebase
-
 ### Why Custom Protocol Over Markdown?
 
 - **Unambiguous:** No fence-escape issues
@@ -616,43 +461,6 @@ section = v0.2.0
 - **Teaching:** AI learns through failure
 - **Safety:** Auto-fix could mask deeper problems
 - **Simplicity:** Rejection is stateless
-
----
-
-## Module Map
-
-### Core Dependencies
-
-| Crate | Purpose |
-|-------|---------|
-| `tree-sitter` | AST parsing |
-| `tree-sitter-{rust,python,typescript}` | Language grammars |
-| `tiktoken-rs` | Token counting |
-| `clap` | CLI parsing |
-| `serde` + `toml` | Configuration |
-| `walkdir` | File traversal |
-| `rayon` | Parallelism |
-| `regex` | Pattern matching |
-| `colored` | Terminal colors |
-| `ratatui` + `crossterm` | TUI |
-| `anyhow` + `thiserror` | Error handling |
-
----
-
-## Testing Philosophy
-
-### What We Test
-
-- **Happy paths:** Normal usage works
-- **Rejection paths:** Invalid input caught with correct error
-- **Security:** Every blocked path type has explicit test
-- **Edge cases:** Empty files, Unicode, deep nesting
-
-### What We Skip
-
-- Platform-specific clipboard (manual verification)
-- Git operations in CI (mocked or skipped)
-- TUI rendering (visual inspection)
 
 ---
 
@@ -684,4 +492,4 @@ Planned for v1.0:
 
 ---
 
-*Last updated: 2025-06*
+*Last updated: 2025-12-13 (V1.0 Hardening)*

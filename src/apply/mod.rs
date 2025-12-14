@@ -1,4 +1,5 @@
 // src/apply/mod.rs
+pub mod backup;
 pub mod extractor;
 pub mod git;
 pub mod manifest;

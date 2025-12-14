@@ -1,11 +1,26 @@
 // src/apply/writer.rs
+use crate::apply::backup;
 use crate::apply::types::{ApplyOutcome, ExtractedFiles, Manifest, Operation};
 use anyhow::{anyhow, Context, Result};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-const BACKUP_DIR: &str = ".slopchop_apply_backup";
+struct WriteTransaction {
+    written: Vec<String>,
+    deleted: Vec<String>,
+    created_fresh: Vec<String>,
+}
+
+impl WriteTransaction {
+    fn new() -> Self {
+        Self {
+            written: Vec::new(),
+            deleted: Vec::new(),
+            created_fresh: Vec::new(),
+        }
+    }
+}
 
 /// Writes changes (updates, new files, deletes) to disk atomically.
 ///
@@ -22,36 +37,26 @@ pub fn write_files(
         .canonicalize()
         .unwrap_or_else(|_| root_path.clone());
 
-    let backup_path = create_backup(manifest, root)?;
+    let backup_path = backup::create_backup(manifest, root)?;
 
     if backup_path.is_some() && retention > 0 {
-        cleanup_old_backups(root, retention);
+        backup::cleanup_old_backups(root, retention);
     }
 
-    let mut written = Vec::new();
-    let mut deleted = Vec::new();
-    let mut created_fresh = Vec::new(); // Track strictly new files for rollback
+    let mut tx = WriteTransaction::new();
 
     for entry in manifest {
-        if let Err(e) = apply_entry(
-            entry,
-            files,
-            root,
-            &canonical_root,
-            &mut written,
-            &mut deleted,
-            &mut created_fresh,
-        ) {
+        if let Err(e) = apply_entry(entry, files, root, &canonical_root, &mut tx) {
             if let Some(backup) = &backup_path {
-                perform_rollback(root, backup, &created_fresh);
+                backup::perform_rollback(root, backup, &tx.created_fresh);
             }
             return Err(e);
         }
     }
 
     Ok(ApplyOutcome::Success {
-        written,
-        deleted,
+        written: tx.written,
+        deleted: tx.deleted,
         roadmap_results: Vec::new(),
         backed_up: backup_path.is_some(),
     })
@@ -62,105 +67,25 @@ fn apply_entry(
     files: &ExtractedFiles,
     root: Option<&Path>,
     canonical_root: &Path,
-    written: &mut Vec<String>,
-    deleted: &mut Vec<String>,
-    created_fresh: &mut Vec<String>,
+    tx: &mut WriteTransaction,
 ) -> Result<()> {
     match entry.operation {
         Operation::Delete => {
             delete_file(&entry.path, root, canonical_root)?;
-            deleted.push(entry.path.clone());
+            tx.deleted.push(entry.path.clone());
         }
         Operation::Update | Operation::New => {
             if let Some(file_data) = files.get(&entry.path) {
                 let path = resolve_path(&entry.path, root);
                 if !path.exists() {
-                    created_fresh.push(entry.path.clone());
+                    tx.created_fresh.push(entry.path.clone());
                 }
                 write_single_file(&entry.path, &file_data.content, root, canonical_root)?;
-                written.push(entry.path.clone());
+                tx.written.push(entry.path.clone());
             }
         }
     }
     Ok(())
-}
-
-fn perform_rollback(root: Option<&Path>, backup_folder: &Path, created_fresh: &[String]) {
-    eprintln!("Error during apply. Rolling back...");
-    let root_path = root.map_or_else(|| PathBuf::from("."), Path::to_path_buf);
-
-    // 1. Restore backed up files (Reverts Updates and Deletes)
-    if backup_folder.exists() {
-        restore_dir_recursive(backup_folder, &root_path);
-    }
-
-    // 2. Delete newly created files (Reverts News)
-    for path_str in created_fresh {
-        let path = root_path.join(path_str);
-        if path.exists() {
-            let _ = fs::remove_file(path);
-        }
-    }
-    eprintln!("Rollback complete.");
-}
-
-fn restore_dir_recursive(src: &Path, target_root: &Path) {
-    if !src.is_dir() {
-        return;
-    }
-    let Ok(entries) = fs::read_dir(src) else {
-        return;
-    };
-
-    for entry in entries.flatten() {
-        let path = entry.path();
-        let Some(name) = path.file_name() else {
-            continue;
-        };
-        let dest = target_root.join(name);
-
-        if path.is_dir() {
-            restore_dir_recursive(&path, &dest);
-        } else {
-            restore_file(&path, &dest);
-        }
-    }
-}
-
-fn restore_file(src: &Path, dest: &Path) {
-    if let Some(parent) = dest.parent() {
-        let _ = fs::create_dir_all(parent);
-    }
-    let _ = fs::copy(src, dest);
-}
-
-fn cleanup_old_backups(root: Option<&Path>, retention: usize) {
-    let root_path = root.map_or_else(|| PathBuf::from("."), Path::to_path_buf);
-    let backup_dir = root_path.join(BACKUP_DIR);
-
-    if !backup_dir.exists() {
-        return;
-    }
-
-    let Ok(entries) = fs::read_dir(&backup_dir) else {
-        return;
-    };
-
-    let mut timestamps: Vec<(u64, PathBuf)> = entries
-        .filter_map(Result::ok)
-        .filter_map(|e| {
-            let path = e.path();
-            let name = path.file_name()?.to_string_lossy();
-            let ts: u64 = name.parse().ok()?;
-            Some((ts, path))
-        })
-        .collect();
-
-    timestamps.sort_by(|a, b| b.0.cmp(&a.0));
-
-    for (_, path) in timestamps.into_iter().skip(retention) {
-        let _ = fs::remove_dir_all(path);
-    }
 }
 
 fn delete_file(path_str: &str, root: Option<&Path>, canonical_root: &Path) -> Result<()> {
@@ -252,40 +177,4 @@ fn resolve_path(path_str: &str, root: Option<&Path>) -> PathBuf {
         Some(r) => r.join(path_str),
         None => PathBuf::from(path_str),
     }
-}
-
-fn create_backup(manifest: &Manifest, root: Option<&Path>) -> Result<Option<PathBuf>> {
-    let targets: Vec<&String> = manifest
-        .iter()
-        .map(|e| &e.path)
-        .filter(|p| resolve_path(p, root).exists())
-        .collect();
-
-    if targets.is_empty() {
-        return Ok(None);
-    }
-
-    let timestamp = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
-    let root_path = root.map_or_else(|| PathBuf::from("."), Path::to_path_buf);
-    let backup_folder = root_path.join(BACKUP_DIR).join(timestamp.to_string());
-
-    fs::create_dir_all(&backup_folder).context("Failed to create backup directory")?;
-
-    for path_str in targets {
-        backup_single_file(path_str, &backup_folder, root)?;
-    }
-
-    Ok(Some(backup_folder))
-}
-
-fn backup_single_file(path_str: &str, backup_folder: &Path, root: Option<&Path>) -> Result<()> {
-    let src = resolve_path(path_str, root);
-    let dest = backup_folder.join(path_str);
-
-    if let Some(parent) = dest.parent() {
-        fs::create_dir_all(parent)?;
-    }
-
-    fs::copy(&src, &dest).with_context(|| format!("Failed to backup {}", src.display()))?;
-    Ok(())
 }

@@ -12,7 +12,7 @@ use crate::lang::Lang;
 use crate::prompt::PromptGenerator;
 use crate::skeleton;
 use crate::tokens::Tokenizer;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use colored::Colorize;
 use std::collections::HashMap;
 use std::fmt::Write;
@@ -89,7 +89,8 @@ fn process_file(path: &Path, rank: Option<&f64>) -> Option<String> {
     let ext = path.extension().and_then(|s| s.to_str())?;
     let lang = Lang::from_ext(ext)?;
 
-    let filtered = extract_exports(lang, &content)?;
+    // We fail gracefully (return None) if query compilation fails
+    let filtered = extract_exports(lang, &content).ok().flatten()?;
     let clean = skeleton::clean(path, &filtered);
 
     if clean.trim().is_empty() {
@@ -122,9 +123,9 @@ fn rank_tier(rank: Option<&f64>) -> String {
     format!("  [{label}]")
 }
 
-fn extract_exports(lang: Lang, content: &str) -> Option<String> {
+fn extract_exports(lang: Lang, content: &str) -> Result<Option<String>> {
     if lang == Lang::Python {
-        return Some(content.to_string());
+        return Ok(Some(content.to_string()));
     }
 
     let grammar = lang.grammar();
@@ -133,10 +134,13 @@ fn extract_exports(lang: Lang, content: &str) -> Option<String> {
 
     let mut parser = Parser::new();
     if parser.set_language(grammar).is_err() {
-        return None;
+        return Ok(None);
     }
 
-    let tree = parser.parse(content, None)?;
+    let Some(tree) = parser.parse(content, None) else {
+        return Ok(None);
+    };
+
     let mut cursor = QueryCursor::new();
     let matches = cursor.matches(&query, tree.root_node(), content.as_bytes());
 
@@ -148,11 +152,11 @@ fn extract_exports(lang: Lang, content: &str) -> Option<String> {
     }
 
     if ranges.is_empty() {
-        return None;
+        return Ok(None);
     }
 
     let ranges = docs::expand_ranges_for_docs(content, ranges);
-    Some(merge_and_extract(content, ranges))
+    Ok(Some(merge_and_extract(content, ranges)))
 }
 
 fn merge_and_extract(source: &str, mut ranges: Vec<Range<usize>>) -> String {
@@ -204,6 +208,6 @@ fn format_output(signatures: &[String], rules: &crate::config::RuleConfig) -> Re
     Ok(out)
 }
 
-fn compile_query(lang: tree_sitter::Language, pattern: &str) -> Option<Query> {
-    Query::new(lang, pattern).ok()
+fn compile_query(lang: tree_sitter::Language, pattern: &str) -> Result<Query> {
+    Query::new(lang, pattern).map_err(|e| anyhow!("Invalid tree-sitter query: {e}"))
 }

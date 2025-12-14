@@ -1737,7 +1737,7 @@ order = 5
 [[tasks]]
 id = "remove-core-panics"
 text = "Remove panics from AST analysis queries"
-status = "pending"
+status = "done"
 section = "v0.7.2"
 group = "Stability"
 order = 6
@@ -1963,3 +1963,10 @@ text = "Task at specific line position"
 status = "pending"
 section = "v0.1.0"
 order = 16
+
+[[tasks]]
+id = "refactor-writer-rs"
+text = "Refactor writer.rs to satisfy 3 Laws"
+status = "done"
+section = "v0.7.4"
+order = 3

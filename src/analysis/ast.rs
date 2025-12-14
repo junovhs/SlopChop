@@ -3,6 +3,7 @@ use super::checks::{self, CheckContext};
 use crate::config::RuleConfig;
 use crate::lang::Lang;
 use crate::types::Violation;
+use anyhow::{anyhow, Result};
 use tree_sitter::{Language, Parser, Query};
 
 pub struct Analyzer;
@@ -49,11 +50,19 @@ impl Analyzer {
             return vec![];
         };
 
-        // Compile queries on demand (memoization could be added here later if perf matters,
-        // but for CLI usage creating queries per file is acceptable/fast enough).
-        let q_naming = compile_query(grammar, lang.q_naming());
-        let q_complexity = compile_query(grammar, lang.q_complexity());
-        let q_banned = lang.q_banned().map(|q| compile_query(grammar, q));
+        // Fallible compilation steps
+        let Ok(q_naming) = compile_query(grammar, lang.q_naming()) else {
+            return vec![];
+        };
+
+        let Ok(q_complexity) = compile_query(grammar, lang.q_complexity()) else {
+            return vec![];
+        };
+
+        // Banned query is optional and fallible
+        let q_banned = lang
+            .q_banned()
+            .and_then(|q| compile_query(grammar, q).ok());
 
         let mut violations = Vec::new();
         let ctx = CheckContext {
@@ -74,9 +83,6 @@ impl Analyzer {
     }
 }
 
-fn compile_query(lang: Language, pattern: &str) -> Query {
-    match Query::new(lang, pattern) {
-        Ok(q) => q,
-        Err(e) => panic!("Invalid tree-sitter query pattern: {e}"),
-    }
-}
+fn compile_query(lang: Language, pattern: &str) -> Result<Query> {
+    Query::new(lang, pattern).map_err(|e| anyhow!("Invalid tree-sitter query: {e}"))
+}
