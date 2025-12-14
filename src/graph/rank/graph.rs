@@ -25,6 +25,12 @@ pub struct RepoGraph {
     ranks: HashMap<PathBuf, f64>,
 }
 
+#[derive(Clone, Copy)]
+enum Direction {
+    Dependency, // Fan-out: What I import
+    Dependent,  // Fan-in: Who imports me
+}
+
 impl RepoGraph {
     /// Builds the graph from files and their contents.
     #[must_use]
@@ -63,8 +69,20 @@ impl RepoGraph {
         let anchor_path = anchor.to_path_buf();
         let mut result = HashSet::new();
 
-        collect_importers(&self.defines, &self.references, &anchor_path, &mut result);
-        collect_dependencies(&self.defines, &self.references, &anchor_path, &mut result);
+        collect_related(
+            &self.defines,
+            &self.references,
+            &anchor_path,
+            Direction::Dependent,
+            &mut result,
+        );
+        collect_related(
+            &self.defines,
+            &self.references,
+            &anchor_path,
+            Direction::Dependency,
+            &mut result,
+        );
 
         result.into_iter().collect()
     }
@@ -72,20 +90,25 @@ impl RepoGraph {
     /// Returns files that this file depends on (fan-out / what I import).
     #[must_use]
     pub fn dependencies(&self, anchor: &Path) -> Vec<PathBuf> {
-        let anchor_path = anchor.to_path_buf();
-        let mut result = HashSet::new();
-        collect_dependencies(&self.defines, &self.references, &anchor_path, &mut result);
-        let mut deps: Vec<_> = result.into_iter().collect();
-        deps.sort();
-        deps
+        self.query_direction(anchor, Direction::Dependency)
     }
 
     /// Returns files that depend on this file (fan-in / who imports me).
     #[must_use]
     pub fn dependents(&self, anchor: &Path) -> Vec<PathBuf> {
+        self.query_direction(anchor, Direction::Dependent)
+    }
+
+    fn query_direction(&self, anchor: &Path, dir: Direction) -> Vec<PathBuf> {
         let anchor_path = anchor.to_path_buf();
         let mut result = HashSet::new();
-        collect_importers(&self.defines, &self.references, &anchor_path, &mut result);
+        collect_related(
+            &self.defines,
+            &self.references,
+            &anchor_path,
+            dir,
+            &mut result,
+        );
         let mut deps: Vec<_> = result.into_iter().collect();
         deps.sort();
         deps
@@ -101,16 +124,10 @@ impl RepoGraph {
             .collect()
     }
 
-    /// Counts dependents for hub detection.
-    #[must_use]
-    pub fn dependent_count(&self, anchor: &Path) -> usize {
-        self.dependents(anchor).len()
-    }
-
     /// Returns true if this file is a hub (high fan-in).
     #[must_use]
     pub fn is_hub(&self, anchor: &Path, threshold: usize) -> bool {
-        self.dependent_count(anchor) >= threshold
+        self.dependents(anchor).len() >= threshold
     }
 }
 
@@ -222,56 +239,61 @@ fn collect_all_files(edges: &HashMap<PathBuf, HashMap<PathBuf, usize>>) -> HashS
     files
 }
 
-fn collect_importers(
+fn collect_related(
     def_map: &HashMap<String, HashSet<PathBuf>>,
     ref_map: &HashMap<String, Vec<PathBuf>>,
     anchor: &PathBuf,
+    direction: Direction,
     result: &mut HashSet<PathBuf>,
 ) {
-    for (symbol, def_files) in def_map {
-        if !def_files.contains(anchor) {
-            continue;
+    match direction {
+        Direction::Dependent => {
+            // Who imports me?
+            // Symbols I define -> Who references them?
+            for (symbol, def_files) in def_map {
+                if !def_files.contains(anchor) {
+                    continue;
+                }
+                if let Some(refs) = ref_map.get(symbol) {
+                    add_files(refs, anchor, result);
+                }
+            }
         }
-        add_non_anchor_vec(ref_map.get(symbol), anchor, result);
+        Direction::Dependency => {
+            // What do I import?
+            // Symbols I reference -> Who defines them?
+            for (symbol, ref_files) in ref_map {
+                if !ref_files.contains(anchor) {
+                    continue;
+                }
+                if let Some(defs) = def_map.get(symbol) {
+                    add_files(defs, anchor, result);
+                }
+            }
+        }
     }
 }
 
-fn collect_dependencies(
-    def_map: &HashMap<String, HashSet<PathBuf>>,
-    ref_map: &HashMap<String, Vec<PathBuf>>,
-    anchor: &PathBuf,
-    result: &mut HashSet<PathBuf>,
-) {
-    for (symbol, ref_files) in ref_map {
-        if !ref_files.contains(anchor) {
-            continue;
-        }
-        add_non_anchor_set(def_map.get(symbol), anchor, result);
+trait FileCollection {
+    fn iter_files(&self) -> impl Iterator<Item = &PathBuf>;
+}
+
+impl FileCollection for Vec<PathBuf> {
+    fn iter_files(&self) -> impl Iterator<Item = &PathBuf> {
+        self.iter()
     }
 }
 
-fn add_non_anchor_vec(
-    files: Option<&Vec<PathBuf>>,
-    anchor: &PathBuf,
-    result: &mut HashSet<PathBuf>,
-) {
-    let Some(file_list) = files else { return };
-    for f in file_list {
+impl FileCollection for HashSet<PathBuf> {
+    fn iter_files(&self) -> impl Iterator<Item = &PathBuf> {
+        self.iter()
+    }
+}
+
+fn add_files<C: FileCollection>(collection: &C, anchor: &PathBuf, result: &mut HashSet<PathBuf>) {
+    for f in collection.iter_files() {
         if f != anchor {
             result.insert(f.clone());
         }
     }
-}
-
-fn add_non_anchor_set(
-    files: Option<&HashSet<PathBuf>>,
-    anchor: &PathBuf,
-    result: &mut HashSet<PathBuf>,
-) {
-    let Some(file_set) = files else { return };
-    for f in file_set {
-        if f != anchor {
-            result.insert(f.clone());
-        }
-    }
-}
+}

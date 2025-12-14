@@ -71,52 +71,38 @@ mod tests {
     use std::path::Path;
 
     #[test]
-    fn test_rust_imports() {
-        let code = r"
-            use std::io;
-            use crate::config::Config;
-            mod tests;
-        ";
-        let imports = extract(Path::new("main.rs"), code);
-        assert!(imports.contains(&"std::io".to_string()));
-        assert!(imports.contains(&"crate::config::Config".to_string()));
-        assert!(imports.contains(&"tests".to_string()));
-    }
+    fn test_extract_imports() {
+        let cases = vec![
+            (
+                "main.rs",
+                r"use std::io; use crate::config::Config; mod tests;",
+                vec!["std::io", "crate::config::Config", "tests"],
+            ),
+            (
+                "script.py",
+                r"import os; from sys import path; import numpy as np",
+                vec!["os", "sys", "numpy"],
+            ),
+            (
+                "app.ts",
+                r#"import { Foo } from "./components"; const fs = require('fs'); export * from "./utils";"#,
+                vec!["./components", "fs", "./utils"],
+            ),
+            (
+                "lib.rs",
+                r"pub use std::collections::HashMap; pub use crate::config;",
+                vec!["std::collections::HashMap", "crate::config"],
+            ),
+        ];
 
-    #[test]
-    fn test_python_imports() {
-        let code = r"
-            import os
-            from sys import path
-            import numpy as np
-        ";
-        let imports = extract(Path::new("script.py"), code);
-        assert!(imports.contains(&"os".to_string()));
-        assert!(imports.contains(&"sys".to_string()));
-        assert!(imports.contains(&"numpy".to_string()));
+        for (filename, code, expected) in cases {
+            let imports = extract(Path::new(filename), code);
+            for item in expected {
+                assert!(
+                    imports.contains(&item.to_string()),
+                    "File {filename} missing import {item}"
+                );
+            }
+        }
     }
-
-    #[test]
-    fn test_ts_imports() {
-        let code = r#"
-            import { Foo } from "./components";
-            const fs = require('fs');
-            export * from "./utils";
-        "#;
-        let imports = extract(Path::new("app.ts"), code);
-        assert!(imports.contains(&"./components".to_string()));
-        assert!(imports.contains(&"fs".to_string()));
-        assert!(imports.contains(&"./utils".to_string()));
-    }
-
-    #[test]
-    fn test_rust_reexport() {
-        let code = r"
-            pub use std::collections::HashMap;
-            pub use crate::config;
-        ";
-        let imports = extract(Path::new("lib.rs"), code);
-        assert!(imports.contains(&"std::collections::HashMap".to_string()));
-        assert!(imports.contains(&"crate::config".to_string()));
-    }
-}
+}

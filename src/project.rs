@@ -95,63 +95,36 @@ ignore_naming_on = ["tests", "spec"]"#
 
 fn commands_section(project: ProjectType) -> String {
     match project {
-        ProjectType::Rust => rust_commands(),
-        ProjectType::Node => node_commands(),
-        ProjectType::Python => python_commands(),
-        ProjectType::Go => go_commands(),
-        ProjectType::Unknown => unknown_commands(),
-    }
-}
-
-fn rust_commands() -> String {
-    r#"[commands]
-check = [
-    "cargo clippy --all-targets -- -D warnings -W clippy::pedantic",
-    "cargo test"
-]
-fix = "cargo fmt""#
-        .to_string()
-}
-
-fn node_commands() -> String {
-    let npx = npx_cmd();
-
-    // Use biome for TypeScript projects
-    if ProjectType::is_typescript() {
-        format!(
-            r#"[commands]
-check = "{npx} @biomejs/biome check src/"
-fix = "{npx} @biomejs/biome check --write src/""#
-        )
-    } else {
-        format!(
-            r#"[commands]
-check = "{npx} eslint src/"
-fix = "{npx} eslint --fix src/""#
-        )
-    }
-}
-
-fn python_commands() -> String {
-    r#"[commands]
-check = "ruff check ."
-fix = "ruff check --fix .""#
-        .to_string()
-}
-
-fn go_commands() -> String {
-    r#"[commands]
-check = "go vet ./..."
-fix = "go fmt ./...""#
-        .to_string()
-}
-
-fn unknown_commands() -> String {
-    r#"# No project type detected. Configure commands manually:
+        ProjectType::Rust => make_commands(
+            r#"["cargo clippy --all-targets -- -D warnings -W clippy::pedantic", "cargo test"]"#,
+            r#""cargo fmt""#,
+        ),
+        ProjectType::Node => {
+            let npx = npx_cmd();
+            if ProjectType::is_typescript() {
+                make_commands(
+                    &format!(r#""{npx} @biomejs/biome check src/""#),
+                    &format!(r#""{npx} @biomejs/biome check --write src/""#),
+                )
+            } else {
+                make_commands(
+                    &format!(r#""{npx} eslint src/""#),
+                    &format!(r#""{npx} eslint --fix src/""#),
+                )
+            }
+        }
+        ProjectType::Python => make_commands(r#""ruff check .""#, r#""ruff check --fix .""#),
+        ProjectType::Go => make_commands(r#""go vet ./...""#, r#""go fmt ./...""#),
+        ProjectType::Unknown => r#"# No project type detected. Configure commands manually:
 # [commands]
 # check = "your-lint-command"
 # fix = "your-fix-command""#
-        .to_string()
+            .to_string(),
+    }
+}
+
+fn make_commands(check: &str, fix: &str) -> String {
+    format!("[commands]\ncheck = {check}\nfix = {fix}")
 }
 
 #[must_use]
@@ -161,4 +134,4 @@ pub fn npx_cmd() -> &'static str {
     } else {
         "npx"
     }
-}
+}

@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 #[must_use]
 pub fn resolve(project_root: &Path, current_file: &Path, import_str: &str) -> Option<PathBuf> {
     let ext = current_file.extension().and_then(|s| s.to_str())?;
-    
+
     match ext {
         "rs" => resolve_rust(project_root, current_file, import_str),
         "ts" | "tsx" | "js" | "jsx" => resolve_js(project_root, current_file, import_str),
@@ -61,7 +61,7 @@ fn resolve_super_path(current: &Path, import: &str) -> Option<PathBuf> {
     if parts.is_empty() {
         return None;
     }
-    
+
     check_variations(dir, &parts, "rs")
 }
 
@@ -85,7 +85,7 @@ fn resolve_js(_root: &Path, current: &Path, import: &str) -> Option<PathBuf> {
 
     let parent = current.parent()?;
     let path = parent.join(import);
-    
+
     if let Some(p) = check_js_file(&path) {
         return Some(p);
     }
@@ -151,7 +151,7 @@ fn check_variations(base: &Path, parts: &[&str], ext: &str) -> Option<PathBuf> {
         "py" => "__init__.py",
         _ => return None,
     };
-    
+
     let index_path = current.join(index_name);
     if index_path.exists() {
         return Some(index_path);
@@ -163,119 +163,100 @@ fn check_variations(base: &Path, parts: &[&str], ext: &str) -> Option<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::tempdir;
-    use std::fs;
     use anyhow::Result;
+    use std::fs;
+    use tempfile::tempdir;
 
-    #[test]
-    fn test_resolve_rust_mod_relative() -> Result<()> {
-        let temp = tempdir()?;
-        let root = temp.path();
-        
-        let src = root.join("src");
-        fs::create_dir_all(&src)?;
-        
-        let main = src.join("main.rs");
-        let util = src.join("util.rs");
-        fs::write(&main, "mod util;")?;
-        fs::write(&util, "// util")?;
-
-        let resolved = resolve(root, &main, "util");
-        assert_eq!(resolved, Some(util));
-        Ok(())
+    struct ResolverTestCase<'a> {
+        files: Vec<(&'a str, &'a str)>, // (path, content)
+        current_file: &'a str,
+        import_str: &'a str,
+        expected_path: &'a str,
     }
 
     #[test]
-    fn test_resolve_rust_crate() -> Result<()> {
-        let temp = tempdir()?;
-        let root = temp.path();
-        
-        let src = root.join("src");
-        let conf = src.join("config");
-        fs::create_dir_all(&conf)?;
-        
-        let lib = src.join("lib.rs");
-        let types = conf.join("types.rs");
-        
-        fs::write(&lib, "use crate::config::types;")?;
-        fs::write(&types, "// types")?;
+    fn test_resolution_scenarios() -> Result<()> {
+        let cases = vec![
+            // 1. Relative Module
+            ResolverTestCase {
+                files: vec![
+                    ("src/main.rs", "mod util;"),
+                    ("src/util.rs", "// util"),
+                ],
+                current_file: "src/main.rs",
+                import_str: "util",
+                expected_path: "src/util.rs",
+            },
+            // 2. Crate Path
+            ResolverTestCase {
+                files: vec![
+                    ("src/lib.rs", "use crate::config::types;"),
+                    ("src/config/types.rs", "// types"),
+                ],
+                current_file: "src/lib.rs",
+                import_str: "crate::config::types",
+                expected_path: "src/config/types.rs",
+            },
+            // 3. Mod Index (mod.rs)
+            ResolverTestCase {
+                files: vec![
+                    ("src/main.rs", "mod utils;"),
+                    ("src/utils/mod.rs", "// mod.rs"),
+                ],
+                current_file: "src/main.rs",
+                import_str: "utils",
+                expected_path: "src/utils/mod.rs",
+            },
+            // 4. Super Path
+            ResolverTestCase {
+                files: vec![
+                    ("src/lib.rs", "// lib"),
+                    ("src/parent/child.rs", "use super::lib;"),
+                ],
+                current_file: "src/parent/child.rs",
+                import_str: "super::lib",
+                expected_path: "src/lib.rs",
+            },
+            // 5. Self Path
+            ResolverTestCase {
+                files: vec![
+                    ("src/main.rs", ""),
+                    ("src/util.rs", ""),
+                ],
+                current_file: "src/main.rs",
+                import_str: "self::util",
+                expected_path: "src/util.rs",
+            },
+            // 6. JS Relative
+            ResolverTestCase {
+                files: vec![
+                    ("app.ts", ""),
+                    ("cmp.tsx", ""),
+                ],
+                current_file: "app.ts",
+                import_str: "./cmp",
+                expected_path: "cmp.tsx",
+            },
+        ];
 
-        let resolved = resolve(root, &lib, "crate::config::types");
-        assert_eq!(resolved, Some(types));
+        for case in cases {
+            let temp = tempdir()?;
+            let root = temp.path();
+
+            for (rel_path, content) in case.files {
+                let p = root.join(rel_path);
+                if let Some(parent) = p.parent() {
+                    fs::create_dir_all(parent)?;
+                }
+                fs::write(&p, content)?;
+            }
+
+            let current = root.join(case.current_file);
+            let expected = root.join(case.expected_path);
+
+            let resolved = resolve(root, &current, case.import_str);
+            assert_eq!(resolved, Some(expected), "Failed for import '{}'", case.import_str);
+        }
         Ok(())
     }
-
-    #[test]
-    fn test_resolve_rust_mod_index() -> Result<()> {
-        let temp = tempdir()?;
-        let root = temp.path();
-        
-        let src = root.join("src");
-        let utils = src.join("utils");
-        fs::create_dir_all(&utils)?;
-        
-        let main = src.join("main.rs");
-        let mod_rs = utils.join("mod.rs");
-        
-        fs::write(&main, "mod utils;")?;
-        fs::write(&mod_rs, "// mod.rs")?;
-
-        let resolved = resolve(root, &main, "utils");
-        assert_eq!(resolved, Some(mod_rs));
-        Ok(())
-    }
-
-    #[test]
-    fn test_resolve_rust_super() -> Result<()> {
-        let temp = tempdir()?;
-        let root = temp.path();
-        
-        // Structure: src/lib.rs, src/parent/child.rs
-        let src = root.join("src");
-        let parent = src.join("parent");
-        fs::create_dir_all(&parent)?;
-        
-        let lib = src.join("lib.rs");
-        let child = parent.join("child.rs");
-        
-        fs::write(&lib, "// lib")?;
-        fs::write(&child, "use super::lib;")?;
-
-        let resolved = resolve(root, &child, "super::lib");
-        assert_eq!(resolved, Some(lib));
-        Ok(())
-    }
-
-    #[test]
-    fn test_resolve_rust_self() -> Result<()> {
-        let temp = tempdir()?;
-        let root = temp.path();
-        
-        let src = root.join("src");
-        fs::create_dir_all(&src)?;
-        
-        let main = src.join("main.rs");
-        let util = src.join("util.rs");
-        fs::write(&main, "")?;
-        fs::write(&util, "")?;
-
-        let resolved = resolve(root, &main, "self::util");
-        assert_eq!(resolved, Some(util));
-        Ok(())
-    }
-
-    #[test]
-    fn test_resolve_js_relative_extension() -> Result<()> {
-        let temp = tempdir()?;
-        let root = temp.path();
-        
-        let app = root.join("app.ts");
-        let cmp = root.join("cmp.tsx");
-        fs::write(&app, "")?;
-        fs::write(&cmp, "")?;
-
-        let resolved = resolve(root, &app, "./cmp");
-        assert_eq!(resolved, Some(cmp));
-        Ok(())
-    }
-}
+}

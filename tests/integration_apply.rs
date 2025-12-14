@@ -23,6 +23,40 @@ fn make_plan(goal: &str) -> String {
     format!("{header}\n{goal}\n{footer}\n")
 }
 
+fn assert_security_rejection(path: &str, error_part: &str) {
+    let manifest = vec![ManifestEntry {
+        path: path.to_string(),
+        operation: Operation::New,
+    }];
+    let extracted = HashMap::new();
+
+    let outcome = validator::validate(&manifest, &extracted);
+    if let slopchop_core::apply::types::ApplyOutcome::ValidationFailure { errors, .. } = outcome {
+        assert!(
+            errors.iter().any(|e| e.contains(error_part)),
+            "Expected error containing '{error_part}' for path '{path}', got: {errors:?}"
+        );
+    } else {
+        panic!("Should have failed validation for path: {path}");
+    }
+}
+
+#[test]
+fn test_security_boundaries() {
+    let cases = vec![
+        ("../evil.rs", "Path traversal"),
+        ("/etc/passwd", "Absolute paths"),
+        ("C:\\Windows\\System32\\evil.dll", "Absolute paths"),
+        (".env", "sensitive"),
+        (".git/config", "sensitive"),
+        (".slopchop_apply_backup/secret.rs", "backup"),
+    ];
+
+    for (path, err) in cases {
+        assert_security_rejection(path, err);
+    }
+}
+
 #[test]
 fn test_unified_apply_combined() {
     let manifest = make_manifest(&["src/main.rs", "src/lib.rs [NEW]"]);
@@ -41,70 +75,6 @@ fn test_unified_apply_combined() {
     assert_eq!(files.len(), 2);
     assert!(files.contains_key("src/main.rs"));
     assert!(files.contains_key("src/lib.rs"));
-}
-
-#[test]
-fn test_path_safety_blocks_traversal() {
-    let manifest = vec![ManifestEntry {
-        path: "../evil.rs".to_string(),
-        operation: Operation::New,
-    }];
-    let extracted = HashMap::new();
-
-    let outcome = validator::validate(&manifest, &extracted);
-    if let slopchop_core::apply::types::ApplyOutcome::ValidationFailure { errors, .. } = outcome {
-        assert!(errors.iter().any(|e| e.contains("Path traversal not allowed")));
-    } else {
-        panic!("Should have failed validation");
-    }
-}
-
-#[test]
-fn test_path_safety_blocks_absolute() {
-    let manifest = vec![ManifestEntry {
-        path: "/etc/passwd".to_string(),
-        operation: Operation::New,
-    }];
-    let extracted = HashMap::new();
-
-    let outcome = validator::validate(&manifest, &extracted);
-    if let slopchop_core::apply::types::ApplyOutcome::ValidationFailure { errors, .. } = outcome {
-        assert!(errors.iter().any(|e| e.contains("Absolute paths not allowed")));
-    } else {
-        panic!("Should have failed validation");
-    }
-}
-
-#[test]
-fn test_path_safety_blocks_hidden() {
-    let manifest = vec![ManifestEntry {
-        path: ".env".to_string(),
-        operation: Operation::New,
-    }];
-    let extracted = HashMap::new();
-
-    let outcome = validator::validate(&manifest, &extracted);
-    if let slopchop_core::apply::types::ApplyOutcome::ValidationFailure { errors, .. } = outcome {
-        assert!(errors.iter().any(|e| e.contains("sensitive") || e.contains("Hidden")));
-    } else {
-        panic!("Should have failed validation");
-    }
-}
-
-#[test]
-fn test_path_safety_blocks_git() {
-    let manifest = vec![ManifestEntry {
-        path: ".git/config".to_string(),
-        operation: Operation::New,
-    }];
-    let extracted = HashMap::new();
-
-    let outcome = validator::validate(&manifest, &extracted);
-    if let slopchop_core::apply::types::ApplyOutcome::ValidationFailure { errors, .. } = outcome {
-        assert!(errors.iter().any(|e| e.contains("sensitive") || e.contains(".git")));
-    } else {
-        panic!("Should have failed validation");
-    }
 }
 
 #[test]
@@ -284,37 +254,6 @@ fn test_delete_operation() {
             assert!(deleted.contains(&"to_delete.rs".to_string()));
         }
         _ => panic!("Expected success"),
-    }
-}
-
-#[test]
-fn test_block_windows_absolute() {
-    let manifest = vec![ManifestEntry {
-        path: "C:\\Windows\\System32\\evil.dll".to_string(),
-        operation: Operation::New,
-    }];
-    let extracted = HashMap::new();
-
-    let outcome = validator::validate(&manifest, &extracted);
-    match outcome {
-        slopchop_core::apply::types::ApplyOutcome::ValidationFailure { .. } => {}
-        _ => panic!("Should block Windows absolute paths"),
-    }
-}
-
-#[test]
-fn test_block_backup_directory() {
-    let manifest = vec![ManifestEntry {
-        path: ".slopchop_apply_backup/secret.rs".to_string(),
-        operation: Operation::New,
-    }];
-    let extracted = HashMap::new();
-
-    let outcome = validator::validate(&manifest, &extracted);
-    if let slopchop_core::apply::types::ApplyOutcome::ValidationFailure { errors, .. } = outcome {
-        assert!(errors.iter().any(|e| e.contains("sensitive") || e.contains("backup")));
-    } else {
-        panic!("Should block backup directory access");
     }
 }
 

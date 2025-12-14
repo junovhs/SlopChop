@@ -52,37 +52,24 @@ fn test_nabla_format_structure() -> Result<()> {
 }
 
 #[test]
-fn test_prompt_includes_nabla_instructions() -> Result<()> {
-    // Legacy name. Checks for SlopChop Protocol instructions.
+fn test_prompt_content() -> Result<()> {
     let config = Config::default();
     let generator = slopchop_core::prompt::PromptGenerator::new(config.rules);
     let prompt = generator.generate()?;
 
-    assert!(prompt.contains("#__SLOPCHOP_FILE__#"));
-    assert!(prompt.contains("#__SLOPCHOP_MANIFEST__#"));
-    assert!(prompt.contains("OUTPUT FORMAT (MANDATORY)"));
-    Ok(())
-}
+    let required = [
+        "THE 3 LAWS",
+        "LAW OF ATOMICITY",
+        "Files: MUST be < 2000 tokens",
+        "Complexity: MUST be <= 8",
+        "OUTPUT FORMAT (MANDATORY)",
+        "#__SLOPCHOP_FILE__#",
+        "#__SLOPCHOP_MANIFEST__#",
+    ];
 
-#[test]
-fn test_prompt_includes_laws() -> Result<()> {
-    let config = Config::default();
-    let generator = slopchop_core::prompt::PromptGenerator::new(config.rules);
-    let prompt = generator.generate()?;
-
-    assert!(prompt.contains("THE 3 LAWS"));
-    assert!(prompt.contains("LAW OF ATOMICITY"));
-    Ok(())
-}
-
-#[test]
-fn test_prompt_includes_limits() -> Result<()> {
-    let config = Config::default();
-    let generator = slopchop_core::prompt::PromptGenerator::new(config.rules);
-    let prompt = generator.generate()?;
-
-    assert!(prompt.contains("Files: MUST be < 2000 tokens"));
-    assert!(prompt.contains("Complexity: MUST be <= 8"));
+    for req in required {
+        assert!(prompt.contains(req), "Prompt missing: {req}");
+    }
     Ok(())
 }
 

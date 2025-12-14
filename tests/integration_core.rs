@@ -16,32 +16,23 @@ use tempfile::TempDir;
 
 // --- Helpers ---
 
-fn config_complexity(limit: usize) -> RuleConfig {
-    RuleConfig {
-        max_cyclomatic_complexity: limit,
-        ..Default::default()
-    }
+#[derive(Clone, Copy)]
+enum RuleKind {
+    Complexity,
+    Depth,
+    Arity,
+    Tokens,
 }
 
-fn config_depth(limit: usize) -> RuleConfig {
-    RuleConfig {
-        max_nesting_depth: limit,
-        ..Default::default()
+fn make_config(kind: RuleKind, limit: usize) -> RuleConfig {
+    let mut cfg = RuleConfig::default();
+    match kind {
+        RuleKind::Complexity => cfg.max_cyclomatic_complexity = limit,
+        RuleKind::Depth => cfg.max_nesting_depth = limit,
+        RuleKind::Arity => cfg.max_function_args = limit,
+        RuleKind::Tokens => cfg.max_file_tokens = limit,
     }
-}
-
-fn config_arity(limit: usize) -> RuleConfig {
-    RuleConfig {
-        max_function_args: limit,
-        ..Default::default()
-    }
-}
-
-fn config_tokens(limit: usize) -> RuleConfig {
-    RuleConfig {
-        max_file_tokens: limit,
-        ..Default::default()
-    }
+    cfg
 }
 
 fn scan(content: &str, rules: RuleConfig) -> Result<Vec<Violation>> {
@@ -69,7 +60,7 @@ fn scan(content: &str, rules: RuleConfig) -> Result<Vec<Violation>> {
 fn test_atomicity_clean_file_passes() -> Result<()> {
     let content = r#"fn main() { println!("Small file"); }"#;
     // Limit is 100, content is ~10 tokens
-    let violations = scan(content, config_tokens(100))?;
+    let violations = scan(content, make_config(RuleKind::Tokens, 100))?;
     assert!(violations.is_empty());
     Ok(())
 }
@@ -79,7 +70,7 @@ fn test_atomicity_large_file_fails() -> Result<()> {
     // Generate content definitely larger than limit
     let content = "fn main() { let x = 1; } ".repeat(20);
     // Limit is 10 tokens
-    let violations = scan(&content, config_tokens(10))?;
+    let violations = scan(&content, make_config(RuleKind::Tokens, 10))?;
 
     assert!(!violations.is_empty());
     assert!(violations[0].message.contains("File size"));
@@ -96,11 +87,11 @@ fn test_complexity_boundary_check() -> Result<()> {
     let content = "fn f() { if true {} }";
 
     // Case 1: Limit = 2 (Should Pass)
-    let violations = scan(content, config_complexity(2))?;
+    let violations = scan(content, make_config(RuleKind::Complexity, 2))?;
     assert!(violations.is_empty(), "Complexity 2 should pass limit 2");
 
     // Case 2: Limit = 1 (Should Fail)
-    let violations = scan(content, config_complexity(1))?;
+    let violations = scan(content, make_config(RuleKind::Complexity, 1))?;
     assert!(
         violations.iter().any(|v| v.message.contains("Score is 2")),
         "Complexity 2 should fail limit 1"
@@ -109,64 +100,32 @@ fn test_complexity_boundary_check() -> Result<()> {
 }
 
 #[test]
-fn test_complexity_construct_match() -> Result<()> {
-    // Matches count as branches.
-    // Base(1) + Arm(1) + Arm(1) = 3
-    let content = r"
-        fn f(x: i32) {
-            match x {
-                1 => {},
-                2 => {},
-                _ => {}
-            }
-        }
-    ";
-    let violations = scan(content, config_complexity(2))?;
-    assert!(
-        violations
-            .iter()
-            .any(|v| v.message.contains("High Complexity")),
-        "Match arms must increment complexity"
-    );
-    Ok(())
-}
+fn test_complexity_constructs() -> Result<()> {
+    let cases = vec![
+        // Base(1) + Arm(1) + Arm(1) = 3
+        (
+            r"fn f(x: i32) { match x { 1 => {}, 2 => {}, _ => {} } }",
+            "Match arms",
+        ),
+        // Base(1) + For(1) + While(1) = 3
+        (r"fn f() { for _ in 0..10 {} while true {} }", "Loops"),
+        // Base(1) + If(1) + &&(1) + ||(1) = 4
+        (
+            "fn f(a: bool, b: bool, c: bool) { if a && b || c {} }",
+            "Logic ops",
+        ),
+    ];
 
-#[test]
-fn test_complexity_construct_loops() -> Result<()> {
-    // Loops count as branches.
-    // Base(1) + For(1) + While(1) = 3
-    let content = r"
-        fn f() {
-            for _ in 0..10 {}
-            while true {}
-        }
-    ";
-    let violations = scan(content, config_complexity(2))?;
-    assert!(
-        violations
-            .iter()
-            .any(|v| v.message.contains("High Complexity")),
-        "Loops must increment complexity"
-    );
-    Ok(())
-}
-
-#[test]
-fn test_complexity_construct_logic_ops() -> Result<()> {
-    // Boolean operators count as branches (short-circuiting).
-    // Base(1) + &&(1) + ||(1) = 3
-    let content = "fn f(a: bool, b: bool, c: bool) { if a && b || c {} }";
-
-    // Note: The 'if' itself counts (1), plus && (1), plus || (1).
-    // Total for this function: Base(1) + If(1) + &&(1) + ||(1) = 4.
-
-    let violations = scan(content, config_complexity(3))?;
-    assert!(
-        violations
-            .iter()
-            .any(|v| v.message.contains("High Complexity")),
-        "Logic operators (&&, ||) must increment complexity"
-    );
+    // Testing against a low limit (2) to ensure these constructs are counted
+    for (content, name) in cases {
+        let violations = scan(content, make_config(RuleKind::Complexity, 2))?;
+        assert!(
+            violations
+                .iter()
+                .any(|v| v.message.contains("High Complexity")),
+            "Failed to detect complexity in {name}"
+        );
+    }
     Ok(())
 }
 
@@ -178,16 +137,16 @@ fn test_nesting_boundary() -> Result<()> {
     let content = "fn f() { if true {} }";
 
     // Limit 1: Pass
-    assert!(scan(content, config_depth(1))?.is_empty());
+    assert!(scan(content, make_config(RuleKind::Depth, 1))?.is_empty());
 
     // Limit 0: Fail
     // The engine treats function body as depth 0, first block as 1.
     // Let's verify depth 2 fails limit 1.
     let deep = "fn f() { if true { if true {} } }"; // Depth 2
 
-    assert!(scan(deep, config_depth(2))?.is_empty());
+    assert!(scan(deep, make_config(RuleKind::Depth, 2))?.is_empty());
 
-    let violations = scan(deep, config_depth(1))?;
+    let violations = scan(deep, make_config(RuleKind::Depth, 1))?;
     assert!(
         violations
             .iter()
@@ -204,10 +163,10 @@ fn test_arity_boundary() -> Result<()> {
     let content = "fn f(a: i32, b: i32) {}";
 
     // Limit 2: Pass
-    assert!(scan(content, config_arity(2))?.is_empty());
+    assert!(scan(content, make_config(RuleKind::Arity, 2))?.is_empty());
 
     // Limit 1: Fail
-    let violations = scan(content, config_arity(1))?;
+    let violations = scan(content, make_config(RuleKind::Arity, 1))?;
     assert!(
         violations.iter().any(|v| v.message.contains("High Arity")),
         "2 Args should fail limit 1"
@@ -270,10 +229,10 @@ fn test_slopchop_ignore_skips_file() -> Result<()> {
              if true { if true { if true { x.unwrap(); } } }
         }
     ";
-    let violations = scan(content, config_complexity(1))?;
+    let violations = scan(content, make_config(RuleKind::Complexity, 1))?;
     assert!(
         violations.is_empty(),
         "slopchop:ignore should bypass all checks"
     );
     Ok(())
-}
+}

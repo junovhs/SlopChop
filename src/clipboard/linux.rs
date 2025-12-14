@@ -29,37 +29,14 @@ pub fn copy_file_handle(path: &Path) -> Result<()> {
 fn copy_file_handle_native(path: &Path) -> Result<()> {
     let uri = format!("file://{}", path.to_string_lossy());
 
-    if try_wl_copy_uri(&uri).is_ok() {
+    if try_pipe_to_cmd("wl-copy", &["--type", "text/uri-list"], &uri).is_ok() {
         return Ok(());
     }
-    copy_uri_xclip(&uri)
-}
-
-fn try_wl_copy_uri(uri: &str) -> Result<()> {
-    let mut child = Command::new("wl-copy")
-        .args(["--type", "text/uri-list"])
-        .stdin(Stdio::piped())
-        .spawn()?;
-
-    if let Some(mut stdin) = child.stdin.take() {
-        write!(stdin, "{uri}")?;
-    }
-    child.wait()?;
-    Ok(())
-}
-
-fn copy_uri_xclip(uri: &str) -> Result<()> {
-    let mut child = Command::new("xclip")
-        .args(["-selection", "clipboard", "-t", "text/uri-list", "-i"])
-        .stdin(Stdio::piped())
-        .spawn()
-        .context("Failed to spawn xclip")?;
-
-    if let Some(mut stdin) = child.stdin.take() {
-        write!(stdin, "{uri}").context("Failed to write to xclip")?;
-    }
-    child.wait().context("Failed to wait for xclip")?;
-    Ok(())
+    try_pipe_to_cmd(
+        "xclip",
+        &["-selection", "clipboard", "-t", "text/uri-list", "-i"],
+        &uri,
+    )
 }
 
 fn copy_file_handle_wsl(path: &Path) -> Result<()> {
@@ -96,80 +73,41 @@ pub fn perform_copy(text: &str) -> Result<()> {
 }
 
 fn perform_copy_wsl(text: &str) -> Result<()> {
-    if try_wsl_clip(text).is_ok() {
+    if try_pipe_to_cmd("clip.exe", &[], text).is_ok() {
         return Ok(());
     }
-    try_wsl_powershell(text)
-}
-
-fn try_wsl_clip(text: &str) -> Result<()> {
-    let mut child = Command::new("clip.exe")
-        .stdin(Stdio::piped())
-        .spawn()
-        .context("Failed to spawn clip.exe")?;
-
-    if let Some(mut stdin) = child.stdin.take() {
-        stdin
-            .write_all(text.as_bytes())
-            .context("Failed to write to clip.exe")?;
-    }
-    child.wait().context("Failed to wait for clip.exe")?;
-    Ok(())
-}
-
-fn try_wsl_powershell(text: &str) -> Result<()> {
-    let mut child = Command::new("powershell.exe")
-        .args([
+    try_pipe_to_cmd(
+        "powershell.exe",
+        &[
             "-NoProfile",
             "-NonInteractive",
             "-Command",
             "$Input | Set-Clipboard",
-        ])
-        .stdin(Stdio::piped())
-        .spawn()
-        .context("Failed to spawn powershell.exe")?;
-
-    if let Some(mut stdin) = child.stdin.take() {
-        stdin
-            .write_all(text.as_bytes())
-            .context("Failed to write to powershell.exe")?;
-    }
-    child.wait().context("Failed to wait for powershell.exe")?;
-    Ok(())
+        ],
+        text,
+    )
 }
 
 fn perform_copy_native(text: &str) -> Result<()> {
-    if try_xclip_copy(text).is_ok() {
+    if try_pipe_to_cmd("xclip", &["-selection", "clipboard", "-in"], text).is_ok() {
         return Ok(());
     }
-    try_wl_copy(text)
+    try_pipe_to_cmd("wl-copy", &[], text)
 }
 
-fn try_xclip_copy(text: &str) -> Result<()> {
-    let mut child = Command::new("xclip")
-        .args(["-selection", "clipboard", "-in"])
-        .stdin(Stdio::piped())
-        .spawn()?;
-
-    if let Some(mut stdin) = child.stdin.take() {
-        stdin.write_all(text.as_bytes())?;
-    }
-    child.wait()?;
-    Ok(())
-}
-
-fn try_wl_copy(text: &str) -> Result<()> {
-    let mut child = Command::new("wl-copy")
+fn try_pipe_to_cmd(cmd: &str, args: &[&str], input: &str) -> Result<()> {
+    let mut child = Command::new(cmd)
+        .args(args)
         .stdin(Stdio::piped())
         .spawn()
-        .context("Failed to spawn wl-copy")?;
+        .context(format!("Failed to spawn {cmd}"))?;
 
     if let Some(mut stdin) = child.stdin.take() {
         stdin
-            .write_all(text.as_bytes())
-            .context("Failed to write to wl-copy")?;
+            .write_all(input.as_bytes())
+            .context(format!("Failed to write to {cmd}"))?;
     }
-    child.wait().context("Failed to wait for wl-copy")?;
+    child.wait().context(format!("Failed to wait for {cmd}"))?;
     Ok(())
 }
 
@@ -203,4 +141,4 @@ fn perform_read_native() -> Result<String> {
     }
     let output = Command::new("wl-paste").output()?;
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
-}
+}

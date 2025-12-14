@@ -58,55 +58,51 @@ pub fn check_metrics(ctx: &CheckContext, complexity_query: &Query, out: &mut Vec
     traverse_nodes(ctx, |node| {
         let kind = node.kind();
         if kind.contains("function") || kind.contains("method") {
-            validate_arity(node, ctx.config.max_function_args, out);
-            validate_depth(node, ctx.config.max_nesting_depth, out);
-            validate_complexity(
-                node,
-                ctx.source,
-                complexity_query,
+            let row = node.start_position().row;
+
+            check_metric(
+                metrics::count_arguments(node),
+                ctx.config.max_function_args,
+                row,
+                "High Arity",
+                "Function takes {} arguments. Use a Struct.",
+                out,
+            );
+
+            check_metric(
+                metrics::calculate_max_depth(node),
+                ctx.config.max_nesting_depth,
+                row,
+                "Deep Nesting",
+                "Max depth is {}. Extract logic.",
+                out,
+            );
+
+            check_metric(
+                metrics::calculate_complexity(node, ctx.source, complexity_query),
                 ctx.config.max_cyclomatic_complexity,
+                row,
+                "High Complexity",
+                "Score is {}. Hard to test.",
                 out,
             );
         }
     });
 }
 
-fn validate_arity(node: Node, max: usize, out: &mut Vec<Violation>) {
-    let args = metrics::count_arguments(node);
-    if args > max {
-        out.push(Violation {
-            row: node.start_position().row,
-            message: format!(
-                "High Arity: Function takes {args} arguments (Max: {max}). Use a Struct."
-            ),
-            law: "LAW OF COMPLEXITY",
-        });
-    }
-}
-
-fn validate_depth(node: Node, max: usize, out: &mut Vec<Violation>) {
-    let depth = metrics::calculate_max_depth(node);
-    if depth > max {
-        out.push(Violation {
-            row: node.start_position().row,
-            message: format!("Deep Nesting: Max depth is {depth} (Max: {max}). Extract logic."),
-            law: "LAW OF COMPLEXITY",
-        });
-    }
-}
-
-fn validate_complexity(
-    node: Node,
-    source: &str,
-    query: &Query,
+fn check_metric(
+    value: usize,
     max: usize,
+    row: usize,
+    title: &str,
+    msg_tmpl: &str,
     out: &mut Vec<Violation>,
 ) {
-    let score = metrics::calculate_complexity(node, source, query);
-    if score > max {
+    if value > max {
+        let detail = msg_tmpl.replace("{}", &value.to_string());
         out.push(Violation {
-            row: node.start_position().row,
-            message: format!("High Complexity: Score is {score} (Max: {max}). Hard to test."),
+            row,
+            message: format!("{title}: {detail} (Max: {max})"),
             law: "LAW OF COMPLEXITY",
         });
     }
@@ -176,4 +172,4 @@ fn advance_cursor(cursor: &mut TreeCursor) -> bool {
         }
     }
     true
-}
+}
