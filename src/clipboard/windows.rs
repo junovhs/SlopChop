@@ -1,8 +1,8 @@
 // src/clipboard/windows.rs
+use crate::clipboard::utils;
 use anyhow::{Context, Result};
-use std::io::Write;
 use std::path::Path;
-use std::process::{Command, Stdio};
+use std::process::Command;
 
 /// Copies the file at the given path to the clipboard.
 ///
@@ -25,12 +25,7 @@ pub fn copy_file_handle(path: &Path) -> Result<()> {
 /// # Errors
 /// Returns error if the external clipboard command fails.
 pub fn perform_copy(text: &str) -> Result<()> {
-    let mut child = Command::new("clip").stdin(Stdio::piped()).spawn()?;
-    if let Some(mut stdin) = child.stdin.take() {
-        stdin.write_all(text.as_bytes())?;
-    }
-    child.wait()?;
-    Ok(())
+    utils::pipe_to_cmd("clip", &[], text)
 }
 
 /// Reads text from the system clipboard.
@@ -42,4 +37,4 @@ pub fn perform_read() -> Result<String> {
         .args(["-command", "Get-Clipboard"])
         .output()?;
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
-}
+}

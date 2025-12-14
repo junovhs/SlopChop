@@ -11,16 +11,14 @@ pub mod codegen;
 pub mod dead_code;
 pub mod diff;
 pub mod display;
-pub mod parameterize;
+pub mod enhance;
 pub mod fingerprint;
+pub mod parameterize;
 pub mod patterns;
 pub mod report;
 pub mod scoring;
 pub mod similarity;
-
 pub mod types;
-pub mod enhance; // [God Tier Audit]
-
 
 pub use types::{AuditReport, AuditStats, Opportunity, OpportunityKind};
 
@@ -74,8 +72,7 @@ impl Default for AuditOptions {
 pub fn run(options: &AuditOptions) -> Result<AuditReport> {
     let start = Instant::now();
 
-    let mut config = Config::new();
-    config.load_local_config();
+    let config = Config::load();
 
     let files = discovery::discover(&config)?;
 
@@ -113,15 +110,14 @@ pub fn run(options: &AuditOptions) -> Result<AuditReport> {
         opportunities.push(scoring::score_pattern(pattern, "audit"));
     }
 
-
     // [God Tier Audit] Enhance top duplication opportunities with refactoring plans
     // Sort first to ensure we only spend compute on the most impactful items.
     opportunities = scoring::rank_opportunities(opportunities);
-    
+
     // We enhance in-place for the top results before truncating.
     // The complexity of diffing is high, so we limit it.
     let enhance_limit = options.max_opportunities.min(10);
-    
+
     enhance::enhance_opportunities(&mut opportunities, enhance_limit, &config);
 
     if opportunities.len() > options.max_opportunities {
@@ -279,6 +275,4 @@ fn detect_dead_code(units: &[CodeUnit], file_contents: &HashMap<PathBuf, String>
     let entry_points = vec!["main".to_string(), "run".to_string(), "new".to_string()];
 
     dead_code::detect(units, &all_refs, &entry_points)
-}
-
-
+}

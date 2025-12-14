@@ -205,7 +205,7 @@ fn dispatch_pack(cmd: &Commands) -> Result<()> {
 }
 
 fn run_scan() -> Result<()> {
-    let config = load_config();
+    let config = Config::load();
     let report = RuleEngine::new(config.clone()).scan(discovery::discover(&config)?);
     reporting::print_report(&report)?;
     if report.has_errors() {
@@ -223,7 +223,7 @@ fn run_tui() -> Result<()> {
     use ratatui::backend::CrosstermBackend;
     use ratatui::Terminal;
 
-    let config = load_config();
+    let config = Config::load();
     let report = RuleEngine::new(config.clone()).scan(discovery::discover(&config)?);
 
     enable_raw_mode()?;
@@ -244,12 +244,6 @@ fn run_tui() -> Result<()> {
     Ok(())
 }
 
-fn load_config() -> Config {
-    let mut c = Config::new();
-    c.load_local_config();
-    c
-}
-
 fn ensure_config_exists() {
     if Path::new("slopchop.toml").exists() {
         return;
@@ -257,6 +251,6 @@ fn ensure_config_exists() {
     let proj = project::ProjectType::detect();
     let content = project::generate_toml(proj, project::Strictness::Standard);
     if fs::write("slopchop.toml", &content).is_ok() {
-        eprintln!("{}", "� Created slopchop.toml".dimmed());
+        eprintln!("{}", " Created slopchop.toml".dimmed());
     }
 }

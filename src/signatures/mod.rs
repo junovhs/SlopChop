@@ -32,8 +32,7 @@ pub struct SignatureOptions {
 /// # Errors
 /// Returns error if file discovery or reading fails.
 pub fn run(opts: &SignatureOptions) -> Result<()> {
-    let mut config = Config::new();
-    config.load_local_config();
+    let config = Config::load();
 
     println!("{}", "?? Scanning type surface...".cyan());
 

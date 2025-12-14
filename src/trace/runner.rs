@@ -39,7 +39,7 @@ pub fn run(opts: &TraceOptions) -> Result<String> {
         anyhow::bail!("Anchor file not found: {}", opts.anchor.display());
     }
 
-    let config = load_config();
+    let config = Config::load();
     let files = discovery::discover(&config)?;
     let contents = read_all_files(&files);
 
@@ -62,7 +62,7 @@ pub fn run(opts: &TraceOptions) -> Result<String> {
 /// # Errors
 /// Returns error if discovery fails.
 pub fn map(show_deps: bool) -> Result<String> {
-    let config = load_config();
+    let config = Config::load();
     let files = discovery::discover(&config)?;
     let contents = read_all_files(&files);
 
@@ -88,12 +88,6 @@ pub fn map(show_deps: bool) -> Result<String> {
     }
 
     Ok(out)
-}
-
-fn load_config() -> Config {
-    let mut config = Config::new();
-    config.load_local_config();
-    config
 }
 
 fn read_all_files(files: &[PathBuf]) -> HashMap<PathBuf, String> {
@@ -130,18 +124,18 @@ fn write_dir_section(
     graph: Option<&RepoGraph>,
 ) {
     let _ = writeln!(out, "{}/", dir.display().to_string().blue().bold());
-    
+
     for f in files {
         let name = f.file_name().unwrap_or_default().to_string_lossy();
         let stats = get_file_stats(f, contents);
-        
+
         let meta = format!(
-            "{} KB • {} toks",
+            "{} KB  {} toks",
             format!("{:.1}", stats.size_kb).yellow(),
             stats.tokens.to_string().cyan()
         );
 
-        let _ = writeln!(out, "  ├── {name:<30} ({meta})");
+        let _ = writeln!(out, "  ��� {name:<30} ({meta})");
 
         if let Some(g) = graph {
             render_dependencies(out, g, f);
@@ -155,24 +149,21 @@ fn render_dependencies(out: &mut String, graph: &RepoGraph, file: &Path) {
     if deps.is_empty() {
         return;
     }
-    
+
     for dep in deps {
         let dep_name = dep.to_string_lossy();
-        let _ = writeln!(out, "  │   └── 🔗 {}", dep_name.dimmed());
+        let _ = writeln!(out, "  �   ��� ?? {}", dep_name.dimmed());
     }
 }
 
 #[allow(clippy::cast_precision_loss)]
-fn get_file_stats(
-    path: &Path,
-    contents: &HashMap<PathBuf, String>,
-) -> FileStats {
+fn get_file_stats(path: &Path, contents: &HashMap<PathBuf, String>) -> FileStats {
     let content = contents.get(path).map_or("", String::as_str);
     let tokens = Tokenizer::count(content);
     let size_bytes = content.len();
-    
+
     FileStats {
         size_kb: size_bytes as f64 / 1024.0,
         tokens,
     }
-}
+}

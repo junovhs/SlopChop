@@ -1,8 +1,8 @@
 // src/clipboard/linux.rs
+use crate::clipboard::utils;
 use anyhow::{Context, Result};
-use std::io::Write;
 use std::path::Path;
-use std::process::{Command, Stdio};
+use std::process::Command;
 
 fn is_wsl() -> bool {
     if std::env::var("WSL_DISTRO_NAME").is_ok() {
@@ -29,10 +29,10 @@ pub fn copy_file_handle(path: &Path) -> Result<()> {
 fn copy_file_handle_native(path: &Path) -> Result<()> {
     let uri = format!("file://{}", path.to_string_lossy());
 
-    if try_pipe_to_cmd("wl-copy", &["--type", "text/uri-list"], &uri).is_ok() {
+    if utils::pipe_to_cmd("wl-copy", &["--type", "text/uri-list"], &uri).is_ok() {
         return Ok(());
     }
-    try_pipe_to_cmd(
+    utils::pipe_to_cmd(
         "xclip",
         &["-selection", "clipboard", "-t", "text/uri-list", "-i"],
         &uri,
@@ -73,10 +73,10 @@ pub fn perform_copy(text: &str) -> Result<()> {
 }
 
 fn perform_copy_wsl(text: &str) -> Result<()> {
-    if try_pipe_to_cmd("clip.exe", &[], text).is_ok() {
+    if utils::pipe_to_cmd("clip.exe", &[], text).is_ok() {
         return Ok(());
     }
-    try_pipe_to_cmd(
+    utils::pipe_to_cmd(
         "powershell.exe",
         &[
             "-NoProfile",
@@ -89,26 +89,10 @@ fn perform_copy_wsl(text: &str) -> Result<()> {
 }
 
 fn perform_copy_native(text: &str) -> Result<()> {
-    if try_pipe_to_cmd("xclip", &["-selection", "clipboard", "-in"], text).is_ok() {
+    if utils::pipe_to_cmd("xclip", &["-selection", "clipboard", "-in"], text).is_ok() {
         return Ok(());
     }
-    try_pipe_to_cmd("wl-copy", &[], text)
-}
-
-fn try_pipe_to_cmd(cmd: &str, args: &[&str], input: &str) -> Result<()> {
-    let mut child = Command::new(cmd)
-        .args(args)
-        .stdin(Stdio::piped())
-        .spawn()
-        .context(format!("Failed to spawn {cmd}"))?;
-
-    if let Some(mut stdin) = child.stdin.take() {
-        stdin
-            .write_all(input.as_bytes())
-            .context(format!("Failed to write to {cmd}"))?;
-    }
-    child.wait().context(format!("Failed to wait for {cmd}"))?;
-    Ok(())
+    utils::pipe_to_cmd("wl-copy", &[], text)
 }
 
 /// Reads text from the system clipboard.

@@ -1,6 +1,7 @@
 // src/clipboard/mod.rs
 pub mod platform;
 pub mod temp;
+pub mod utils;
 
 use crate::tokens::Tokenizer;
 use anyhow::Result;
@@ -59,4 +60,4 @@ pub fn copy_to_clipboard(text: &str) -> Result<()> {
 /// Returns error if clipboard access fails.
 pub fn read_clipboard() -> Result<String> {
     platform::perform_read()
-}
+}

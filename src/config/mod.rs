@@ -13,6 +13,14 @@ impl Config {
         Self::default()
     }
 
+    /// Creates a new config and loads local settings (`slopchop.toml`, `.slopchopignore`).
+    #[must_use]
+    pub fn load() -> Self {
+        let mut config = Self::new();
+        config.load_local_config();
+        config
+    }
+
     /// Validates configuration.
     /// # Errors
     /// Returns Ok.
@@ -49,4 +57,4 @@ pub fn save_to_file(
     commands: &std::collections::HashMap<String, Vec<String>>,
 ) -> Result<()> {
     io::save_to_file(rules, prefs, commands)
-}
+}

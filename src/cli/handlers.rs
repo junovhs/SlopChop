@@ -46,8 +46,7 @@ pub fn handle_init(path: Option<PathBuf>) -> Result<()> {
 /// # Errors
 /// Returns error if verification pipeline fails.
 pub fn handle_check() -> Result<()> {
-    let mut config = Config::new();
-    config.load_local_config();
+    let config = Config::load();
     let ctx = ApplyContext::new(&config);
 
     if apply::verification::run_verification_pipeline(&ctx)? {
@@ -63,8 +62,7 @@ pub fn handle_check() -> Result<()> {
 /// # Errors
 /// Returns error if command execution fails.
 pub fn handle_fix() -> Result<()> {
-    let mut config = Config::new();
-    config.load_local_config();
+    let config = Config::load();
 
     let Some(fix_cmds) = config.commands.get("fix") else {
         println!("No 'fix' command configured in slopchop.toml");
@@ -91,8 +89,7 @@ pub fn handle_fix() -> Result<()> {
 /// # Errors
 /// Returns error if TUI fails.
 pub fn handle_dashboard() -> Result<()> {
-    let mut config = Config::new();
-    config.load_local_config();
+    let mut config = Config::load();
     crate::tui::dashboard::run(&mut config)?;
     Ok(())
 }
@@ -102,8 +99,7 @@ pub fn handle_dashboard() -> Result<()> {
 /// # Errors
 /// Returns error if prompt generation fails or clipboard access fails.
 pub fn handle_prompt(copy: bool) -> Result<()> {
-    let mut config = Config::new();
-    config.load_local_config();
+    let config = Config::load();
     let gen = PromptGenerator::new(config.rules);
     let prompt = gen.generate().map_err(|e| anyhow!(e.to_string()))?;
 
@@ -178,8 +174,7 @@ pub fn handle_signatures(opts: SignatureOptions) -> Result<()> {
 /// # Errors
 /// Returns error if application fails.
 pub fn handle_apply(args: &ApplyArgs) -> Result<()> {
-    let mut config = Config::new();
-    config.load_local_config();
+    let config = Config::load();
 
     let input = determine_input(args);
 

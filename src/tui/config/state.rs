@@ -27,8 +27,7 @@ impl Default for ConfigApp {
 impl ConfigApp {
     #[must_use]
     pub fn new() -> Self {
-        let mut config = Config::new();
-        config.load_local_config();
+        let config = Config::load();
 
         Self {
             rules: config.rules,
@@ -123,4 +122,4 @@ impl ConfigApp {
             self.modified = false;
         }
     }
-}
+}

@@ -58,7 +58,7 @@ pub fn run(options: &PackOptions) -> Result<()> {
 
     let files = discovery::discover(&config)?;
     if options.verbose {
-        eprintln!("📦 Discovered {} files...", files.len());
+        eprintln!("?? Discovered {} files...", files.len());
     }
 
     let content = generate_content(&files, options, &config)?;
@@ -77,16 +77,16 @@ fn print_start_message(options: &PackOptions) {
             .iter()
             .map(|p| p.display().to_string())
             .collect();
-        println!("🔬 Packing with focus: {}", names.join(", "));
+        println!("?? Packing with focus: {}", names.join(", "));
     } else if let Some(t) = &options.target {
-        println!("🧶 Knitting repository (Focus: {})...", t.display());
+        println!("?? Knitting repository (Focus: {})...", t.display());
     } else {
-        println!("🧶 Knitting repository...");
+        println!("?? Knitting repository...");
     }
 }
 
 fn setup_config(opts: &PackOptions) -> Result<Config> {
-    let mut config = Config::new();
+    let mut config = Config::load();
     config.verbose = opts.verbose;
     config.code_only = opts.code_only;
     config.git_mode = match (opts.git_only, opts.no_git) {
@@ -94,7 +94,6 @@ fn setup_config(opts: &PackOptions) -> Result<Config> {
         (_, true) => GitMode::No,
         _ => GitMode::Auto,
     };
-    config.load_local_config();
     config.validate()?;
     Ok(config)
 }
@@ -157,15 +156,15 @@ fn inject_violations(ctx: &mut String, files: &[PathBuf], config: &Config) -> Re
         return Ok(());
     }
 
-    writeln!(ctx, "{}", "═".repeat(67))?;
-    writeln!(ctx, "⚠️  ACTIVE VIOLATIONS (PRIORITY FIX REQUIRED)")?;
-    writeln!(ctx, "{}\n", "═".repeat(67))?;
+    writeln!(ctx, "{}", "�".repeat(67))?;
+    writeln!(ctx, "??  ACTIVE VIOLATIONS (PRIORITY FIX REQUIRED)")?;
+    writeln!(ctx, "{}\n", "�".repeat(67))?;
 
     for file in report.files.iter().filter(|f| !f.is_clean()) {
         for v in &file.violations {
             writeln!(ctx, "FILE: {}", file.path.display())?;
             writeln!(ctx, "LAW:  {} | LINE: {} | {}", v.law, v.row + 1, v.message)?;
-            writeln!(ctx, "{}", "─".repeat(40))?;
+            writeln!(ctx, "{}", "�".repeat(40))?;
         }
     }
     writeln!(ctx)?;
@@ -178,8 +177,8 @@ fn write_header(ctx: &mut String, config: &Config) -> Result<()> {
     writeln!(
         ctx,
         "\n{}\nBEGIN CODEBASE\n{}\n",
-        "═".repeat(67),
-        "═".repeat(67)
+        "�".repeat(67),
+        "�".repeat(67)
     )?;
     Ok(())
 }
@@ -189,8 +188,8 @@ fn write_footer(ctx: &mut String, config: &Config) -> Result<()> {
     writeln!(
         ctx,
         "\n{}\nEND CODEBASE\n{}\n",
-        "═".repeat(67),
-        "═".repeat(67)
+        "�".repeat(67),
+        "�".repeat(67)
     )?;
     writeln!(ctx, "{}", gen.generate_reminder()?)?;
     Ok(())
@@ -198,7 +197,7 @@ fn write_footer(ctx: &mut String, config: &Config) -> Result<()> {
 
 fn output_result(content: &str, tokens: usize, opts: &PackOptions) -> Result<()> {
     let info = format!(
-        "\n📊 Context Size: {} tokens",
+        "\n?? Context Size: {} tokens",
         tokens.to_string().yellow().bold()
     );
 
@@ -210,7 +209,7 @@ fn output_result(content: &str, tokens: usize, opts: &PackOptions) -> Result<()>
 
     if opts.copy {
         let msg = clipboard::smart_copy(content)?;
-        println!("{}", "✓ Copied to clipboard".green());
+        println!("{}", "� Copied to clipboard".green());
         println!("  ({msg})");
         println!("{info}");
         return Ok(());
@@ -222,13 +221,14 @@ fn output_result(content: &str, tokens: usize, opts: &PackOptions) -> Result<()>
 fn write_to_file(content: &str, info: &str) -> Result<()> {
     let output_path = PathBuf::from("context.txt");
     fs::write(&output_path, content)?;
-    println!("✅ Generated 'context.txt'");
+    println!("? Generated 'context.txt'");
 
     if let Ok(abs) = fs::canonicalize(&output_path) {
         if clipboard::copy_file_path(&abs).is_ok() {
-            println!("{}", "📎 File path copied to clipboard".cyan());
+            println!("{}", "?? File path copied to clipboard".cyan());
         }
     }
     println!("{info}");
     Ok(())
 }
+
