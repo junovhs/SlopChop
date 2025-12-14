@@ -50,11 +50,11 @@ fn handle_global_navigation(
 fn handle_tab_nav(code: KeyCode, modifiers: KeyModifiers, app: &mut DashboardApp) -> bool {
     match (modifiers, code) {
         (_, KeyCode::Tab) => {
-            app.next_tab();
+            app.cycle_tab(false);
             true
         }
         (KeyModifiers::SHIFT, KeyCode::BackTab) => {
-            app.previous_tab();
+            app.cycle_tab(true);
             true
         }
         _ => false,
@@ -183,4 +183,4 @@ fn refresh_app(app: &mut DashboardApp) {
     }
 
     app.log("Refreshed");
-}
+}

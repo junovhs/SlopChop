@@ -268,6 +268,13 @@ The path to a hardened v1.0.0 trust boundary.
 - [x] **Final polish of God Tier Audit** <!-- test: [no-test] -->
 - [x] **Fix active complexity and arity violations**
 - [x] **Split src/graph/rank/graph.rs into graph.rs and builder.rs to satisfy Atomicity Law**
+- [x] **Refactor naming tests in unit_analysis.rs to reduce duplication** <!-- test: tests/unit_analysis.rs::test_snake_case_words -->
+- [x] **Refactor graph extraction tests to reduce duplication** <!-- test: tests/unit_graph.rs::test_rust_use_extraction -->
+- [x] **Refactor cli roadmap tests to reduce duplication** <!-- test: tests/unit_cli_roadmap.rs::test_roadmap_tasks -->
+- [ ] **Consolidate duplicate clipboard pipe logic into utils.rs**
+- [ ] **Standardize Config initialization using Config::load()**
+- [ ] **Fix High Arity violation in checks.rs**
+- [ ] **Fix High Complexity violation in graph.rs**
 
 ---
 

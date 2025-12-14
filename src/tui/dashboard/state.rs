@@ -90,22 +90,21 @@ impl<'a> DashboardApp<'a> {
         self.last_scan = Some(Instant::now());
     }
 
-    pub fn next_tab(&mut self) {
-        self.active_tab = match self.active_tab {
-            Tab::Dashboard => Tab::Roadmap,
-            Tab::Roadmap => Tab::Config,
-            Tab::Config => Tab::Logs,
-            Tab::Logs => Tab::Dashboard,
-        };
-    }
+    pub fn cycle_tab(&mut self, reverse: bool) {
+        let tabs = [Tab::Dashboard, Tab::Roadmap, Tab::Config, Tab::Logs];
+        let current = tabs
+            .iter()
+            .position(|&t| t == self.active_tab)
+            .unwrap_or(0);
+        let len = tabs.len();
 
-    pub fn previous_tab(&mut self) {
-        self.active_tab = match self.active_tab {
-            Tab::Dashboard => Tab::Logs,
-            Tab::Logs => Tab::Config,
-            Tab::Config => Tab::Roadmap,
-            Tab::Roadmap => Tab::Dashboard,
+        let next = if reverse {
+            (current + len - 1) % len
+        } else {
+            (current + 1) % len
         };
+
+        self.active_tab = tabs[next];
     }
 
     pub fn quit(&mut self) {
@@ -215,4 +214,4 @@ fn chrono_lite_timestamp() -> String {
     let mins = (secs % 3600) / 60;
     let secs = secs % 60;
     format!("{hours:02}:{mins:02}:{secs:02}")
-}
+}
