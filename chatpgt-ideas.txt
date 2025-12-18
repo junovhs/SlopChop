@@ -1,0 +1,51 @@
+I see the suite shape very clearly.
+
+**SlopChop** is essentially an “AI change firewall” plus a repo governance gate:
+
+* A **structural integrity scanner** (“Three Laws” defaults: atomicity/token budgets, complexity budgets, paranoia rules like banning `unwrap/expect` in configured scopes).
+* A single **gate command** (`slopchop check`) that runs configured checks/tests and then the structural scan, making it CI- and agent-loop friendly.
+* A hardened **multi-file apply pipeline** (`slopchop apply`) that ingests an AI-produced payload using a strict delimiter protocol, validates manifest consistency, blocks path traversal / sensitive dirs / hidden files, writes transactionally with rollback, then optionally verifies + commits/pushes.
+* An **audit mode** that does consolidation/refactor radar via tree-sitter AST extraction + fingerprinting + pattern detection + dead-code analysis.
+
+And yes: you have an embedded **`roadmap_v2`** integration in `apply` that updates `tasks.toml` when the payload contains roadmap content, which is exactly the kind of coupling you’d want to unwind now that Roadmap is its own product.
+
+### Suggestions, given your intent to split Roadmap out and “probably much of the git stuff”
+
+If you’re building a coherent suite for “non-devs steering AI,” I’d strongly recommend these product/architecture boundaries:
+
+1. **Define three layers and keep them clean**
+
+* **Roadmap (Truth/Claims):** tasks, dependencies, proofs/attestations, decay, “what’s next,” “why stale/broken.” No patch ingestion, no repo mutation.
+* **SlopChop Apply (Ingestion/Mutation):** accepts a change bundle, validates, writes transactionally, and produces a machine-readable result. No roadmap logic beyond optional *plugin hook*.
+* **SlopChop Scan/Gate (Policy):** structural checks + orchestration of user-defined commands. No roadmap semantics.
+
+2. **Make Roadmap an optional integration via a stable interface**
+   Instead of `slopchop` directly parsing/updating `tasks.toml`, treat it like:
+
+* `slopchop apply` emits an **event stream** (“files_written”, “files_deleted”, “verification_passed/failed”, “git_head”, etc.)
+* Roadmap consumes those events (or a summarized JSON) via a small adapter.
+
+This keeps Roadmap portable (works with/without SlopChop) and keeps SlopChop honest (it applies changes; it doesn’t become a project-management tool).
+
+3. **If you strip git from SlopChop, don’t lose the safety invariants**
+   Right now, both tools benefit from “truth is tied to a clean commit” and from conservative failure modes. If SlopChop stops doing git operations, keep:
+
+* transactional apply + rollback as the core invariant,
+* verification as a first-class stage,
+* and make git commit/push a separate optional “driver” (or a thin companion tool).
+
+4. **Unify the “AI Protocol” across the suite**
+   Your delimiter protocol (`#__SLOPCHOP_FILE__# ... #__SLOPCHOP_END__#`, manifest, plan) is a major asset for vibe-coder workflows because it turns AI output into a parseable artifact. I would:
+
+* formalize it as a spec (and maybe a tiny shared crate),
+* and have Roadmap optionally emit “AI prompts” that *explicitly require* that format as the delivery envelope.
+
+5. **Suite-level UX: one “daily loop” across tools**
+   For your target user, the killer flow is:
+
+* Roadmap: pick next claim → produce a paste-ready AI instruction + acceptance/verifier
+* SlopChop: pack context → apply AI output safely → run gate → return a paste-back error summary if rejected
+
+That’s the “real” workflow you’re describing: not autocomplete, but guided project execution with objective gates.
+
+If you want, I can outline a concrete “suite contract” (CLI commands + JSON schemas + the minimal integration points) that lets Roadmap and SlopChop evolve independently while still feeling like one coherent system to your users.
