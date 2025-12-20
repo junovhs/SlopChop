@@ -11,9 +11,8 @@ fn test_dry_run_prevents_writes() -> Result<()> {
     let target_file = root.join("should_not_exist.rs");
 
     // Config setup
-    let mut config = Config::default();
-    config.preferences.auto_commit = false;
-    config.preferences.auto_push = false;
+    let config = Config::default();
+    // Removed auto_commit/auto_push settings as they are no longer part of the config
 
     // Create context with dry_run = true
     let ctx = ApplyContext {

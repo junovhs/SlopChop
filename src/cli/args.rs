@@ -9,8 +9,6 @@ pub struct Cli {
     pub command: Option<Commands>,
     #[arg(long)]
     pub ui: bool,
-    #[arg(long)]
-    pub init: bool,
 }
 
 #[derive(Subcommand)]
@@ -22,6 +20,7 @@ pub enum Commands {
         #[arg(long, short)] force: bool,
         #[arg(long)] dry_run: bool,
         #[arg(long)] stdin: bool,
+        #[arg(long, short)] check: bool,
         #[arg(long, value_name = "FILE")] file: Option<PathBuf>,
     },
     Clean { #[arg(long, short)] commit: bool },
@@ -42,8 +41,6 @@ pub enum Commands {
         #[arg(long)] noprompt: bool,
         #[arg(long, value_enum, default_value_t = OutputFormat::Text)] format: OutputFormat,
         #[arg(long)] skeleton: bool,
-        #[arg(long)] git_only: bool,
-        #[arg(long)] no_git: bool,
         #[arg(long)] code_only: bool,
         #[arg(long, short)] verbose: bool,
         #[arg(long, value_name = "FILE")] target: Option<PathBuf>,
@@ -65,5 +62,6 @@ pub struct ApplyArgs {
     pub force: bool,
     pub dry_run: bool,
     pub stdin: bool,
+    pub check: bool,
     pub file: Option<PathBuf>,
 }

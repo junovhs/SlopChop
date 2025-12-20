@@ -14,7 +14,13 @@ pub fn adjust_rule(app: &mut ConfigApp, increase: bool) {
 }
 
 pub fn adjust_pref(app: &mut ConfigApp, increase: bool) {
-    if matches!(app.selected_field, 6 | 7 | 8 | 11 | 12) {
+    // Indices shifted due to removal of auto_commit/push/prefix
+    // 6: Auto-Copy
+    // 7: Auto-Format
+    // 8: Theme (was 10)
+    // 9: Progress Bars (was 11)
+    // 10: Require Plan (was 12)
+    if matches!(app.selected_field, 6 | 7 | 9 | 10) {
         toggle_pref(app);
     } else {
         cycle_pref(app, increase);
@@ -25,18 +31,15 @@ fn toggle_pref(app: &mut ConfigApp) {
     match app.selected_field {
         6 => app.preferences.auto_copy = !app.preferences.auto_copy,
         7 => app.preferences.auto_format = !app.preferences.auto_format,
-        8 => app.preferences.auto_commit = !app.preferences.auto_commit,
-        11 => app.preferences.progress_bars = !app.preferences.progress_bars,
-        12 => app.preferences.require_plan = !app.preferences.require_plan,
+        9 => app.preferences.progress_bars = !app.preferences.progress_bars,
+        10 => app.preferences.require_plan = !app.preferences.require_plan,
         _ => {}
     }
 }
 
 fn cycle_pref(app: &mut ConfigApp, increase: bool) {
-    match app.selected_field {
-        9 => cycle_prefix(app),
-        10 => cycle_theme(app, increase),
-        _ => {}
+    if app.selected_field == 8 {
+        cycle_theme(app, increase);
     }
 }
 
@@ -60,16 +63,6 @@ fn cycle_theme(app: &mut ConfigApp, forward: bool) {
         (current + 2) % 3
     };
     app.preferences.theme = themes[next];
-}
-
-fn cycle_prefix(app: &mut ConfigApp) {
-    let prefixes = ["AI: ", "feat: ", "fix: ", "slopchop: "];
-    let current = prefixes
-        .iter()
-        .position(|p| *p == app.preferences.commit_prefix)
-        .unwrap_or(0);
-    let next = (current + 1) % prefixes.len();
-    app.preferences.commit_prefix = prefixes[next].to_string();
 }
 
 pub fn cycle_preset(app: &mut ConfigApp, forward: bool) {
@@ -108,8 +101,8 @@ pub fn get_active_label(field: usize) -> &'static str {
         1 => "LAW OF ATOMICITY",
         2..=4 => "LAW OF COMPLEXITY",
         5 => "LAW OF BLUNTNESS",
-        6..=9 | 12 => "WORKFLOW AUTOMATION",
-        10..=11 => "VISUALS & FEEDBACK",
+        6..=7 | 10 => "WORKFLOW AUTOMATION",
+        8..=9 => "VISUALS & FEEDBACK",
         _ => "UNKNOWN",
     }
 }
@@ -123,8 +116,8 @@ const DESCRIPTIONS: &[&str] = &[
     "Limits function naming verbosity. Long names often mask poor abstraction.\n\nGoal: Concise intent.",
     "Automatically copy the generated 'context.txt' to the clipboard.\n\nGoal: Eliminate manual steps.",
     "Run the project's formatter (e.g., cargo fmt, prettier) immediately after applying changes.\n\nGoal: Maintain style guide.",
-    "Automatically stage and commit changes if the application succeeds and 'slopchop check' passes.\n\nGoal: High-velocity iteration.",
-    "Prefix for auto-generated commits to distinguish them in git history.\n\nGoal: Traceability.",
+    // Auto commit removed
+    // Commit prefix removed
     "Color scheme for the TUI.\nNASA: High Contrast.\nCyberpunk: Neon.\nCorporate: Subtle.\n\nGoal: Eye Candy.",
     "Show animated progress bars during scans and operations.\n\nGoal: Feedback.",
     "Force AI output to contain a valid PLAN block. Auto-rejects inputs without one.\n\nGoal: Ensure intent is declared before code.",
@@ -160,4 +153,4 @@ pub fn get_integrity_score(app: &ConfigApp) -> f64 {
     let d_score = (app.rules.max_nesting_depth as f64 - 1.0) / 5.0;
     let raw_avg = (t_score + c_score + d_score) / 3.0;
     (1.0 - raw_avg).clamp(0.0, 1.0)
-}
+}

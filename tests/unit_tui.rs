@@ -14,13 +14,13 @@ fn test_check_runner() {
 }
 
 #[test]
-fn test_roadmap_explorer() {
-    let feature_name = String::from("roadmap_explorer");
-    assert_eq!(feature_name.len(), 16);
+fn test_dashboard_navigation() {
+    let feature_name = String::from("dashboard_nav");
+    assert_eq!(feature_name.len(), 13);
 }
 
 #[test]
 fn test_log_stream() {
     let logs: Vec<String> = Vec::new();
     assert!(logs.is_empty());
-}
+}

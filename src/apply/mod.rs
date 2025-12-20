@@ -1,6 +1,6 @@
 pub mod backup;
 pub mod extractor;
-pub mod git;
+// git module removed per "Lean & Mean" directive
 pub mod manifest;
 pub mod messages;
 pub mod types;

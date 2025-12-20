@@ -10,7 +10,7 @@ use ratatui::Frame;
 
 pub fn draw_header(f: &mut Frame, app: &ConfigApp, area: Rect, pal: &Palette) {
     let title = Span::styled(
-        " 🛡️ SLOPCHOP PROTOCOL ",
+        " ??? SLOPCHOP PROTOCOL ",
         Style::default()
             .fg(pal.primary)
             .add_modifier(Modifier::BOLD),
@@ -160,18 +160,7 @@ fn build_workflow_rows(app: &ConfigApp, pal: &Palette) -> Vec<ConfigRow> {
             bool_col(app.preferences.auto_format),
             "READY",
         ),
-        (
-            "Auto-Commit",
-            bool_str(app.preferences.auto_commit),
-            bool_col(app.preferences.auto_commit),
-            "STANDBY",
-        ),
-        (
-            "Commit Prefix",
-            format!("\"{}\"", app.preferences.commit_prefix),
-            pal.text,
-            "SET",
-        ),
+        // Auto-commit rows removed
         (
             "UI Theme",
             format!("{:?}", app.preferences.theme).to_uppercase(),
@@ -209,11 +198,11 @@ fn bool_col(b: bool) -> Color {
 }
 
 pub fn draw_footer(f: &mut Frame, area: Rect, pal: &Palette) {
-    let text = " [↑/↓] NAVIGATE | [←/→] ADJUST VALUE | [ENTER] SAVE CONFIG | [Q] DISENGAGE ";
+    let text = " [/] NAVIGATE | [/] ADJUST VALUE | [ENTER] SAVE CONFIG | [Q] DISENGAGE ";
     f.render_widget(
         Paragraph::new(text)
             .style(Style::default().fg(pal.bg).bg(pal.secondary))
             .alignment(Alignment::Center),
         area,
     );
-}
+}

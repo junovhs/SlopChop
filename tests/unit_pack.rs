@@ -4,6 +4,4 @@
 #[test] fn test_stdout_option() {}
 #[test] fn test_copy_option() {}
 #[test] fn test_noprompt() {}
-#[test] fn test_git_only() {}
-#[test] fn test_no_git() {}
-#[test] fn test_code_only() {}
+#[test] fn test_code_only() {}

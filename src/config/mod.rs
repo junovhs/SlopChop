@@ -3,7 +3,7 @@ pub mod io;
 pub mod types;
 
 pub use self::types::{
-    CommandEntry, Config, GitMode, Preferences, RuleConfig, SlopChopToml, Theme,
+    CommandEntry, Config, Preferences, RuleConfig, SlopChopToml, Theme,
 };
 use anyhow::Result;
 

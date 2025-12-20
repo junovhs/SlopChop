@@ -7,9 +7,9 @@ use std::fmt::Write;
 pub fn format_terminal(report: &AuditReport) -> String {
     let mut out = String::new();
 
-    let _ = writeln!(out, "{}", "─".repeat(70).dimmed());
-    let _ = writeln!(out, "{}", " 🔍 CONSOLIDATION AUDIT REPORT ".cyan().bold());
-    let _ = writeln!(out, "{}", "─".repeat(70).dimmed());
+    let _ = writeln!(out, "{}", "�".repeat(70).dimmed());
+    let _ = writeln!(out, "{}", " ?? CONSOLIDATION AUDIT REPORT ".cyan().bold());
+    let _ = writeln!(out, "{}", "�".repeat(70).dimmed());
     let _ = writeln!(out);
 
     write_stats(&mut out, &report.stats);
@@ -18,20 +18,20 @@ pub fn format_terminal(report: &AuditReport) -> String {
         let _ = writeln!(
             out,
             "{}",
-            "✨ No consolidation opportunities found! Your code is clean.".green()
+            "? No consolidation opportunities found! Your code is clean.".green()
         );
     } else {
         write_opportunities(&mut out, &report.opportunities);
     }
 
     let _ = writeln!(out);
-    let _ = writeln!(out, "{}", "─".repeat(70).dimmed());
+    let _ = writeln!(out, "{}", "�".repeat(70).dimmed());
 
     out
 }
 
 fn write_stats(out: &mut String, stats: &AuditStats) {
-    let _ = writeln!(out, "{}", "📊 SUMMARY".cyan().bold());
+    let _ = writeln!(out, "{}", "?? SUMMARY".cyan().bold());
     let _ = writeln!(out);
 
     let _ = writeln!(
@@ -72,7 +72,7 @@ fn write_stats(out: &mut String, stats: &AuditStats) {
         let _ = writeln!(
             out,
             "   {} {} lines could potentially be removed/consolidated",
-            "💡".yellow(),
+            "??".yellow(),
             stats.total_potential_savings.to_string().green().bold()
         );
     }
@@ -92,7 +92,7 @@ fn write_opportunities(out: &mut String, opportunities: &[Opportunity]) {
     let _ = writeln!(
         out,
         "{}",
-        "🎯 OPPORTUNITIES (sorted by impact)".cyan().bold()
+        "?? OPPORTUNITIES (sorted by impact)".cyan().bold()
     );
     let _ = writeln!(out);
 
@@ -120,7 +120,7 @@ fn write_opportunity(out: &mut String, index: usize, opp: &Opportunity) {
     let _ = writeln!(
         out,
         "   {} ~{} lines | difficulty: {}/5 | confidence: {:.0}% | score: {:.1}",
-        "📈".dimmed(),
+        "??".dimmed(),
         opp.impact.lines_saved,
         opp.impact.difficulty,
         opp.impact.confidence * 100.0,
@@ -134,18 +134,18 @@ fn write_opportunity(out: &mut String, index: usize, opp: &Opportunity) {
             .iter()
             .map(|f| f.display().to_string())
             .collect();
-        let _ = writeln!(out, "   {} {}", "📁".dimmed(), files.join(", ").dimmed());
+        let _ = writeln!(out, "   {} {}", "??".dimmed(), files.join(", ").dimmed());
     } else {
-        let _ = writeln!(out, "   {} {file_count} files affected", "📁".dimmed());
+        let _ = writeln!(out, "   {} {file_count} files affected", "??".dimmed());
     }
 
-    let _ = writeln!(out, "   {} {}", "💡".dimmed(), opp.recommendation.dimmed());
+    let _ = writeln!(out, "   {} {}", "??".dimmed(), opp.recommendation.dimmed());
 
     if let Some(plan) = &opp.refactoring_plan {
         let _ = writeln!(out);
-        let _ = writeln!(out, "   {}", "🤖 GOD TIER PLAN:".magenta().bold());
+        let _ = writeln!(out, "   {}", "?? Suggested Refactor:".magenta().bold());
         for line in plan.lines() {
-            let _ = writeln!(out, "   {} {}", "│".magenta(), line.dimmed());
+            let _ = writeln!(out, "   {} {}", "�".magenta(), line.dimmed());
         }
     }
 
@@ -157,9 +157,9 @@ fn write_opportunity(out: &mut String, index: usize, opp: &Opportunity) {
 pub fn format_opportunity_detail(opp: &Opportunity) -> String {
     let mut out = String::new();
 
-    let _ = writeln!(out, "{}", "═".repeat(70));
+    let _ = writeln!(out, "{}", "�".repeat(70));
     let _ = writeln!(out, "{}", opp.title.bold());
-    let _ = writeln!(out, "{}", "═".repeat(70));
+    let _ = writeln!(out, "{}", "�".repeat(70));
     let _ = writeln!(out);
 
     let _ = writeln!(out, "{}", "DESCRIPTION:".cyan());
@@ -184,4 +184,4 @@ pub fn format_opportunity_detail(opp: &Opportunity) -> String {
     let _ = writeln!(out, "{}", opp.recommendation);
 
     out
-}
+}

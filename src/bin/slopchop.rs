@@ -17,7 +17,6 @@ use slopchop_core::reporting;
 use slopchop_core::signatures::SignatureOptions;
 use slopchop_core::tui::state::App;
 use slopchop_core::tui::runner;
-use slopchop_core::wizard;
 
 fn main() {
     if let Err(e) = run() {
@@ -28,10 +27,6 @@ fn main() {
 
 fn run() -> Result<()> {
     let cli = Cli::parse();
-    if cli.init {
-        wizard::run()?;
-        return Ok(());
-    }
     ensure_config_exists();
     dispatch(&cli)
 }
@@ -65,8 +60,14 @@ fn dispatch_maintenance(cmd: &Commands) -> Result<()> {
 
 fn dispatch_tools(cmd: &Commands) -> Result<()> {
     match cmd {
-        Commands::Apply { force, dry_run, stdin, file } => {
-            let args = ApplyArgs { force: *force, dry_run: *dry_run, stdin: *stdin, file: file.clone() };
+        Commands::Apply { force, dry_run, stdin, check, file } => {
+            let args = ApplyArgs {
+                force: *force,
+                dry_run: *dry_run,
+                stdin: *stdin,
+                check: *check,
+                file: file.clone()
+            };
             cli::handle_apply(&args)
         }
         Commands::Prompt { copy } => cli::handle_prompt(*copy),
@@ -88,10 +89,10 @@ fn dispatch_analysis(cmd: &Commands) -> Result<()> {
 }
 
 fn dispatch_pack(cmd: &Commands) -> Result<()> {
-    if let Commands::Pack { stdout, copy, noprompt, format, skeleton, git_only, no_git, code_only, verbose, target, focus, depth } = cmd {
+    if let Commands::Pack { stdout, copy, noprompt, format, skeleton, code_only, verbose, target, focus, depth } = cmd {
         cli::handle_pack(PackArgs {
             stdout: *stdout, copy: *copy, noprompt: *noprompt, format: format.clone(),
-            skeleton: *skeleton, git_only: *git_only, no_git: *no_git, code_only: *code_only,
+            skeleton: *skeleton, code_only: *code_only,
             verbose: *verbose, target: target.clone(), focus: focus.clone(), depth: *depth,
         })?;
     }

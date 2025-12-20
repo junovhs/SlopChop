@@ -19,25 +19,11 @@ pub struct PackArgs {
     pub noprompt: bool,
     pub format: OutputFormat,
     pub skeleton: bool,
-    pub git_only: bool,
-    pub no_git: bool,
     pub code_only: bool,
     pub verbose: bool,
     pub target: Option<PathBuf>,
     pub focus: Vec<PathBuf>,
     pub depth: usize,
-}
-
-/// Handles the initialization command.
-///
-/// # Errors
-/// Returns error if directory change fails or wizard fails.
-pub fn handle_init(path: Option<PathBuf>) -> Result<()> {
-    if let Some(target) = path {
-        std::env::set_current_dir(target)?;
-    }
-    crate::wizard::run()?;
-    Ok(())
 }
 
 /// Handles the check command.
@@ -117,8 +103,6 @@ pub fn handle_pack(args: PackArgs) -> Result<()> {
         prompt: !args.noprompt,
         format: args.format,
         skeleton: args.skeleton,
-        git_only: args.git_only,
-        no_git: args.no_git,
         code_only: args.code_only,
         target: args.target,
         focus: args.focus,
@@ -175,6 +159,16 @@ pub fn handle_apply(args: &ApplyArgs) -> Result<()> {
 
     let outcome = apply::run_apply(&ctx)?;
     apply::print_result(&outcome);
+
+    if args.check && matches!(outcome, apply::types::ApplyOutcome::Success { .. }) {
+        if apply::verification::run_verification_pipeline(&ctx)? {
+            println!("{}", "[OK] All checks passed.".green().bold());
+        } else {
+            println!("{}", "[!] Verification failed.".red().bold());
+            // We don't exit(1) here to allow the apply to stand, but we warn heavily.
+        }
+    }
+
     Ok(())
 }
 

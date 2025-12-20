@@ -19,14 +19,6 @@ pub struct Preferences {
     #[serde(default)]
     pub auto_format: bool,
     #[serde(default)]
-    pub auto_commit: bool,
-    #[serde(default)]
-    pub auto_push: bool,
-    #[serde(default = "default_commit_prefix")]
-    pub commit_prefix: String,
-    #[serde(default)]
-    pub allow_dirty_git: bool,
-    #[serde(default)]
     pub system_bell: bool,
     #[serde(default = "default_backup_retention")]
     pub backup_retention: usize,
@@ -42,10 +34,6 @@ impl Default for Preferences {
             theme: Theme::default(),
             auto_copy: default_auto_copy(),
             auto_format: false,
-            auto_commit: false,
-            auto_push: false,
-            commit_prefix: default_commit_prefix(),
-            allow_dirty_git: false,
             system_bell: false,
             backup_retention: default_backup_retention(),
             progress_bars: default_progress_bars(),
@@ -57,7 +45,6 @@ impl Default for Preferences {
 fn default_auto_copy() -> bool { true }
 fn default_progress_bars() -> bool { true }
 fn default_backup_retention() -> usize { 5 }
-fn default_commit_prefix() -> String { "slopchop: ".to_string() }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RuleConfig {
@@ -164,16 +151,8 @@ pub struct SlopChopToml {
     pub commands: HashMap<String, CommandEntry>,
 }
 
-#[derive(Debug, Clone)]
-pub enum GitMode {
-    Auto,
-    Yes,
-    No,
-}
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Config {
-    pub git_mode: GitMode,
     pub include_patterns: Vec<regex::Regex>,
     pub exclude_patterns: Vec<regex::Regex>,
     pub code_only: bool,
@@ -181,19 +160,4 @@ pub struct Config {
     pub rules: RuleConfig,
     pub preferences: Preferences,
     pub commands: HashMap<String, Vec<String>>,
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            git_mode: GitMode::Auto,
-            include_patterns: Vec::new(),
-            exclude_patterns: Vec::new(),
-            code_only: false,
-            verbose: false,
-            rules: RuleConfig::default(),
-            preferences: Preferences::default(),
-            commands: HashMap::new(),
-        }
-    }
 }

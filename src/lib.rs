@@ -22,4 +22,4 @@ pub mod tokens;
 pub mod trace;
 pub mod tui;
 pub mod types;
-pub mod wizard;
+// wizard module removed per "Lean & Mean" directive
