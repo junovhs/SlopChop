@@ -48,44 +48,50 @@ pub fn copy_repo_to_stage(src: &Path, dest: &Path) -> Result<CopyStats> {
             }
         };
 
-        let rel_path = match entry.path().strip_prefix(src) {
-            Ok(p) => p,
-            Err(_) => continue,
+        let Ok(rel_path) = entry.path().strip_prefix(src) else {
+            continue;
         };
 
         // Skip excluded paths
         if should_exclude(rel_path) {
-            if entry.file_type().is_dir() {
-                stats.dirs_skipped += 1;
-            } else {
-                stats.files_skipped += 1;
-            }
+            update_skipped_stats(&mut stats, &entry);
             continue;
         }
 
         let dest_path = dest.join(rel_path);
-
-        if entry.file_type().is_dir() {
-            if let Err(e) = create_dir_safe(&dest_path) {
-                stats.errors += 1;
-                eprintln!("Warning: Failed to create dir {}: {e}", dest_path.display());
-            } else {
-                stats.dirs_copied += 1;
-            }
-        } else if entry.file_type().is_file() {
-            if let Err(e) = copy_file_safe(entry.path(), &dest_path) {
-                stats.errors += 1;
-                eprintln!("Warning: Failed to copy {}: {e}", entry.path().display());
-            } else {
-                stats.files_copied += 1;
-            }
-        } else if entry.file_type().is_symlink() {
-            // Handle symlinks conservatively: skip them
-            stats.symlinks_skipped += 1;
-        }
+        process_entry_copy(&entry, &dest_path, &mut stats);
     }
 
     Ok(stats)
+}
+
+fn update_skipped_stats(stats: &mut CopyStats, entry: &walkdir::DirEntry) {
+    if entry.file_type().is_dir() {
+        stats.dirs_skipped += 1;
+    } else {
+        stats.files_skipped += 1;
+    }
+}
+
+fn process_entry_copy(entry: &walkdir::DirEntry, dest_path: &Path, stats: &mut CopyStats) {
+    if entry.file_type().is_dir() {
+        if let Err(e) = create_dir_safe(dest_path) {
+            stats.errors += 1;
+            eprintln!("Warning: Failed to create dir {}: {e}", dest_path.display());
+        } else {
+            stats.dirs_copied += 1;
+        }
+    } else if entry.file_type().is_file() {
+        if let Err(e) = copy_file_safe(entry.path(), dest_path) {
+            stats.errors += 1;
+            eprintln!("Warning: Failed to copy {}: {e}", entry.path().display());
+        } else {
+            stats.files_copied += 1;
+        }
+    } else if entry.file_type().is_symlink() {
+        // Handle symlinks conservatively: skip them
+        stats.symlinks_skipped += 1;
+    }
 }
 
 /// Statistics from a copy operation.
@@ -261,4 +267,4 @@ mod tests {
 
         Ok(())
     }
-}
+}

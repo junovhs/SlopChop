@@ -15,7 +15,7 @@ pub use state::{StageState, TouchKind, TouchedPath};
 
 use std::path::{Path, PathBuf};
 
-/// The root directory for all SlopChop ephemeral state.
+/// The root directory for all `SlopChop` ephemeral state.
 pub const SLOPCHOP_DIR: &str = ".slopchop";
 
 /// The stage subdirectory within `.slopchop/`.
@@ -76,4 +76,4 @@ pub fn effective_cwd(repo_root: &Path) -> PathBuf {
     } else {
         repo_root.to_path_buf()
     }
-}
+}

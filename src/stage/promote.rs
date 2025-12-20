@@ -89,7 +89,7 @@ fn backup_existing_files(
                 fs::create_dir_all(parent)?;
             }
             fs::copy(&src, &dest).with_context(|| format!("Failed to backup {}", src.display()))?;
-            backed_up.push(path.to_string());
+            backed_up.push((*path).to_string());
         }
     }
 
@@ -123,7 +123,7 @@ fn apply_changes(
         fs::copy(&src, &dest)
             .with_context(|| format!("Failed to copy {} to {}", src.display(), dest.display()))?;
 
-        written.push(path.to_string());
+        written.push((*path).to_string());
     }
 
     // Apply deletes
@@ -132,7 +132,7 @@ fn apply_changes(
         if target.exists() {
             fs::remove_file(&target)
                 .with_context(|| format!("Failed to delete {}", target.display()))?;
-            deleted.push(path.to_string());
+            deleted.push((*path).to_string());
         }
     }
 
@@ -167,7 +167,7 @@ pub fn cleanup_old_backups(backup_base: &Path, keep_count: usize) -> Result<usiz
     }
 
     let mut entries: Vec<_> = fs::read_dir(backup_base)?
-        .filter_map(|e| e.ok())
+        .filter_map(std::result::Result::ok)
         .filter(|e| e.path().is_dir())
         .filter(|e| e.file_name().to_string_lossy().starts_with("promote_"))
         .collect();
@@ -177,7 +177,7 @@ pub fn cleanup_old_backups(backup_base: &Path, keep_count: usize) -> Result<usiz
     }
 
     // Sort by name (which includes timestamp, so chronological)
-    entries.sort_by_key(|e| e.file_name());
+    entries.sort_by_key(std::fs::DirEntry::file_name);
 
     let to_remove = entries.len() - keep_count;
     let mut removed = 0;
@@ -302,10 +302,10 @@ mod tests {
 
         // Count remaining
         let remaining: Vec<_> = fs::read_dir(backup_base.path())?
-            .filter_map(|e| e.ok())
+            .filter_map(std::result::Result::ok)
             .collect();
         assert_eq!(remaining.len(), 2);
 
         Ok(())
     }
-}
+}

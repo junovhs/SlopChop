@@ -12,18 +12,20 @@ fn test_dry_run_prevents_writes() -> Result<()> {
 
     // Config setup
     let config = Config::default();
-    // Removed auto_commit/auto_push settings as they are no longer part of the config
 
     // Create context with dry_run = true
     let ctx = ApplyContext {
         config: &config,
+        repo_root: root.to_path_buf(),
         force: true,
         dry_run: true,
         input: ApplyInput::Clipboard,
+        check_after: false,
+        auto_promote: false,
+        reset_stage: false,
     };
 
     // Construct a payload that attempts to write a file.
-    // Note: Using the new XSC7XSC sigil because slopchop_core has been updated to use it.
     let sigil = "XSC7XSC";
     let payload = format!(
         r"{sigil} MANIFEST {sigil}

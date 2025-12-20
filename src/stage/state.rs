@@ -158,7 +158,10 @@ impl Default for StageState {
 /// Generates a short, unique stage ID.
 fn generate_stage_id() -> String {
     let now = current_timestamp();
-    let random: u32 = (now as u32).wrapping_mul(1_103_515_245).wrapping_add(12345);
+    #[allow(clippy::cast_possible_truncation)]
+    let random: u32 = (now as u32)
+        .wrapping_mul(1_103_515_245)
+        .wrapping_add(12345);
     format!("{now:x}-{random:04x}")
 }
 
@@ -235,4 +238,4 @@ mod tests {
         assert_eq!(state.touched.len(), 1);
         assert_eq!(state.touched[0].kind, TouchKind::Delete);
     }
-}
+}
