@@ -3,21 +3,6 @@
 
 use std::path::PathBuf;
 
-/// Test: empty-task-id-filtering
-/// Verifies parser rejects empty task IDs.
-#[test]
-fn test_empty_task_id_filtering() {
-    use slopchop_core::roadmap_v2::parse_commands;
-
-    let block = "\n===ROADMAP===\nCHECK\nid = \n===ROADMAP===\n";
-    let result = parse_commands(block);
-    assert!(result.is_err(), "Should reject empty ID");
-
-    let block2 = "\n===ROADMAP===\nCHECK\nid =    \n===ROADMAP===\n";
-    let result2 = parse_commands(block2);
-    assert!(result2.is_err(), "Should reject whitespace-only ID");
-}
-
 /// Test: holographic-signatures-graph-integration
 /// Verifies `RepoGraph` can be built from file contents.
 #[test]

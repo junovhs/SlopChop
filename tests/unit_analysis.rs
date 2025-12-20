@@ -30,10 +30,12 @@ fn check_ignore(content: &str) -> bool {
     let config = Config::default();
     let engine = RuleEngine::new(config);
 
-    // If ignored, analyze_file returns None.
-    // If scan() returns empty files list, it was ignored.
+    // If ignored, analyze_file returns a clean report (0 tokens, 0 violations).
+    // It does NOT filter the file out of the list.
     let report = engine.scan(vec![file_path]);
-    report.files.is_empty()
+    
+    // Check that we got a report, but it has no violations
+    !report.files.is_empty() && report.files[0].violations.is_empty()
 }
 
 // --- Helper for Naming Analysis ---

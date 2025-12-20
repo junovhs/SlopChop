@@ -1,6 +1,5 @@
-// src/cli/handlers.rs
 use crate::apply;
-use crate::apply::types::{ApplyContext, ApplyInput};
+use crate::apply::types::ApplyContext;
 use crate::cli::args::ApplyArgs;
 use crate::config::Config;
 use crate::pack::{self, OutputFormat, PackOptions};
@@ -63,7 +62,6 @@ pub fn handle_check() -> Result<()> {
 /// Returns error if command execution fails.
 pub fn handle_fix() -> Result<()> {
     let config = Config::load();
-
     let Some(fix_cmds) = config.commands.get("fix") else {
         println!("No 'fix' command configured in slopchop.toml");
         return Ok(());
@@ -72,14 +70,9 @@ pub fn handle_fix() -> Result<()> {
     for cmd in fix_cmds {
         println!("Running: {cmd}");
         let parts: Vec<&str> = cmd.split_whitespace().collect();
-        let Some((prog, args)) = parts.split_first() else {
-            continue;
-        };
-
+        let Some((prog, args)) = parts.split_first() else { continue; };
         let status = Command::new(prog).args(args).status()?;
-        if !status.success() {
-            eprintln!("Command failed: {cmd}");
-        }
+        if !status.success() { eprintln!("Command failed: {cmd}"); }
     }
     Ok(())
 }
@@ -140,11 +133,7 @@ pub fn handle_pack(args: PackArgs) -> Result<()> {
 /// # Errors
 /// Returns error if tracing fails.
 pub fn handle_trace(file: &Path, depth: usize, budget: usize) -> Result<()> {
-    let opts = TraceOptions {
-        anchor: file.to_path_buf(),
-        depth,
-        budget,
-    };
+    let opts = TraceOptions { anchor: file.to_path_buf(), depth, budget };
     let output = trace::run(&opts)?;
     println!("{output}");
     Ok(())
@@ -175,15 +164,12 @@ pub fn handle_signatures(opts: SignatureOptions) -> Result<()> {
 /// Returns error if application fails.
 pub fn handle_apply(args: &ApplyArgs) -> Result<()> {
     let config = Config::load();
-
     let input = determine_input(args);
 
     let ctx = ApplyContext {
         config: &config,
         force: args.force,
         dry_run: args.dry_run,
-        no_commit: args.no_commit,
-        no_push: args.no_push,
         input,
     };
 
@@ -192,12 +178,12 @@ pub fn handle_apply(args: &ApplyArgs) -> Result<()> {
     Ok(())
 }
 
-fn determine_input(args: &ApplyArgs) -> ApplyInput {
+fn determine_input(args: &ApplyArgs) -> apply::types::ApplyInput {
     if args.stdin {
-        ApplyInput::Stdin
+        apply::types::ApplyInput::Stdin
     } else if let Some(ref path) = args.file {
-        ApplyInput::File(path.clone())
+        apply::types::ApplyInput::File(path.clone())
     } else {
-        ApplyInput::Clipboard
+        apply::types::ApplyInput::Clipboard
     }
 }

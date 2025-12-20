@@ -1,8 +1,6 @@
-// src/tui/dashboard/input.rs
 use super::apply;
 use super::state::{DashboardApp, Tab};
 use crate::discovery;
-use crate::roadmap_v2::types::TaskStore;
 use crossterm::event::{KeyCode, KeyModifiers};
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
@@ -24,9 +22,7 @@ pub fn handle_input(
 
     match app.active_tab {
         Tab::Config => handle_config_input(code, app),
-        Tab::Roadmap => handle_roadmap_input(code, app),
-        Tab::Logs => handle_scrolling(code, app),
-        Tab::Dashboard => {}
+        Tab::Logs | Tab::Dashboard => {}
     }
 }
 
@@ -36,49 +32,23 @@ fn handle_global_navigation(
     app: &mut DashboardApp,
 ) -> bool {
     if matches!((modifiers, code), (_, KeyCode::Char('q'))) {
-        app.quit();
+        app.should_quit = true;
         return true;
     }
 
-    if handle_tab_nav(code, modifiers, app) {
+    if code == KeyCode::Tab {
+        app.cycle_tab(false);
         return true;
     }
 
     handle_view_switch(code, app)
 }
 
-fn handle_tab_nav(code: KeyCode, modifiers: KeyModifiers, app: &mut DashboardApp) -> bool {
-    match (modifiers, code) {
-        (_, KeyCode::Tab) => {
-            app.cycle_tab(false);
-            true
-        }
-        (KeyModifiers::SHIFT, KeyCode::BackTab) => {
-            app.cycle_tab(true);
-            true
-        }
-        _ => false,
-    }
-}
-
 fn handle_view_switch(code: KeyCode, app: &mut DashboardApp) -> bool {
     match code {
-        KeyCode::Char('1') => {
-            app.active_tab = Tab::Dashboard;
-            true
-        }
-        KeyCode::Char('2') => {
-            app.active_tab = Tab::Roadmap;
-            true
-        }
-        KeyCode::Char('3') => {
-            app.active_tab = Tab::Config;
-            true
-        }
-        KeyCode::Char('4') => {
-            app.active_tab = Tab::Logs;
-            true
-        }
+        KeyCode::Char('1') => { app.active_tab = Tab::Dashboard; true }
+        KeyCode::Char('2') => { app.active_tab = Tab::Config; true }
+        KeyCode::Char('3') => { app.active_tab = Tab::Logs; true }
         _ => false,
     }
 }
@@ -92,11 +62,6 @@ fn handle_actions(
     match (modifiers, code) {
         (_, KeyCode::Char('r')) => {
             refresh_app(app);
-            true
-        }
-        (_, KeyCode::Char('f')) => {
-            app.roadmap_filter = app.roadmap_filter.next();
-            app.roadmap_unselect();
             true
         }
         (KeyModifiers::CONTROL, KeyCode::Enter) | (_, KeyCode::Char('a')) => {
@@ -118,51 +83,9 @@ fn handle_actions(
 
 fn handle_config_input(code: KeyCode, app: &mut DashboardApp) {
     app.config_editor.handle_input(code);
-
-    // We must extract the message to a string to drop the immutable borrow on `app`
-    // before we can borrow `app` mutably to log it.
-    let log_msg = if let Some((msg, _)) = &app.config_editor.saved_message {
-        if matches!(code, KeyCode::Char('s') | KeyCode::Enter) {
-            Some(msg.clone())
-        } else {
-            None
-        }
-    } else {
-        None
-    };
-
-    if let Some(msg) = log_msg {
-        app.log(&msg);
-    }
-}
-
-fn handle_roadmap_input(code: KeyCode, app: &mut DashboardApp) {
-    match code {
-        KeyCode::Down | KeyCode::Char('j') => app.roadmap_next(),
-        KeyCode::Up | KeyCode::Char('k') => app.roadmap_previous(),
-        KeyCode::Char(' ') | KeyCode::Enter => app.toggle_roadmap_task(),
-        _ => {}
-    }
-}
-
-fn handle_scrolling(code: KeyCode, app: &mut DashboardApp) {
-    match code {
-        KeyCode::Down | KeyCode::Char('j') => {
-            if app.active_tab == Tab::Logs {
-                app.scroll = app.scroll.saturating_add(1);
-            }
-        }
-        KeyCode::Up | KeyCode::Char('k') => {
-            if app.active_tab == Tab::Logs {
-                app.scroll = app.scroll.saturating_sub(1);
-            }
-        }
-        _ => {}
-    }
 }
 
 fn refresh_app(app: &mut DashboardApp) {
-    // 1. Scan
     let files = match discovery::discover(app.config) {
         Ok(f) => f,
         Err(e) => {
@@ -171,16 +94,6 @@ fn refresh_app(app: &mut DashboardApp) {
         }
     };
     let engine = crate::analysis::RuleEngine::new(app.config.clone());
-    let report = engine.scan(files);
-    app.scan_report = Some(report);
-    app.trigger_scan();
-
-    // 2. Roadmap
-    if let Ok(store) = TaskStore::load(None) {
-        app.roadmap = Some(store);
-    } else {
-        app.roadmap = None;
-    }
-
+    app.scan_report = Some(engine.scan(files));
     app.log("Refreshed");
 }

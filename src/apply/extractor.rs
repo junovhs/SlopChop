@@ -1,14 +1,16 @@
-// src/apply/extractor.rs
 use crate::apply::types::FileContent;
 use anyhow::Result;
 use regex::Regex;
 use std::collections::HashMap;
 
-/// Extracts the optional PLAN block.
+/// The new Sequence Sigil for the `SlopChop` Protocol.
+const SIGIL: &str = "XSC7XSC";
+
+/// Extracts the optional PLAN block using the Sequence Sigil.
 #[must_use]
 pub fn extract_plan(response: &str) -> Option<String> {
-    let open_re = Regex::new(r"(?m)^#__SLOPCHOP_PLAN__#\s*$").ok()?;
-    let close_re = Regex::new(r"(?m)^#__SLOPCHOP_END__#\s*$").ok()?;
+    let open_re = Regex::new(&format!(r"(?m)^{SIGIL} PLAN {SIGIL}\s*$")).ok()?;
+    let close_re = Regex::new(&format!(r"(?m)^{SIGIL} END {SIGIL}\s*$")).ok()?;
 
     let start_match = open_re.find(response)?;
     let end_match = close_re.find_at(response, start_match.end())?;
@@ -16,19 +18,14 @@ pub fn extract_plan(response: &str) -> Option<String> {
     Some(content.trim().to_string())
 }
 
-/// Extracts file blocks using the `SlopChop` Delimiter Protocol.
-///
-/// Format:
-/// `#__SLOPCHOP_FILE__#` path/to/file.rs
-/// [content]
-/// `#__SLOPCHOP_END__#`
+/// Extracts file blocks using the `SlopChop` Sequence Sigil Protocol.
 ///
 /// # Errors
 /// Returns error if regex compilation fails.
 pub fn extract_files(response: &str) -> Result<HashMap<String, FileContent>> {
     let mut files = HashMap::new();
-    let header_re = Regex::new(r"(?m)^#__SLOPCHOP_FILE__#\s*(.+?)\s*$")?;
-    let footer_re = Regex::new(r"(?m)^#__SLOPCHOP_END__#\s*$")?;
+    let header_re = Regex::new(&format!(r"(?m)^{SIGIL} FILE {SIGIL}\s*(.+?)\s*$"))?;
+    let footer_re = Regex::new(&format!(r"(?m)^{SIGIL} END {SIGIL}\s*$"))?;
 
     let mut current_pos = 0;
     while let Some(header_match) = header_re.find_at(response, current_pos) {
@@ -49,7 +46,6 @@ fn process_block(
 ) -> usize {
     let raw_path = path.unwrap_or_default().trim().to_string();
 
-    // Skip MANIFEST and PLAN blocks (don't write them to disk)
     if raw_path == "MANIFEST" || raw_path == "PLAN" || raw_path.is_empty() {
         return skip_block(response, header_match.end(), footer_re);
     }
@@ -58,7 +54,7 @@ fn process_block(
     if let Some(footer_match) = footer_re.find_at(response, content_start) {
         let content_end = footer_match.start();
         let raw_content = &response[content_start..content_end];
-        let clean_content = clean_block_content(raw_content);
+        let clean_content = raw_content.trim_matches('\n').to_string();
         let line_count = clean_content.lines().count();
 
         files.insert(
@@ -70,7 +66,6 @@ fn process_block(
         );
         footer_match.end()
     } else {
-        // Malformed/Truncated block, skip header
         content_start
     }
 }
@@ -81,8 +76,4 @@ fn skip_block(response: &str, start_pos: usize, footer_re: &Regex) -> usize {
     } else {
         start_pos
     }
-}
-
-fn clean_block_content(raw: &str) -> String {
-    raw.trim_matches('\n').to_string()
-}
+}

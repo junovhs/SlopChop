@@ -1,18 +1,11 @@
-// src/analysis/metrics.rs
 use tree_sitter::{Node, Query, QueryCursor};
 
 /// Calculates the nesting depth of a node.
 #[must_use]
 pub fn calculate_max_depth(node: Node) -> usize {
-    let mut max_depth = 0;
-    let mut cursor = node.walk();
-
-    for child in node.children(&mut cursor) {
-        if child.kind().contains("block") || child.kind().contains("body") {
-            max_depth = std::cmp::max(max_depth, walk_depth(child, 0));
-        }
-    }
-    max_depth
+    // Directly walk the provided node (usually the function body block).
+    // walk_depth starts at 0 and increments when entering nesting constructs.
+    walk_depth(node, 0)
 }
 
 fn walk_depth(node: Node, current: usize) -> usize {
@@ -36,10 +29,10 @@ fn walk_depth(node: Node, current: usize) -> usize {
                 | "switch_case"
                 | "catch_clause"
                 | "try_statement"
-                | "closure_expression" // Rust closures
-                | "arrow_function" // JS/TS
-                | "function_expression" // JS/TS
-                | "lambda" // Python
+                | "closure_expression"
+                | "arrow_function"
+                | "function_expression"
+                | "lambda"
         ) {
             max = std::cmp::max(max, walk_depth(child, current + 1));
         } else {
@@ -65,9 +58,10 @@ pub fn calculate_complexity(node: Node, source: &str, query: &Query) -> usize {
 pub fn count_arguments(node: Node) -> usize {
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {
-        if child.kind().contains("parameter") || child.kind().contains("argument") {
+        // Rust: "parameters", Python: "parameters", JS/TS: "formal_parameters"
+        if child.kind() == "parameters" || child.kind() == "formal_parameters" {
             return child.named_child_count();
         }
     }
     0
-}
+}

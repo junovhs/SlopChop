@@ -4,9 +4,6 @@ use crate::types::Violation;
 use std::path::Path;
 use tree_sitter::{Node, Query, QueryCursor, QueryMatch};
 
-// Re-export Context so it can be used by safety.rs if needed, 
-// or redefine locally if safety has its own. 
-// Actually, safety.rs defined its own.
 pub struct CheckContext<'a> {
     pub root: Node<'a>,
     pub source: &'a str,
@@ -165,7 +162,6 @@ fn check_cyclomatic_complexity(
 
 /// Checks for banned constructs (`.unwrap()` and `.expect()` calls).
 pub fn check_banned(ctx: &CheckContext, banned_query: &Query, out: &mut Vec<Violation>) {
-    // Only skip if the FILE NAME indicates a test, not the directory path.
     let path = Path::new(ctx.filename);
     if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
         if name.contains("test") || name.contains("spec") {
@@ -186,8 +182,6 @@ fn process_banned_match_group(m: &QueryMatch, ctx: &CheckContext, out: &mut Vec<
         if let Ok(text) = capture.node.utf8_text(ctx.source.as_bytes()) {
             let row = capture.node.start_position().row + 1;
             let kind = capture.node.kind();
-            // Expanded to catch method_call_expression if grammar has it,
-            // or standard call_expression/method_invocation logic
             if kind == "method_invocation"
                 || kind == "call_expression"
                 || kind == "method_call_expression"
@@ -217,5 +211,43 @@ fn add_banned_violation(text: &str, row: usize, out: &mut Vec<Violation>) {
 }
 
 fn count_words(name: &str) -> usize {
-    name.split('_').filter(|part| !part.is_empty()).count()
+    let mut total = 0;
+    for part in name.split('_') {
+        if part.is_empty() {
+            continue;
+        }
+
+        // Handle ALL_CAPS constants as single words
+        if part.chars().any(char::is_alphabetic)
+            && part.chars().all(|c| !c.is_alphabetic() || c.is_uppercase())
+        {
+            total += 1;
+            continue;
+        }
+
+        // Count CamelCase humps
+        let mut words_in_part = 0;
+        let mut chars = part.chars();
+
+        if let Some(first) = chars.next() {
+            // First char counts as start of a word
+            words_in_part = 1;
+            // Subsequent uppercase chars start new words (unless acronyms, but we simplify)
+            // e.g. "ThisIsTooLong" -> T, I, T, L -> 4 words.
+            // "first" is 'T', handled by initialization. 'I', 'T', 'L' found in loop.
+            // If "camelCase" -> 'c', words=1. 'C' found in loop -> 2 words.
+            if first.is_uppercase() {
+                // If it started with uppercase, don't double count if we just iterate all caps.
+                // But the loop iterates *remaining* chars.
+            }
+            
+            for c in chars {
+                if c.is_uppercase() {
+                    words_in_part += 1;
+                }
+            }
+        }
+        total += words_in_part;
+    }
+    total
 }

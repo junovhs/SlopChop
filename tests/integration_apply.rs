@@ -4,22 +4,24 @@ use slopchop_core::apply::types::{ManifestEntry, Operation};
 use slopchop_core::apply::validator;
 use std::collections::HashMap;
 
+const SIGIL: &str = "XSC7XSC";
+
 fn make_block(path: &str, content: &str) -> String {
-    let header = format!("#__SLOPCHOP_FILE__# {path}");
-    let footer = "#__SLOPCHOP_END__#";
+    let header = format!("{SIGIL} FILE {SIGIL} {path}");
+    let footer = format!("{SIGIL} END {SIGIL}");
     format!("{header}\n{content}\n{footer}\n")
 }
 
 fn make_manifest(entries: &[&str]) -> String {
-    let header = "#__SLOPCHOP_MANIFEST__#";
-    let footer = "#__SLOPCHOP_END__#";
+    let header = format!("{SIGIL} MANIFEST {SIGIL}");
+    let footer = format!("{SIGIL} END {SIGIL}");
     let body = entries.join("\n");
     format!("{header}\n{body}\n{footer}\n")
 }
 
 fn make_plan(goal: &str) -> String {
-    let header = "#__SLOPCHOP_PLAN__#";
-    let footer = "#__SLOPCHOP_END__#";
+    let header = format!("{SIGIL} PLAN {SIGIL}");
+    let footer = format!("{SIGIL} END {SIGIL}");
     format!("{header}\n{goal}\n{footer}\n")
 }
 
@@ -210,13 +212,6 @@ fn test_extract_skips_manifest() {
     let files = slopchop_core::apply::extractor::extract_files(&input).unwrap_or_default(); // slopchop:ignore
     assert_eq!(files.len(), 1);
     assert!(!files.contains_key("MANIFEST"));
-}
-
-#[test]
-fn test_unified_apply_roadmap() {
-    let input = "===ROADMAP===\nCHECK\nid = test-task\n===ROADMAP===";
-    let cmds = slopchop_core::roadmap_v2::parser::parse_commands(input).unwrap_or_default(); // slopchop:ignore
-    assert_eq!(cmds.len(), 1);
 }
 
 #[test]

@@ -20,23 +20,20 @@ fn test_dry_run_prevents_writes() -> Result<()> {
         config: &config,
         force: true,
         dry_run: true,
-        no_commit: true,
-        no_push: true,
         input: ApplyInput::Clipboard,
     };
 
     // Construct a payload that attempts to write a file.
-    // NOTE: We split the markers to prevent the outer SlopChop extractor
-    // from parsing this string literal as an actual file block in THIS output.
-    let m = "#__SLOPCHOP";
+    // Note: Using the new XSC7XSC sigil because slopchop_core has been updated to use it.
+    let sigil = "XSC7XSC";
     let payload = format!(
-        r"{m}_MANIFEST__#
+        r"{sigil} MANIFEST {sigil}
 should_not_exist.rs [NEW]
-{m}_END__#
+{sigil} END {sigil}
 
-{m}_FILE__# should_not_exist.rs
+{sigil} FILE {sigil} should_not_exist.rs
 fn ghost() {{}}
-{m}_END__#
+{sigil} END {sigil}
 "
     );
 

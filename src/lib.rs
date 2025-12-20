@@ -1,4 +1,3 @@
-// src/lib.rs
 pub mod analysis;
 pub mod apply;
 pub mod audit;
@@ -16,7 +15,6 @@ pub mod pack;
 pub mod project;
 pub mod prompt;
 pub mod reporting;
-pub mod roadmap_v2;
 pub mod signatures;
 pub mod skeleton;
 pub mod spinner;
@@ -24,5 +22,4 @@ pub mod tokens;
 pub mod trace;
 pub mod tui;
 pub mod types;
-pub mod wizard;
-
+pub mod wizard;

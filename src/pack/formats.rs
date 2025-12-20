@@ -1,4 +1,3 @@
-// src/pack/formats.rs
 use std::fmt::Write;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -7,6 +6,8 @@ use anyhow::Result;
 
 use super::{FocusContext, PackOptions};
 use crate::skeleton;
+
+const SIGIL: &str = "XSC7XSC";
 
 /// Packs files into the `SlopChop` format.
 ///
@@ -41,11 +42,9 @@ pub fn pack_slopchop_focus(
 
 fn write_foveal_section(out: &mut String, files: &[PathBuf], focus: &FocusContext) -> Result<()> {
     let foveal: Vec<_> = files.iter().filter(|f| focus.foveal.contains(*f)).collect();
-    if foveal.is_empty() {
-        return Ok(());
-    }
+    if foveal.is_empty() { return Ok(()); }
 
-    writeln!(out, "# ═══ FOVEAL (full content) ═══\n")?;
+    writeln!(out, "\n{SIGIL} FOVEAL {SIGIL} (Full Content)\n")?;
     for path in foveal {
         write_slopchop_file(out, path, false)?;
     }
@@ -57,15 +56,10 @@ fn write_peripheral_section(
     files: &[PathBuf],
     focus: &FocusContext,
 ) -> Result<()> {
-    let peripheral: Vec<_> = files
-        .iter()
-        .filter(|f| focus.peripheral.contains(*f))
-        .collect();
-    if peripheral.is_empty() {
-        return Ok(());
-    }
+    let peripheral: Vec<_> = files.iter().filter(|f| focus.peripheral.contains(*f)).collect();
+    if peripheral.is_empty() { return Ok(()); }
 
-    writeln!(out, "# ═══ PERIPHERAL (signatures only) ═══\n")?;
+    writeln!(out, "\n{SIGIL} PERIPHERAL {SIGIL} (Signatures Only)\n")?;
     for path in peripheral {
         write_slopchop_file_skeleton(out, path)?;
     }
@@ -74,7 +68,7 @@ fn write_peripheral_section(
 
 fn write_slopchop_file(out: &mut String, path: &Path, skeletonize: bool) -> Result<()> {
     let p_str = path.to_string_lossy().replace('\\', "/");
-    writeln!(out, "#__SLOPCHOP_FILE__# {p_str}")?;
+    writeln!(out, "{SIGIL} FILE {SIGIL} {p_str}")?;
 
     match fs::read_to_string(path) {
         Ok(content) if skeletonize => out.push_str(&skeleton::clean(path, &content)),
@@ -82,20 +76,20 @@ fn write_slopchop_file(out: &mut String, path: &Path, skeletonize: bool) -> Resu
         Err(e) => writeln!(out, "// <ERROR READING FILE: {e}>")?,
     }
 
-    writeln!(out, "\n#__SLOPCHOP_END__#\n")?;
+    writeln!(out, "\n{SIGIL} END {SIGIL}\n")?;
     Ok(())
 }
 
 fn write_slopchop_file_skeleton(out: &mut String, path: &Path) -> Result<()> {
     let p_str = path.to_string_lossy().replace('\\', "/");
-    writeln!(out, "#__SLOPCHOP_FILE__# {p_str} [SKELETON]")?;
+    writeln!(out, "{SIGIL} FILE {SIGIL} {p_str} [SKELETON]")?;
 
     match fs::read_to_string(path) {
         Ok(content) => out.push_str(&skeleton::clean(path, &content)),
         Err(e) => writeln!(out, "// <ERROR READING FILE: {e}>")?,
     }
 
-    writeln!(out, "\n#__SLOPCHOP_END__#\n")?;
+    writeln!(out, "\n{SIGIL} END {SIGIL}\n")?;
     Ok(())
 }
 
@@ -161,11 +155,7 @@ fn write_xml_doc(
 
     match fs::read_to_string(path) {
         Ok(content) => {
-            let text = if skeletonize {
-                skeleton::clean(path, &content)
-            } else {
-                content
-            };
+            let text = if skeletonize { skeleton::clean(path, &content) } else { content };
             out.push_str(&text.replace("]]>", "]]]]><![CDATA[>"));
         }
         Err(e) => writeln!(out, "<!-- ERROR: {e} -->")?,
@@ -176,11 +166,7 @@ fn write_xml_doc(
 }
 
 fn should_skeletonize(path: &Path, opts: &PackOptions) -> bool {
-    if opts.skeleton {
-        return true;
-    }
-    if let Some(target) = &opts.target {
-        return !path.ends_with(target);
-    }
+    if opts.skeleton { return true; }
+    if let Some(target) = &opts.target { return !path.ends_with(target); }
     false
-}
+}

@@ -1,5 +1,3 @@
-// src/config/types.rs
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -56,18 +54,10 @@ impl Default for Preferences {
     }
 }
 
-fn default_auto_copy() -> bool {
-    true
-}
-fn default_progress_bars() -> bool {
-    true
-}
-fn default_backup_retention() -> usize {
-    5
-}
-fn default_commit_prefix() -> String {
-    "slopchop: ".to_string()
-}
+fn default_auto_copy() -> bool { true }
+fn default_progress_bars() -> bool { true }
+fn default_backup_retention() -> usize { 5 }
+fn default_commit_prefix() -> String { "slopchop: ".to_string() }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RuleConfig {
@@ -126,36 +116,25 @@ impl Default for SafetyConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct LayerConfig {
-    /// Maps layer names to file patterns (glob or regex).
-    /// e.g. `core` -> `["src/core/**"]`
     #[serde(default)]
     pub definitions: HashMap<String, Vec<String>>,
-    /// Maps a layer to the layers it is ALLOWED to import.
-    /// e.g. `ui` -> `["core"]` (UI can import Core)
     #[serde(default)]
     pub allowed_deps: HashMap<String, Vec<String>>,
 }
 
-const fn default_true() -> bool {
-    true
-}
-const fn default_max_tokens() -> usize {
-    2000
-}
-const fn default_max_complexity() -> usize {
-    8
-}
-const fn default_max_depth() -> usize {
-    3
-}
-const fn default_max_args() -> usize {
-    5
-}
-const fn default_max_words() -> usize {
-    3
-}
+const fn default_true() -> bool { true }
+const fn default_max_tokens() -> usize { 2000 }
+const fn default_max_complexity() -> usize { 8 }
+const fn default_max_depth() -> usize { 3 }
+const fn default_max_args() -> usize { 5 }
+const fn default_max_words() -> usize { 3 }
+
 fn default_ignore_tokens() -> Vec<String> {
-    vec!["Cargo.lock".into(), "package-lock.json".into()]
+    vec![
+        "Cargo.lock".into(),
+        "package-lock.json".into(),
+        "README.md".into(),
+    ]
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -195,8 +174,8 @@ pub enum GitMode {
 #[derive(Debug, Clone)]
 pub struct Config {
     pub git_mode: GitMode,
-    pub include_patterns: Vec<Regex>,
-    pub exclude_patterns: Vec<Regex>,
+    pub include_patterns: Vec<regex::Regex>,
+    pub exclude_patterns: Vec<regex::Regex>,
     pub code_only: bool,
     pub verbose: bool,
     pub rules: RuleConfig,

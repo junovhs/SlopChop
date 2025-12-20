@@ -23,7 +23,7 @@ impl Lang {
         match ext {
             "rs" => Some(Self::Rust),
             "py" => Some(Self::Python),
-            "ts" | "tsx" => Some(Self::TypeScript),
+            "ts" | "tsx" | "js" | "jsx" => Some(Self::TypeScript),
             _ => None,
         }
     }
@@ -83,7 +83,7 @@ impl Lang {
     #[must_use]
     pub fn skeleton_replacement(self) -> &'static str {
         match self {
-            Self::Rust | Self::TypeScript => " { ... }",
+            Self::Rust | Self::TypeScript => "{ ... }",
             Self::Python => "\n    ...",
         }
     }
