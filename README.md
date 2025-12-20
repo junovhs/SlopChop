@@ -338,4 +338,28 @@ In practice, SlopChop and Clippy complement each other: Clippy catches many corr
 * `check` pipeline: implemented (thin gate pattern)
 * Apply hardening: implemented (manifest integrity, rollback, path safety)
 * Audit mode: implemented (consolidation radar)
-* Watch mode: planned (leveraging existing watcher infrastructure)
+* Watch mode: planned (leveraging existing watcher infrastructure)
+
+## Latest
+
+Today we successfully performed a major surgical refactor of SlopChop, transforming it from a "multi-feature tool" into a focused **High-Integrity Protocol Engine**.
+
+Here is the summary of operations:
+
+### 1. The Purge (Architecture Pivot)
+*   **Removed Roadmap V2:** We deleted the entire `src/roadmap_v2/` module and all associated CLI commands. SlopChop no longer manages `tasks.toml`; that responsibility has been successfully offloaded to your external repo.
+*   **Decoupled Git:** We stripped `auto_commit` and `auto_push` from the `ApplyContext`. SlopChop is now a pure filesystem transaction engine (a "Green State Provider"), paving the way for the future Sandbox/Session model.
+
+### 2. The Protocol Upgrade
+*   **Installed `XSC7XSC`:** We replaced the fragile `#` markdown delimiters with your new **Sequence Sigil** (`XSC7XSC`).
+*   **Why:** This renders the protocol "Markdown-Inert" (preventing header/bold collapse in AI UIs) and "Shell-Safe" (no pipes or history expansion characters).
+
+### 3. Stabilization & Quality
+*   **Green Tests:** We fixed a cascade of failures in `integration_core`, `unit_analysis`, and `integration_pack`.
+    *   Fixed a logic bug in `count_words` to correctly handle `CamelCase`.
+    *   Fixed a whitespace bug in `lang.rs` that was double-spacing skeleton code.
+    *   Fixed configuration defaults for `README.md` token ignoring.
+*   **Clippy Compliance:** We resolved all linting errors (missing docs, collapsible ifs, unused variables).
+
+### 4. Documentation
+*   **Updated README:** The documentation now accurately reflects the new architecture, the removal of Roadmap, and includes the new `XSC7XSC` protocol definition (safely indented).
