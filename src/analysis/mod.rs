@@ -100,51 +100,69 @@ impl RuleEngine {
             config: &self.config.rules,
         };
 
-        // Naming
+        Self::check_naming(lang, &ctx, report);
+        Self::check_complexity(lang, &ctx, report);
+
+        if lang == Lang::Rust {
+            Self::check_rust_specifics(lang, &ctx, report);
+        }
+    }
+
+    fn check_naming(lang: Lang, ctx: &checks::CheckContext, report: &mut FileReport) {
         if let Some(q_str) = Self::get_query(lang, QueryKind::Naming) {
             if let Ok(q) = Query::new(lang.grammar(), q_str) {
-                checks::check_naming(&ctx, &q, &mut report.violations);
+                checks::check_naming(ctx, &q, &mut report.violations);
             }
         }
+    }
 
-        // Complexity
+    fn check_complexity(lang: Lang, ctx: &checks::CheckContext, report: &mut FileReport) {
         let defs_str = Self::get_query(lang, QueryKind::Defs);
         let comp_str = Self::get_query(lang, QueryKind::Complexity);
-        
+
         if let (Some(d_str), Some(c_str)) = (defs_str, comp_str) {
-            if let (Ok(d), Ok(c)) = (Query::new(lang.grammar(), d_str), Query::new(lang.grammar(), c_str)) {
-                checks::check_metrics(&ctx, &d, &c, &mut report.violations);
+            if let (Ok(d), Ok(c)) = (
+                Query::new(lang.grammar(), d_str),
+                Query::new(lang.grammar(), c_str),
+            ) {
+                checks::check_metrics(ctx, &d, &c, &mut report.violations);
             }
         }
+    }
 
-        // Banned & Safety (Rust Only)
-        if lang == Lang::Rust {
-            let banned_query_str = r#"
-                (call_expression
-                    function: (field_expression field: (field_identifier) @method)
-                    (#match? @method "^(unwrap|expect)$"))
-            "#;
-            if let Ok(q) = Query::new(lang.grammar(), banned_query_str) {
-                checks::check_banned(&ctx, &q, &mut report.violations);
-            }
+    fn check_rust_specifics(
+        lang: Lang,
+        ctx: &checks::CheckContext,
+        report: &mut FileReport,
+    ) {
+        let banned_query_str = r#"
+            (call_expression
+                function: (field_expression field: (field_identifier) @method)
+                (#match? @method "^(unwrap|expect)$"))
+        "#;
+        if let Ok(q) = Query::new(lang.grammar(), banned_query_str) {
+            checks::check_banned(ctx, &q, &mut report.violations);
+        }
 
-            // Prepare safety context
-            let safety_ctx = safety::CheckContext {
-                root: ctx.root,
-                source: ctx.source,
-                filename: ctx.filename,
-                config: ctx.config,
-            };
-            // Use dummy query for safety (it uses traversal)
-            if let Ok(q) = Query::new(lang.grammar(), "") {
-                safety::check_safety(&safety_ctx, &q, &mut report.violations);
-            }
+        let safety_ctx = safety::CheckContext {
+            root: ctx.root,
+            source: ctx.source,
+            filename: ctx.filename,
+            config: ctx.config,
+        };
+        // Use dummy query for safety (it uses traversal)
+        if let Ok(q) = Query::new(lang.grammar(), "") {
+            safety::check_safety(&safety_ctx, &q, &mut report.violations);
         }
     }
 
     fn get_query(lang: Lang, kind: QueryKind) -> Option<&'static str> {
         let q = lang.query(kind);
-        if q.is_empty() { None } else { Some(q) }
+        if q.is_empty() {
+            None
+        } else {
+            Some(q)
+        }
     }
 
     fn is_ignored(path: &std::path::Path, patterns: &[String]) -> bool {

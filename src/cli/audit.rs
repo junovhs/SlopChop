@@ -52,7 +52,7 @@ fn run_audit(cli_opts: &AuditCliOptions<'_>) -> Result<()> {
 
 fn print_audit_header(cli_opts: &AuditCliOptions<'_>) {
     if cli_opts.verbose {
-        println!("{}", "🔍 Starting consolidation audit...".cyan());
+        println!("{}", "?? Starting consolidation audit...".cyan());
         println!("   Dead code detection: {}", enabled_str(!cli_opts.no_dead));
         println!("   Duplicate detection: {}", enabled_str(!cli_opts.no_dups));
         println!(
@@ -63,41 +63,46 @@ fn print_audit_header(cli_opts: &AuditCliOptions<'_>) {
         println!("   Max opportunities:   {}", cli_opts.max);
         println!();
     } else {
-        println!("{}", "🔍 Running consolidation audit...".cyan());
+        println!("{}", "?? Running consolidation audit...".cyan());
     }
 }
 
 fn handle_report_output(report: &AuditReport, cli_opts: &AuditCliOptions<'_>) {
-    // For terminal output, also copy AI-friendly version to clipboard
     if cli_opts.format == "terminal" && !report.opportunities.is_empty() {
-        let ai_version = audit::report::format_ai_prompt(report);
-        match crate::clipboard::copy_to_clipboard(&ai_version) {
-            Ok(()) => {
-                println!("{}", "✓ AI-friendly summary copied to clipboard".green());
-            }
-            Err(e) => {
-                if cli_opts.verbose {
-                    eprintln!(
-                        "{}",
-                        format!("Note: Could not copy to clipboard: {e}").dimmed()
-                    );
-                }
+        copy_summary_to_clipboard(report, cli_opts.verbose);
+    }
+
+    if !report.opportunities.is_empty() && cli_opts.format != "json" {
+        print_json_hint(report.opportunities.len());
+    }
+}
+
+fn copy_summary_to_clipboard(report: &AuditReport, verbose: bool) {
+    let ai_version = audit::report::format_ai_prompt(report);
+    match crate::clipboard::copy_to_clipboard(&ai_version) {
+        Ok(()) => {
+            println!("{}", "� AI-friendly summary copied to clipboard".green());
+        }
+        Err(e) => {
+            if verbose {
+                eprintln!(
+                    "{}",
+                    format!("Note: Could not copy to clipboard: {e}").dimmed()
+                );
             }
         }
     }
+}
 
-    // Exit with non-zero if opportunities found (for CI integration)
-    if !report.opportunities.is_empty() && cli_opts.format != "json" {
-        println!(
-            "\n{}",
-            format!(
-                "Found {} consolidation opportunities. \
-                 Run with --format=json for machine-readable output.",
-                report.opportunities.len()
-            )
-            .dimmed()
-        );
-    }
+fn print_json_hint(count: usize) {
+    println!(
+        "\n{}",
+        format!(
+            "Found {count} consolidation opportunities. \
+             Run with --format=json for machine-readable output."
+        )
+        .dimmed()
+    );
 }
 
 fn enabled_str(enabled: bool) -> colored::ColoredString {
@@ -106,4 +111,4 @@ fn enabled_str(enabled: bool) -> colored::ColoredString {
     } else {
         "disabled".dimmed()
     }
-}
+}

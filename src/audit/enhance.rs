@@ -78,6 +78,16 @@ fn load_sources(path_a: &std::path::Path, path_b: &std::path::Path) -> Option<(S
 }
 
 fn generate_plan_from_source(ctx: &RefactorContext, all_units: &[CodeUnit]) -> Option<String> {
+    let model = calculate_diff(ctx)?;
+    let strategies = parameterize::infer_strategies(&model);
+    let names: Vec<String> = all_units.iter().map(|u| u.name.clone()).collect();
+
+    // Pass the unit kind so codegen can generate appropriate suggestions
+    let kind = ctx.unit_a.kind;
+    codegen::generate_consolidated_plan_with_kind(&strategies, &names, kind).ok()
+}
+
+fn calculate_diff(ctx: &RefactorContext) -> Option<diff::DiffModel> {
     let mut parser = Parser::new();
     if parser.set_language(ctx.lang.grammar()).is_err() {
         return None;
@@ -89,19 +99,12 @@ fn generate_plan_from_source(ctx: &RefactorContext, all_units: &[CodeUnit]) -> O
     let node_a = find_target_node(&tree_a, ctx.src_a, ctx.unit_a)?;
     let node_b = find_target_node(&tree_b, ctx.src_b, ctx.unit_b)?;
 
-    let model = diff::diff_trees(
+    diff::diff_trees(
         node_a,
         ctx.src_a.as_bytes(),
         node_b,
         ctx.src_b.as_bytes(),
-    )?;
-
-    let strategies = parameterize::infer_strategies(&model);
-    let names: Vec<String> = all_units.iter().map(|u| u.name.clone()).collect();
-
-    // Pass the unit kind so codegen can generate appropriate suggestions
-    let kind = ctx.unit_a.kind;
-    codegen::generate_consolidated_plan_with_kind(&strategies, &names, kind).ok()
+    )
 }
 
 fn find_target_node<'a>(
@@ -165,6 +168,10 @@ fn is_matching_node(
         return false;
     }
 
+    check_node_name(node, source, name)
+}
+
+fn check_node_name(node: tree_sitter::Node, source: &[u8], name: &str) -> bool {
     node.child_by_field_name("name")
         .and_then(|n| n.utf8_text(source).ok())
         .is_some_and(|n| n == name)

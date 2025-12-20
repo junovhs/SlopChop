@@ -116,8 +116,8 @@ fn should_hash_text(kind: &str, node: Node, source: &[u8]) -> bool {
 
 /// Computes similarity between two fingerprints.
 ///
-/// Delegates to `similarity_core` to keep this file small.
+/// Delegates to `similarity_math` to keep this file small.
 #[must_use]
 pub fn similarity(a: &Fingerprint, b: &Fingerprint) -> f64 {
-    crate::audit::similarity_core::calculate_similarity(a, b)
+    crate::audit::similarity_math::calculate_fingerprint_similarity(a, b)
 }

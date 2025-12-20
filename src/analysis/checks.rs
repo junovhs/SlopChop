@@ -84,7 +84,15 @@ fn analyze_function_node(
     let func_name = get_function_name(node, ctx.source);
 
     check_argument_count(node, &func_name, ctx.config, out);
+    check_function_body(node, complexity_query, ctx, out);
+}
 
+fn check_function_body(
+    node: Node,
+    complexity_query: &Query,
+    ctx: &CheckContext,
+    out: &mut Vec<Violation>,
+) {
     if let Some(body) = node.child_by_field_name("body") {
         check_nesting_depth(node, body, ctx.config, out);
         check_cyclomatic_complexity(node, body, ctx, complexity_query, out);
@@ -182,16 +190,19 @@ fn process_banned_match_group(m: &QueryMatch, ctx: &CheckContext, out: &mut Vec<
         if let Ok(text) = capture.node.utf8_text(ctx.source.as_bytes()) {
             let row = capture.node.start_position().row + 1;
             let kind = capture.node.kind();
-            if kind == "method_invocation"
-                || kind == "call_expression"
-                || kind == "method_call_expression"
-                || text.contains("unwrap")
-                || text.contains("expect")
-            {
+            if is_banned_node(kind, text) {
                 add_banned_violation(text, row, out);
             }
         }
     }
+}
+
+fn is_banned_node(kind: &str, text: &str) -> bool {
+    kind == "method_invocation"
+        || kind == "call_expression"
+        || kind == "method_call_expression"
+        || text.contains("unwrap")
+        || text.contains("expect")
 }
 
 fn add_banned_violation(text: &str, row: usize, out: &mut Vec<Violation>) {
@@ -216,38 +227,37 @@ fn count_words(name: &str) -> usize {
         if part.is_empty() {
             continue;
         }
-
-        // Handle ALL_CAPS constants as single words
-        if part.chars().any(char::is_alphabetic)
-            && part.chars().all(|c| !c.is_alphabetic() || c.is_uppercase())
-        {
+        if is_all_caps(part) {
             total += 1;
-            continue;
+        } else {
+            total += count_camel_parts(part);
         }
-
-        // Count CamelCase humps
-        let mut words_in_part = 0;
-        let mut chars = part.chars();
-
-        if let Some(first) = chars.next() {
-            // First char counts as start of a word
-            words_in_part = 1;
-            // Subsequent uppercase chars start new words (unless acronyms, but we simplify)
-            // e.g. "ThisIsTooLong" -> T, I, T, L -> 4 words.
-            // "first" is 'T', handled by initialization. 'I', 'T', 'L' found in loop.
-            // If "camelCase" -> 'c', words=1. 'C' found in loop -> 2 words.
-            if first.is_uppercase() {
-                // If it started with uppercase, don't double count if we just iterate all caps.
-                // But the loop iterates *remaining* chars.
-            }
-            
-            for c in chars {
-                if c.is_uppercase() {
-                    words_in_part += 1;
-                }
-            }
-        }
-        total += words_in_part;
     }
     total
+}
+
+fn is_all_caps(s: &str) -> bool {
+    s.chars().any(char::is_alphabetic)
+        && s.chars().all(|c| !c.is_alphabetic() || c.is_uppercase())
+}
+
+fn count_camel_parts(s: &str) -> usize {
+    let mut words = 0;
+    let mut chars = s.chars();
+
+    if let Some(first) = chars.next() {
+        words = 1;
+        // If first is uppercase, it counts as 1.
+        // If first is lowercase, it counts as 1.
+        // We only add more if subsequent chars are uppercase.
+        if first.is_uppercase() {
+            // No-op
+        }
+        for c in chars {
+            if c.is_uppercase() {
+                words += 1;
+            }
+        }
+    }
+    words
 }

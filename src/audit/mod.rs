@@ -22,7 +22,9 @@ pub mod report;
 pub mod scoring;
 pub mod similarity;
 pub mod similarity_core;
+pub mod similarity_math;
 pub mod types;
+pub mod union_find;
 
 // Re-export AuditReport so cli/audit.rs can find it via crate::audit::AuditReport
 pub use types::AuditReport;

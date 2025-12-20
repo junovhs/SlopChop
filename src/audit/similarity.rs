@@ -19,25 +19,8 @@ pub fn find_clusters(units: &[CodeUnit]) -> Vec<SimilarityCluster> {
 
     let mut clusters = Vec::new();
 
-    // Process exact matches
-    for group in exact_groups.into_values() {
-        if group.len() >= 2 && group.len() <= similarity_core::MAX_CLUSTER_SIZE {
-            if let Some(cluster) = similarity_core::create_cluster(group, 1.0) {
-                clusters.push(cluster);
-            }
-        }
-    }
-
-    // Process near duplicates
-    for group in near_groups {
-        if group.units.len() <= similarity_core::MAX_CLUSTER_SIZE {
-            if let Some(cluster) =
-                similarity_core::create_cluster(group.units, group.avg_similarity)
-            {
-                clusters.push(cluster);
-            }
-        }
-    }
+    collect_exact_clusters(&exact_groups, &mut clusters);
+    collect_near_clusters(&near_groups, &mut clusters);
 
     clusters.sort_by(|a, b| b.potential_savings.cmp(&a.potential_savings));
 
@@ -57,6 +40,34 @@ fn group_by_fingerprint(units: &[CodeUnit]) -> HashMap<u64, Vec<CodeUnit>> {
     }
 
     groups
+}
+
+fn collect_exact_clusters(
+    exact_groups: &HashMap<u64, Vec<CodeUnit>>,
+    clusters: &mut Vec<SimilarityCluster>,
+) {
+    for group in exact_groups.values() {
+        if group.len() >= 2 && group.len() <= similarity_core::MAX_CLUSTER_SIZE {
+            if let Some(cluster) = similarity_core::create_cluster(group.clone(), 1.0) {
+                clusters.push(cluster);
+            }
+        }
+    }
+}
+
+fn collect_near_clusters(
+    near_groups: &[similarity_core::NearGroup],
+    clusters: &mut Vec<SimilarityCluster>,
+) {
+    for group in near_groups {
+        if group.units.len() <= similarity_core::MAX_CLUSTER_SIZE {
+            if let Some(cluster) =
+                similarity_core::create_cluster(group.units.clone(), group.avg_similarity)
+            {
+                clusters.push(cluster);
+            }
+        }
+    }
 }
 
 /// Analyzes a cluster to produce a human-readable description.

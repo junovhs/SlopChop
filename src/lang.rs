@@ -39,20 +39,9 @@ impl Lang {
 
     #[must_use]
     pub fn query(self, kind: QueryKind) -> &'static str {
-        let idx = match self {
-            Self::Rust => 0,
-            Self::Python => 1,
-            Self::TypeScript => 2,
-        };
-        let q_idx = match kind {
-            QueryKind::Naming => 0,
-            QueryKind::Complexity => 1,
-            QueryKind::Imports => 2,
-            QueryKind::Defs => 3,
-            QueryKind::Exports => 4,
-            QueryKind::Skeleton => 5,
-        };
-        QUERIES[idx][q_idx]
+        let lang_idx = self as usize;
+        let query_idx = kind as usize;
+        QUERIES[lang_idx][query_idx]
     }
 
     // Helpers for compatibility with existing modules
@@ -82,14 +71,11 @@ impl Lang {
     }
     #[must_use]
     pub fn skeleton_replacement(self) -> &'static str {
-        match self {
-            Self::Rust | Self::TypeScript => "{ ... }",
-            Self::Python => "\n    ...",
+        if self == Self::Python {
+            "\n    ..."
+        } else {
+            "{ ... }"
         }
-    }
-    #[must_use]
-    pub fn q_banned(self) -> Option<&'static str> {
-        None // Handled in mod.rs for now
     }
 }
 
@@ -109,7 +95,6 @@ const QUERIES: [[&str; 6]; 3] = [
             (use_declaration argument: (_) @import)
             (mod_item name: (identifier) @mod)
         ", // Imports
-        // Restored full Defs query
         r"
             (function_item name: (identifier) @name) @sig
             (struct_item name: (type_identifier) @name) @sig

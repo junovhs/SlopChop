@@ -37,14 +37,7 @@ pub fn validate(manifest: &Manifest, extracted: &ExtractedFiles) -> ApplyOutcome
         check_manifest_consistency(entry, extracted, &mut errors);
     }
 
-    for (path, content) in extracted {
-        if !manifest.iter().any(|e| e.path == *path) {
-            errors.push(format!("File extracted but not in manifest: {path}"));
-        }
-        if let Err(e) = validate_content(path, &content.content) {
-            errors.push(e);
-        }
-    }
+    validate_extracted_files(extracted, manifest, &mut errors);
 
     if errors.is_empty() {
         ApplyOutcome::Success {
@@ -58,6 +51,21 @@ pub fn validate(manifest: &Manifest, extracted: &ExtractedFiles) -> ApplyOutcome
             errors,
             missing: vec![],
             ai_message,
+        }
+    }
+}
+
+fn validate_extracted_files(
+    extracted: &ExtractedFiles,
+    manifest: &Manifest,
+    errors: &mut Vec<String>,
+) {
+    for (path, content) in extracted {
+        if !manifest.iter().any(|e| e.path == *path) {
+            errors.push(format!("File extracted but not in manifest: {path}"));
+        }
+        if let Err(e) = validate_content(path, &content.content) {
+            errors.push(e);
         }
     }
 }
@@ -89,6 +97,12 @@ fn check_manifest_consistency(
 }
 
 fn validate_path(path_str: &str) -> Result<(), String> {
+    check_absolute_path(path_str)?;
+    let path = Path::new(path_str);
+    check_path_components(path, path_str)
+}
+
+fn check_absolute_path(path_str: &str) -> Result<(), String> {
     let is_drive = path_str.len() >= 2
         && path_str.chars().nth(1) == Some(':')
         && path_str.chars().next().is_some_and(|c| c.is_ascii_alphabetic());
@@ -101,23 +115,35 @@ fn validate_path(path_str: &str) -> Result<(), String> {
     if path.is_absolute() {
         return Err(format!("Absolute paths not allowed: {path_str}"));
     }
+    Ok(())
+}
 
+fn check_path_components(path: &Path, original_str: &str) -> Result<(), String> {
     if path.components().any(|c| matches!(c, Component::ParentDir)) {
-        return Err(format!("Path traversal not allowed: {path_str}"));
+        return Err(format!("Path traversal not allowed: {original_str}"));
     }
 
     for component in path.components() {
-        if let Component::Normal(os_str) = component {
-            let s = os_str.to_string_lossy();
-            if BLOCKED_DIRS.contains(&s.as_ref()) {
-                return Err(format!("Access to sensitive directory blocked: {s}"));
-            }
-            if s.starts_with('.') && !s.eq(".gitignore") && !s.eq(".slopchopignore") && !s.eq(".github") {
-                return Err(format!("Hidden files blocked: {s}"));
-            }
+        validate_component(component)?;
+    }
+    Ok(())
+}
+
+fn validate_component(component: Component) -> Result<(), String> {
+    if let Component::Normal(os_str) = component {
+        let s = os_str.to_string_lossy();
+        if BLOCKED_DIRS.contains(&s.as_ref()) {
+            return Err(format!("Access to sensitive directory blocked: {s}"));
+        }
+        if s.starts_with('.') && !is_allowed_dotfile(&s) {
+            return Err(format!("Hidden files blocked: {s}"));
         }
     }
     Ok(())
+}
+
+fn is_allowed_dotfile(s: &str) -> bool {
+    s.eq(".gitignore") || s.eq(".slopchopignore") || s.eq(".github")
 }
 
 fn is_protected(path_str: &str) -> bool {
@@ -129,33 +155,44 @@ fn validate_content(path: &str, content: &str) -> Result<(), String> {
         return Err(format!("File is empty: {path}"));
     }
 
+    check_markdown_fences(path, content)?;
+    check_truncation(path, content)?;
+    Ok(())
+}
+
+fn check_markdown_fences(path: &str, content: &str) -> Result<(), String> {
     let is_markdown = Path::new(path)
         .extension()
         .is_some_and(|ext| ext.eq_ignore_ascii_case("md") || ext.eq_ignore_ascii_case("markdown"));
 
-    if !is_markdown && (content.contains("\x60\x60\x60") || content.contains("\x7E\x7E\x7E")) {
-        return Err(format!("Markdown fences detected in {path}. Content must be raw code."));
+    if is_markdown {
+        return Ok(());
     }
 
-    if let Some(line) = detect_truncation(content) {
+    if content.contains("\x60\x60\x60") || content.contains("\x7E\x7E\x7E") {
+        return Err(format!("Markdown fences detected in {path}. Content must be raw code."));
+    }
+    Ok(())
+}
+
+fn check_truncation(path: &str, content: &str) -> Result<(), String> {
+    if let Some(line) = find_truncation_line(content) {
         return Err(format!("Truncation detected in {path} at line {line}: AI gave up."));
     }
     Ok(())
 }
 
-fn detect_truncation(content: &str) -> Option<usize> {
-    let truncation_patterns = [
+fn find_truncation_line(content: &str) -> Option<usize> {
+    let patterns = [
         "// ...", "/* ... */", "# ...", "// rest of", "// remaining", // slopchop:ignore
         "// TODO: implement", "// implementation", "pass  #", // slopchop:ignore
     ];
 
-    for (line_num, line) in content.lines().enumerate() {
+    for (i, line) in content.lines().enumerate() {
         if line.contains("slopchop:ignore") { continue; }
         let lower = line.to_lowercase();
-        for pattern in &truncation_patterns {
-            if lower.contains(&pattern.to_lowercase()) {
-                return Some(line_num + 1);
-            }
+        if patterns.iter().any(|p| lower.contains(&p.to_lowercase())) {
+            return Some(i + 1);
         }
     }
     None
