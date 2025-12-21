@@ -52,3 +52,5 @@ chaos_examples/
 .slopchop_intent
 context.txt
 SIGNATURES.txt
+
+.slopchop
