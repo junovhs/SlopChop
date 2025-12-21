@@ -10,6 +10,11 @@ mod manager;
 mod promote;
 mod state;
 
+#[cfg(test)]
+mod tests_manager;
+#[cfg(test)]
+mod tests_promote;
+
 pub use manager::StageManager;
 pub use state::{StageState, TouchKind, TouchedPath};
 

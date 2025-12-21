@@ -8,22 +8,13 @@ pub const SIMILARITY_THRESHOLD: f64 = 0.92;
 pub const TRIVIAL_SIMILARITY_THRESHOLD: f64 = 0.97;
 pub const MIN_FINGERPRINT_SIMILARITY: f64 = 0.6;
 
-/// Computes similarity between two fingerprints.
 #[must_use]
 #[allow(clippy::cast_precision_loss)]
 pub fn calculate_fingerprint_similarity(a: &Fingerprint, b: &Fingerprint) -> f64 {
-    if let Some(score) = check_exact_identity(a, b) {
-        return score;
+    if a.hash == b.hash {
+        return 1.0;
     }
     calculate_fuzzy_similarity(a, b)
-}
-
-fn check_exact_identity(a: &Fingerprint, b: &Fingerprint) -> Option<f64> {
-    if a.hash == b.hash {
-        Some(1.0)
-    } else {
-        None
-    }
 }
 
 #[allow(clippy::cast_precision_loss)]
@@ -38,6 +29,10 @@ fn calculate_fuzzy_similarity(a: &Fingerprint, b: &Fingerprint) -> f64 {
         return 0.95;
     }
 
+    weighted_cfg_score(a, b, base_score)
+}
+
+fn weighted_cfg_score(a: &Fingerprint, b: &Fingerprint, base_score: f64) -> f64 {
     let cfg_val = cfg_score(a, b);
     cfg_val * 0.6 + base_score * 0.4
 }
@@ -73,7 +68,6 @@ fn diff_ratio(a: usize, b: usize) -> f64 {
     }
 }
 
-/// Calculates structural similarity between two `CodeUnits`.
 #[must_use]
 #[allow(clippy::cast_precision_loss)]
 pub fn calculate_unit_similarity(a: &CodeUnit, b: &CodeUnit, fp_sim: f64) -> f64 {
@@ -82,13 +76,9 @@ pub fn calculate_unit_similarity(a: &CodeUnit, b: &CodeUnit, fp_sim: f64) -> f64
     line_sim * 0.1 + tok_sim * 0.2 + fp_sim * 0.7
 }
 
-/// Determines if two units are similar enough to cluster.
 #[must_use]
 pub fn are_units_similar(a: &CodeUnit, b: &CodeUnit) -> bool {
-    if a.kind != b.kind {
-        return false;
-    }
-    if !passes_enum_gate(a, b) {
+    if !preliminary_checks(a, b) {
         return false;
     }
 
@@ -98,9 +88,11 @@ pub fn are_units_similar(a: &CodeUnit, b: &CodeUnit) -> bool {
     }
 
     let total_sim = calculate_unit_similarity(a, b, fp_sim);
-    let combined = fp_sim.midpoint(total_sim);
+    total_sim >= get_threshold(a, b)
+}
 
-    combined >= get_threshold(a, b)
+fn preliminary_checks(a: &CodeUnit, b: &CodeUnit) -> bool {
+    a.kind == b.kind && passes_enum_gate(a, b)
 }
 
 fn passes_enum_gate(a: &CodeUnit, b: &CodeUnit) -> bool {
@@ -116,13 +108,15 @@ fn check_enum_overlap(sig_a: &[String], sig_b: &[String]) -> bool {
 }
 
 fn compute_intersection_stats(sig_a: &[String], sig_b: &[String]) -> (usize, usize) {
-    let set_a: HashSet<_> = sig_a.iter().map(|s| s.to_lowercase()).collect();
-    let set_b: HashSet<_> = sig_b.iter().map(|s| s.to_lowercase()).collect();
-
+    let set_a = to_normalized_set(sig_a);
+    let set_b = to_normalized_set(sig_b);
     let intersection = set_a.intersection(&set_b).count();
     let min_len = set_a.len().min(set_b.len());
-    
     (intersection, min_len)
+}
+
+fn to_normalized_set(sig: &[String]) -> HashSet<String> {
+    sig.iter().map(|s| s.to_lowercase()).collect()
 }
 
 #[allow(clippy::cast_precision_loss)]
@@ -130,13 +124,18 @@ fn evaluate_overlap_threshold(intersection: usize, min_len: usize) -> bool {
     if min_len == 0 {
         return false;
     }
-    if min_len <= 2 {
-        return intersection == min_len;
-    }
-    if min_len == 3 {
-        return intersection >= 2;
+    if min_len <= 3 {
+        return check_small_enum_overlap(intersection, min_len);
     }
     (intersection as f64 / min_len as f64) >= 0.5
+}
+
+fn check_small_enum_overlap(intersection: usize, min_len: usize) -> bool {
+    if min_len <= 2 {
+        intersection == min_len
+    } else {
+        intersection >= 2
+    }
 }
 
 fn get_threshold(a: &CodeUnit, b: &CodeUnit) -> f64 {

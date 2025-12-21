@@ -20,23 +20,19 @@ use types::{ApplyContext, ApplyInput, ApplyOutcome, Operation};
 /// # Errors
 /// Returns error if input reading or processing fails.
 pub fn run_apply(ctx: &ApplyContext) -> Result<ApplyOutcome> {
-    // Handle --reset flag first
     if ctx.reset_stage {
         return reset_stage(ctx);
     }
-
     let content = read_input(&ctx.input)?;
     process_input(&content, ctx)
 }
 
 fn reset_stage(ctx: &ApplyContext) -> Result<ApplyOutcome> {
     let mut stage = StageManager::new(&ctx.repo_root);
-
     if !stage.exists() {
         println!("{}", "No stage to reset.".yellow());
         return Ok(ApplyOutcome::StageReset);
     }
-
     stage.reset()?;
     println!("{}", "Stage reset successfully.".green());
     Ok(ApplyOutcome::StageReset)
@@ -47,9 +43,7 @@ fn read_input(input: &ApplyInput) -> Result<String> {
         ApplyInput::Clipboard => clipboard::read_clipboard().context("Failed to read clipboard"),
         ApplyInput::Stdin => {
             let mut buf = String::new();
-            io::stdin()
-                .read_to_string(&mut buf)
-                .context("Failed to read stdin")?;
+            io::stdin().read_to_string(&mut buf).context("Failed to read stdin")?;
             Ok(buf)
         }
         ApplyInput::File(path) => std::fs::read_to_string(path)
@@ -69,17 +63,14 @@ pub fn process_input(content: &str, ctx: &ApplyContext) -> Result<ApplyOutcome> 
     if content.trim().is_empty() {
         return Ok(ApplyOutcome::ParseError("Input is empty".to_string()));
     }
-
     let plan_opt = extractor::extract_plan(content);
     if !check_plan_requirement(plan_opt.as_deref(), ctx)? {
         return Ok(ApplyOutcome::ParseError("Operation cancelled.".to_string()));
     }
-
     let validation = validate_payload(content);
     if !matches!(validation, ApplyOutcome::Success { .. }) {
         return Ok(validation);
     }
-
     apply_to_stage(content, ctx)
 }
 
@@ -129,7 +120,21 @@ fn apply_to_stage(content: &str, ctx: &ApplyContext) -> Result<ApplyOutcome> {
         });
     }
 
-    // Initialize stage manager and ensure stage exists
+    let (mut stage, outcome) = execute_stage_transaction(&manifest, &extracted, ctx)?;
+
+    if ctx.check_after {
+        return run_post_apply_verification(ctx, &mut stage, outcome);
+    }
+
+    print_stage_info(&stage);
+    Ok(outcome)
+}
+
+fn execute_stage_transaction(
+    manifest: &types::Manifest,
+    extracted: &types::ExtractedFiles,
+    ctx: &ApplyContext,
+) -> Result<(StageManager, ApplyOutcome)> {
     let mut stage = StageManager::new(&ctx.repo_root);
     let ensure_result = stage.ensure_stage()?;
 
@@ -137,14 +142,11 @@ fn apply_to_stage(content: &str, ctx: &ApplyContext) -> Result<ApplyOutcome> {
         println!("{}", "Created staging workspace.".blue());
     }
 
-    // Write files to the staged worktree
     let worktree = stage.worktree();
     let retention = ctx.config.preferences.backup_retention;
+    let outcome = writer::write_files(manifest, extracted, Some(&worktree), retention)?;
 
-    let outcome = writer::write_files(&manifest, &extracted, Some(&worktree), retention)?;
-
-    // Record touched paths in stage state
-    for entry in &manifest {
+    for entry in manifest {
         match entry.operation {
             Operation::Delete => stage.record_delete(&entry.path)?,
             Operation::Update | Operation::New => stage.record_write(&entry.path)?,
@@ -152,7 +154,6 @@ fn apply_to_stage(content: &str, ctx: &ApplyContext) -> Result<ApplyOutcome> {
     }
     stage.record_apply()?;
 
-    // Convert outcome to staged version
     let staged_outcome = match outcome {
         ApplyOutcome::Success {
             written,
@@ -168,13 +169,7 @@ fn apply_to_stage(content: &str, ctx: &ApplyContext) -> Result<ApplyOutcome> {
         other => other,
     };
 
-    // Run verification if requested
-    if ctx.check_after {
-        return run_post_apply_verification(ctx, &mut stage, staged_outcome);
-    }
-
-    print_stage_info(&stage);
-    Ok(staged_outcome)
+    Ok((stage, staged_outcome))
 }
 
 fn run_post_apply_verification(
@@ -185,23 +180,17 @@ fn run_post_apply_verification(
     let passed = verification::run_verification_pipeline(ctx, stage.worktree())?;
 
     if passed {
-        println!("{}", "✓ Verification passed!".green().bold());
-
+        println!("{}", "� Verification passed!".green().bold());
         if ctx.auto_promote {
             return promote_stage(ctx, stage);
         }
-
         if confirm("Promote staged changes to workspace?")? {
             return promote_stage(ctx, stage);
         }
-
         print_stage_info(stage);
         Ok(outcome)
     } else {
-        println!(
-            "{}",
-            "✗ Verification failed. Changes remain staged.".yellow()
-        );
+        println!("{}", "? Verification failed. Changes remain staged.".yellow());
         print_stage_info(stage);
         Ok(outcome)
     }
@@ -211,13 +200,12 @@ fn promote_stage(ctx: &ApplyContext, stage: &mut StageManager) -> Result<ApplyOu
     let retention = ctx.config.preferences.backup_retention;
     let result = stage.promote(retention)?;
 
-    println!("{}", "✓ Promoted to workspace!".green().bold());
-
+    println!("{}", "� Promoted to workspace!".green().bold());
     for f in &result.files_written {
-        println!("   {} {f}", "→".green());
+        println!("   {} {f}", "".green());
     }
     for f in &result.files_deleted {
-        println!("   {} {f}", "✗".red());
+        println!("   {} {f}", "?".red());
     }
 
     Ok(ApplyOutcome::Promoted {
@@ -229,11 +217,10 @@ fn promote_stage(ctx: &ApplyContext, stage: &mut StageManager) -> Result<ApplyOu
 fn print_stage_info(stage: &StageManager) {
     println!(
         "\n{} Changes staged. Run {} to verify, or {} to promote.",
-        "→".blue(),
+        "".blue(),
         "slopchop check".yellow(),
         "slopchop apply --promote".yellow()
     );
-
     if let Some(state) = stage.state() {
         let write_count = state.paths_to_write().len();
         let delete_count = state.paths_to_delete().len();
@@ -255,14 +242,12 @@ fn confirm(prompt: &str) -> Result<bool> {
 /// Returns error if promotion fails.
 pub fn run_promote(ctx: &ApplyContext) -> Result<ApplyOutcome> {
     let mut stage = StageManager::new(&ctx.repo_root);
-
     if !stage.exists() {
         println!("{}", "No stage to promote.".yellow());
         return Ok(ApplyOutcome::ParseError(
             "No staged changes found.".to_string(),
         ));
     }
-
     stage.load_state()?;
     promote_stage(ctx, &mut stage)
-}
+}

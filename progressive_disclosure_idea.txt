@@ -1,9 +1,0 @@
-my thought - control the focus of the AI by limiting what we show it.
-
-if the compiler shows 100 errors and violations, and i give that report to the AI who just wrote code, they will try to solve EVERY SINGLE ISSUE IN THEIR NEXT REPLY.
-
-i have found that AI is smart - but its like light from the sun. you can either focus it into a powerful beam with a magnifying glass, or have it be weak and diffuse and spread out. We need to focus the AI's attention on a small problem.
-
-So maybe when theres a butt load of issues to solve, like the compiler shows a ton of issues, we can sort of limit what is shown to the AI and demand that it work on solving one problem at a time. I want to control monolithic fix outputs from AI, and ensure they only give like 3k-4k token reponses max.
-
-I need to think more about this
