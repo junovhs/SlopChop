@@ -1,195 +1,62 @@
 # SlopChop
 
-SlopChop is a CLI that enforces a **configurable structural integrity boundary** for a repository-so code stays modular, reviewable, and predictable as the project and team scale.
+SlopChop is a **High-Integrity Systems Architect** tool designed to enforce a strict structural boundary for repositories. It acts as a deterministic gatekeeper for code quality and a surgical sandbox for change ingestion.
 
-It does this in two complementary ways:
-
-1. **Structural governance (fast, deterministic):** scan the repo for violations of "shape" constraints (size, complexity, panic paths, etc.).
-2. **Optional hardened change ingestion:** safely apply **large, automated, or otherwise untrusted multi-file edits** with manifest integrity, path safety, and transactional rollback.
-
-SlopChop works well in normal developer workflows (local and CI). It also happens to be an excellent safety harness for AI-assisted coding, but it does not require an LLM.
+SlopChop treats your repository as a **transactional filesystem**. It ensures that code stays modular, reviewable, and predictable, even when subjected to large-scale automated refactors or untrusted AI-generated patches.
 
 ---
 
-## Why SlopChop exists
+## The Three Laws of SlopChop
 
-Most repos already run formatters, linters, and tests. Those tools are necessary, but they do not reliably enforce **repo-level structural standards**:
+SlopChop enforces three core structural constraints by default. These are configurable but opinionated:
 
-* Keeping files small enough to review and reason about
-* Keeping functions simple enough to test in isolation
-* Preventing hidden crash paths (`unwrap` / `expect`) where forbidden
-* Enforcing consistent "shape" in a growing codebase (and resisting entropy)
+### 1. The Law of Atomicity (File Size)
+*   **Constraint:** Files MUST stay below a token-based threshold (default: 2000).
+*   **Rationale:** Large files ("God Objects") are the primary source of technical debt. They confuse AI context windows, make code reviews impossible, and hide side effects. SlopChop nudges you toward modularity.
 
-SlopChop's job is to make those constraints **explicit, configurable, and continuously enforced**.
+### 2. The Law of Complexity (Function Shape)
+*   **Constraint:** Cyclomatic Complexity <= 8, Nesting Depth <= 3, Argument Count <= 5.
+*   **Rationale:** Logic should be linear and shallow. Deep nesting and high branching factors increase cognitive load and hallucination rates in automated tools. SlopChop scans ASTs via `tree-sitter` to enforce these limits.
 
----
-
-## Surfaces
-
-SlopChop currently provides:
-
-1. `slopchop` - structural integrity scan ("Three Laws" defaults)
-2. `slopchop check` - one gate command (runs your configured commands + SlopChop scan)
-3. `slopchop apply` - hardened application of multi-file change payloads (optional)
-4. `slopchop audit` - consolidation / refactor radar (optional)
+### 3. The Law of Paranoia (Safety)
+*   **Constraint:** Discourage or block unhandled crash paths (`.unwrap()`, `.expect()`) and require explicit justification for `unsafe` code blocks.
+*   **Rationale:** In a high-integrity environment, "it shouldn't happen" is not a valid strategy. SlopChop ensures error handling is explicit and panic-free.
 
 ---
 
-## Quick start
+## Core Architecture: The Staged Workspace
 
-### Install (local dev)
+SlopChop implements an **Implicit Staged Workspace**. This is its most significant safety feature. 
 
-```bash
-cargo install --path .
-```
+Unlike traditional tools that write directly to your source files, `slopchop apply` never touches your real files initially. Instead, it creates a **Shadow Worktree** in `.slopchop/stage/worktree/`.
 
-### Generate config
+### The Loop:
+1.  **Stage:** You `apply` a change payload. SlopChop writes it to the sandbox.
+2.  **Verify:** You run `check`. SlopChop executes your test suite and its own scan **inside the sandbox**.
+3.  **Promote:** Once the sandbox is verified "Green," you run `slopchop apply --promote`. Only then are the files moved to your real workspace.
 
-Run `slopchop` once in a repo. If `slopchop.toml` is missing, SlopChop will generate it.
-
-### Run the structural scan
-
-```bash
-slopchop
-```
-
-### Run the full gate (commands + scan)
-
-```bash
-slopchop check
-```
+This ensures your repository never ends in a "half-broken" state. If a change fails verification, you simply `reset` the stage or patch the sandbox.
 
 ---
 
-## 1) `slopchop`: structural integrity scan (fast, deterministic)
+## The `XSC7XSC` Protocol
 
-`slopchop` scans the repository for violations of a few structural constraints. Output is designed to be actionable and CI-friendly:
+SlopChop uses the **Sequence Sigil** (`XSC7XSC`) to separate protocol instructions from code content.
 
-```text
-? slopchop
-error: High Complexity: Score is 9. Hard to test. (Max: 8)
-  --> core/captions/src/lib.rs:92:1
-   |
-   = LAW OF COMPLEXITY: Action required
+### Why not Markdown?
+Standard markdown code blocks (```) are fragile. AI UIs often collapse them, and renderers can corrupt content containing internal backticks. 
 
-error: High Arity: Function takes 7 arguments. Use a Struct. (Max: 5)
-  --> core/encoder/src/gif.rs:11:1
-   |
-   = LAW OF COMPLEXITY: Action required
+The `XSC7XSC` sigil is:
+*   **Markdown-Inert:** It will not trigger formatting changes in any renderer.
+*   **Shell-Safe:** It contains no characters that trigger shell expansion or pipes.
+*   **Unique:** Statistically impossible to appear in normal code.
 
-error: Banned: '.expect()'. Use '?' or 'unwrap_or'.
-  --> ui/src/main.rs:17:1
-   |
-   = LAW OF PARANOIA: Action required
-
-? SlopChop found 12 violations in 98ms.
-```
-
-### Default rule set ("Three Laws")
-
-These defaults are opinionated but configurable:
-
-* **Law of Atomicity:** keep files small (token-based threshold)
-* **Law of Complexity:** cap cyclomatic complexity, nesting depth, and arity
-* **Law of Paranoia (Rust-oriented):** discourage hidden crash paths (`unwrap`/`expect`) in configured scopes
-
-The intent is not style policing. The intent is keeping the codebase "shape" compatible with review, testing, and maintenance.
-
-### Practical outcomes
-
-In practice, these rules tend to nudge a repo toward:
-
-* Smaller modules and clearer boundaries
-* Fewer "god functions" and deep nesting
-* More explicit error handling
-* Faster, higher-quality reviews (less "wall of code")
-
----
-
-## 2) `slopchop check`: one command to gate the branch
-
-`slopchop check` is a **gate**, not a build system. It runs:
-
-1. Your configured commands (formatters/linters/tests/etc.)
-2. The SlopChop structural scan (`slopchop`)
-
-It returns non-zero on failure and is designed for:
-
-* CI pipelines (required PR checks)
-* Local hooks (`pre-push`, `pre-commit`)
-* Agent loops (repeatable gate when automated changes are being proposed)
-
-### What `check` is not
-
-SlopChop does not aim to replace:
-
-* toolchain pinning / MSRV management
-* feature matrix build orchestration
-* semver/API checking
-* dependency vulnerability/license tooling
-
-Those remain best handled by dedicated tools. `check` is a thin, consistent entry point to run *your* commands plus SlopChop's policy gate.
-
-### Example `slopchop.toml` for `check`
-
-```toml
-[commands]
-check = [
-  "cargo clippy --all-targets -- -D warnings -W clippy::pedantic",
-  "cargo test",
-]
-fix = ["cargo fmt"]
-```
-
-Then:
-
-```bash
-slopchop check
-```
-
----
-
-## 3) `slopchop apply`: hardened change ingestion (optional)
-
-`slopchop apply` is designed for safely applying **large multi-file changes** that come from an unreliable or untrusted source. In practice, that often includes AI-generated patches-but the core design is broader:
-
-* apply a proposed change bundle from clipboard, stdin, or a file
-* refuse partial or inconsistent multi-file updates
-* prevent path traversal and "write outside repo" bugs
-* rollback automatically on failures
-
-### When is this useful (non-AI cases included)?
-
-Use cases where developers tend to appreciate a hardened "apply" workflow:
-
-* **Bulk refactors that touch many files** (module moves, large-scale renames, reorganizations)
-* **Changes produced by automation** (scripts/codemods/codegen) where you want strict integrity gates
-* **Accepting large change proposals through a text channel** (tickets, chats, docs) where "copy/paste and hope" is risky
-* **Any workflow where partial application is unacceptable** (the repo must end either fully updated or untouched)
-
-### Apply pipeline safety properties
-
-If you use `apply`, it is designed to be safe on untrusted input:
-
-* **Manifest integrity:** no partial multi-file updates
-  * every declared file must be present
-  * no undeclared file blocks are allowed
-* **Transactional writes + rollback:** repo ends in pre-apply or post-apply state, never "half applied"
-* **Path safety:** blocks traversal, absolute paths, and sensitive locations
-* **Symlink escape protection:** prevents writes outside repo root via symlinks
-* **Content safety checks:** blocks truncation markers and incomplete outputs
-
-### Protocol: The Sequence Sigil (`XSC7XSC`)
-
-SlopChop uses a strict **Sequence Sigil** (`XSC7XSC`) to separate content from protocol metadata. This pattern is chosen to be statistically impossible in normal code and robust against Markdown renderer corruption.
-
-Format:
-
+### Protocol Format:
 ```text
  XSC7XSC PLAN XSC7XSC
- GOAL: Refactor auth module.
+ GOAL: Refactor the auth module.
  CHANGES:
- 1. Move login logic.
+ 1. Move login logic to login.rs.
  XSC7XSC END XSC7XSC
 
  XSC7XSC MANIFEST XSC7XSC
@@ -202,26 +69,44 @@ Format:
  XSC7XSC END XSC7XSC
 ```
 
-The protocol is intentionally strict. On invalid input (missing delimiters, mismatched paths), SlopChop rejects the entire apply before writing to disk.
-
 ---
 
-## 4) `slopchop audit`: consolidation and refactor radar (optional)
+## Surfaces & Commands
 
-`slopchop audit` searches for repo-wide consolidation opportunities:
+### `slopchop` (Structural Scan)
+A fast, deterministic scan for Law violations.
+*   **Deterministic:** Always produces the same results for the same input.
+*   **Actionable:** Outputs compiler-grade error messages with file/line/column pointers.
 
-* repeated idioms/patterns across many files
-* near-duplicate functions/structs/enums
-* test consolidation candidates
-* rough impact estimates (lines removable), difficulty, confidence
+### `slopchop check` (The Gate)
+The ultimate gatekeeper command. It runs:
+1.  Your configured commands (formatters, linters, tests).
+2.  The SlopChop structural scan.
+*   **Context Aware:** If a stage exists, it runs everything inside the `.slopchop` worktree.
 
-Treat it as a prioritization tool: it does not force refactors. It helps you spot "we have 12 versions of the same idea" problems early.
+### `slopchop apply` (Hardened Ingestion)
+Applies a protocol payload from clipboard, stdin, or file.
+*   **Atomic:** All files apply together or none do.
+*   **Surgical:** Validates path safety, blocks traversal (`../`), and prevents writes to sensitive dirs (`.git`, `.env`).
+*   **Options:** 
+    *   `--reset`: Wipe the sandbox and start fresh.
+    *   `--promote`: Commit verified staged changes to the real repo.
+
+### `slopchop pack` (AI Context Generation)
+Knits your repository into a single high-density context file (`context.txt`).
+*   **Focus Mode:** Use `--focus <file>` to provide full source for target files while automatically providing "skeletons" (signatures only) for all dependencies.
+*   **Token Efficient:** Dramatically reduces context size by stripping function bodies from peripheral code.
+
+### `slopchop audit` (Refactor Radar)
+Searches for repo-wide duplication and consolidation opportunities.
+*   **Fingerprinting:** Uses Weisfeiler-Lehman AST fingerprinting to find structurally similar code even if variable names differ.
+*   **Impact Scoring:** Estimates lines saved and difficulty for every cleanup opportunity.
 
 ---
 
 ## Configuration (`slopchop.toml`)
 
-A representative configuration (matching current behavior and concepts):
+SlopChop generates a project-specific config if none exists.
 
 ```toml
 [rules]
@@ -231,135 +116,61 @@ max_nesting_depth = 3
 max_function_args = 5
 max_function_words = 5
 
+# Paths to ignore for specific laws
 ignore_naming_on = ["tests", "spec"]
-ignore_tokens_on = ["README.md", "lock"]
+ignore_tokens_on = ["README.md", "lock", "slopchop_pivot_brief.md"]
 
 [preferences]
-theme = "Cyberpunk"
-auto_copy = true
-auto_format = false
-allow_dirty_git = false
+theme = "Cyberpunk" # NASA, Corporate, or Cyberpunk
+auto_copy = true    # Auto-copy context.txt to clipboard after pack
+auto_format = false # Run project formatter after apply
 backup_retention = 5
-progress_bars = true
-require_plan = false
+require_plan = false # Force payloads to include a PLAN block
 
 [commands]
+# Commands run during 'slopchop check'
 check = [
-  "cargo clippy --all-targets -- -D warnings -W clippy::pedantic",
+  "cargo clippy --all-targets -- -D warnings",
   "cargo test",
 ]
 fix = ["cargo fmt"]
 ```
 
-### Notes on rules and heuristics
+---
 
-* Some rules are "hard boundaries" by design (complexity/arity/unsafe paths as configured).
-* Some checks may be best treated as "smells" (warn/info) rather than "errors," depending on repo culture. For example, function-name length heuristics can be useful as a signal without being a build breaker.
+## Why not just Clippy/ESLint?
+
+Standard linters are excellent for **local syntax and idiom correctness**. SlopChop operates at a different layer:
+
+1.  **Repo-Level Shape:** Linters rarely care if a file has 5000 lines. SlopChop enforces the "Shape of the Repo" to ensure it remains reviewable.
+2.  **Ingestion Safety:** Clippy cannot protect you from a malicious or broken multi-file patch. SlopChop's `apply` pipeline is a hardened transaction engine.
+3.  **Context Management:** SlopChop understands the relationship between your structural limits and AI context windows, providing tools like `pack` to manage that boundary.
 
 ---
 
-## CI integration
+## Installation
 
-In CI, SlopChop is typically used as a required PR gate:
+### Local Build
+```bash
+cargo install --path .
+```
 
-* Run `slopchop check` as part of your pipeline
-* Fail the job if it returns non-zero
-* Require the job to pass before merge
+### Hygiene & Maintenance
+To ensure your `.gitignore` correctly shields SlopChop's internal sandbox and backups:
+```bash
+slopchop clean
+```
 
-The advantage is consistency: the same gate can run locally, in hooks, and in CI.
-
----
-
-## Local workflow integration
-
-### Recommended local habits
-
-* Run `slopchop` during development when working on a module with active changes
-* Run `slopchop check` before pushing or opening a PR
-* Optionally wire `slopchop check` into a `pre-push` hook
-
-### Watch mode (planned/optional)
-
-A watch mode can make SlopChop feel like a continuous "integrity guardrail":
-
-* run the fast structural scan when files change
-* surface new violations immediately
-* avoid running heavy test pipelines on every save
-* keep `check` for explicit gating moments (pre-push / CI)
+To wipe the current sandbox if you want to abort a staged change:
+```bash
+slopchop apply --reset
+```
 
 ---
 
-## Why not just clippy?
+## Latest: The Great Pivot
 
-Clippy is excellent, but it is not designed to enforce repo-level structural "shape" constraints:
-
-* SlopChop applies consistent structural budgets across the whole repository.
-* SlopChop can enforce constraints that are not lint-shaped (file token limits, cross-file structural duplication signals, hardened apply integrity).
-* SlopChop is designed to act as a strict boundary for automated multi-file changes, not just a linter.
-
-In practice, SlopChop and Clippy complement each other: Clippy catches many correctness and idiom issues; SlopChop enforces structural governance and ingestion safety.
-
----
-
-## Design goals
-
-* Deterministic, scriptable behavior
-* Conservative failure modes (reject invalid input rather than "best-effort apply")
-* Composable in CI and local workflows
-* Language-aware structural metrics via tree-sitter
-* Optional automation support without coupling correctness to an LLM
-
----
-
-## Command overview
-
-### Structural governance
-
-* `slopchop` - scan repo for structural violations
-
-### Gate
-
-* `slopchop check` - run configured commands + SlopChop scan, fail on violations
-
-### Hardened apply (optional)
-
-* `slopchop apply` - transactional apply of a strict patch payload
-* `slopchop pack --focus <file>` - generate focused context (full focus + skeleton deps)
-
-### Refactoring radar (optional)
-
-* `slopchop audit` - duplication + consolidation opportunities
-
----
-
-## Project status and roadmap
-
-* Core structural scan: implemented
-* `check` pipeline: implemented (thin gate pattern)
-* Apply hardening: implemented (manifest integrity, rollback, path safety)
-* Audit mode: implemented (consolidation radar)
-* Watch mode: planned (leveraging existing watcher infrastructure)
-
-## Latest
-
-Today we successfully performed a major surgical refactor of SlopChop, transforming it from a "multi-feature tool" into a focused **High-Integrity Protocol Engine**.
-
-Here is the summary of operations:
-
-### 1. The Purge (Architecture Pivot)
-*   **Removed Roadmap V2:** We deleted the entire `src/roadmap_v2/` module and all associated CLI commands. SlopChop no longer manages `tasks.toml`; that responsibility has been successfully offloaded to your external repo.
-*   **Decoupled Git:** We stripped `auto_commit` and `auto_push` from the `ApplyContext`. SlopChop is now a pure filesystem transaction engine (a "Green State Provider"), paving the way for the future Sandbox/Session model.
-
-### 2. The Protocol Upgrade
-*   **Installed `XSC7XSC`:** We replaced the fragile `#` markdown delimiters with your new **Sequence Sigil** (`XSC7XSC`).
-*   **Why:** This renders the protocol "Markdown-Inert" (preventing header/bold collapse in AI UIs) and "Shell-Safe" (no pipes or history expansion characters).
-
-### 3. Stabilization & Quality
-*   **Green Tests:** We fixed a cascade of failures in `integration_core`, `unit_analysis`, and `integration_pack`.
-    *   Fixed a logic bug in `count_words` to correctly handle `CamelCase`.
-    *   Fixed a whitespace bug in `lang.rs` that was double-spacing skeleton code.
-    *   Fixed configuration defaults for `README.md` token ignoring.
-*   **Clippy Compliance:** We resolved all linting errors (missing docs, collapsible ifs, unused variables).
-
-### 4. Documentation
-*   **Updated README:** The documentation now accurately reflects the new architecture, the removal of Roadmap, and includes the new `XSC7XSC` protocol definition (safely indented).
+SlopChop has recently been surgically refactored into a **Pure Filesystem Engine**.
+*   **Decoupled Git:** SlopChop no longer manages commits or pushes. It provides a "Green State" which you can then commit using your preferred Git workflow.
+*   **Protocol Hardening:** Transitioned to the `XSC7XSC` Sequence Sigil for maximum reliability across different LLM providers and terminal environments.
+*   **Sandbox Isolation:** Full implementation of the Shadow Worktree, allowing safe experimentation without risk to production source code.
