@@ -2,16 +2,16 @@ Here is the Situation Report.
 
 1. What Have We Done? (The "Pivot")
 
-We successfully executed the "Stage Manager" Pivot.
+We successfully executed the "Stage Manager" Pivot and the "Scalpel" Patch Engine.
 
 Staged Workspace: `slopchop apply` now writes to `.slopchop/stage/worktree` instead of the real repo.
-Transactional Promote: `slopchop apply --promote` moves verified changes to the real workspace with rollback safety.
-Green Build: All tests are passing, including new lifecycle integration tests.
-Debt Cleared: We refactored `manager.rs`, `promote.rs`, `copy.rs`, and `validator.rs` to satisfy the Three Laws (Atomicity, Complexity, Paranoia).
+Transactional Promote: `slopchop apply --promote` moves verified changes to the real workspace.
+Surgical Patching: `src/apply/patch.rs` implements strict Search/Replace logic.
+Green Build: All tests are passing, including `integration_patch.rs` which verifies patch precision and safety guards.
 
 2. Where Are We Now?
 
-Status: OPERATIONAL / HARDENING (Phase 2B Complete).
+Status: OPERATIONAL / HARDENING (Phase 2B Verified).
 
 The Binary:
 - `slopchop check`: Scans workspace (uses stage if present).
@@ -20,24 +20,20 @@ The Binary:
 
 The Security:
 - **Parser Hardened**: Strict block validation and reserved name protection confirmed.
-- **Surgical Patching**: `src/apply/patch.rs` implements strict Search/Replace logic with SHA256 verification and atomic execution.
+- **Surgical Patching**: Verified. Rejects ambiguous matches and hash mismatches.
 
 3. Where Are We Going? (Phase 2: Hardening)
 
 Per `slopchop_pivot_brief.md`, the next major objectives are:
 
 A) Parser Hardening [COMPLETED]
-- Strict Block Validation: Implemented in `parser.rs`.
-- Reserved Name Protection: Implemented.
-
 B) PATCH Blocks (The "Scalpel") [COMPLETED]
-- `XSC7XSC PATCH XSC7XSC path/to/file.rs` implemented.
-- `BASE_SHA256` verification implemented.
-- Strict exact-match replacement engine active.
 
-C) Patch UX & Diagnostics [NEXT OBJECTIVE]
-- Improve error messages for patch failures ("Did you mean?").
-- Visual diff summary before confirmation.
+C) Patch UX & Diagnostics [CURRENT OBJECTIVE]
+Currently, if a patch fails (e.g., whitespace mismatch), the error is generic ("SEARCH block not found").
+We need to improve this:
+- **"Did you mean?"**: If exact match fails, try fuzzy matching to suggest what went wrong (e.g., "Found similar block on line 12 but indentation differs").
+- **Visual Diff**: Show a diff of the failed match vs the actual file content in the error message.
 
 Immediate Next Action:
-Execute `slopchop apply --promote` to finalize the patch engine, then begin Phase 2C (UX).
+Implement fuzzy matching diagnostics in `src/apply/patch.rs` to provide actionable feedback on patch failures.
