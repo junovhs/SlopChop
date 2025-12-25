@@ -11,7 +11,7 @@ Green Build: All tests are passing, including `integration_patch.rs` which verif
 
 2. Where Are We Now?
 
-Status: OPERATIONAL / HARDENING (Phase 2B Verified).
+Status: OPERATIONAL / HARDENING (v0.9.0 Released).
 
 The Binary:
 - `slopchop check`: Scans workspace (uses stage if present).
@@ -22,18 +22,18 @@ The Security:
 - **Parser Hardened**: Strict block validation and reserved name protection confirmed.
 - **Surgical Patching**: Verified. Rejects ambiguous matches and hash mismatches.
 
-3. Where Are We Going? (Phase 2: Hardening)
+3. Where Are We Going? (Phase 3: Polish)
 
-Per `slopchop_pivot_brief.md`, the next major objectives are:
+With v0.9.0 complete, we are entering the final polish phase before v1.0.0.
 
-A) Parser Hardening [COMPLETED]
-B) PATCH Blocks (The "Scalpel") [COMPLETED]
-
-C) Patch UX & Diagnostics [CURRENT OBJECTIVE]
-Currently, if a patch fails (e.g., whitespace mismatch), the error is generic ("SEARCH block not found").
-We need to improve this:
-- **"Did you mean?"**: If exact match fails, try fuzzy matching to suggest what went wrong (e.g., "Found similar block on line 12 but indentation differs").
+A) Patch UX & Diagnostics [NEXT OBJECTIVE]
+Currently, patch failures are safe but blunt. We need better diagnostics:
+- **"Did you mean?"**: If exact match fails, try fuzzy matching to suggest what went wrong.
 - **Visual Diff**: Show a diff of the failed match vs the actual file content in the error message.
 
+B) CLI Polish
+- Standardize exit codes.
+- Improve help text and examples.
+
 Immediate Next Action:
-Implement fuzzy matching diagnostics in `src/apply/patch.rs` to provide actionable feedback on patch failures.
+Begin Phase 3A (Patch UX & Diagnostics).

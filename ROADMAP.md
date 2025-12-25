@@ -141,28 +141,28 @@ The path to a hardened v1.0.0 trust boundary.
 
 ---
 
-## v0.9.0 — The Scalpel (Hardening) 🔄 CURRENT
+## v0.9.0 — The Scalpel (Hardening) ✅
 
 ### Parser Hardening
-- [x] **Enum-based Block Tokenizer** <!-- test: src/apply/parser.rs -->
-- [x] **Strict Block Validation** (Reject unknown KINDs) <!-- test: src/apply/parser.rs -->
-- [x] **Reserved Name Protection** (Block files named "MANIFEST", "PLAN", etc.) <!-- test: tests/integration_apply.rs -->
+- [x] **Enum-based Block Tokenizer**
+- [x] **Strict Block Validation** (Reject unknown KINDs)
+- [x] **Reserved Name Protection** (Block files named "MANIFEST", "PLAN", etc.)
 
 ### Surgical PATCH Blocks
-- [x] **PATCH block extraction** (LEFT_CTX, OLD, RIGHT_CTX, NEW) <!-- test: src/apply/patch.rs -->
-- [x] **Base SHA256 Verification** (Prevent stale patches) <!-- test: src/apply/patch.rs -->
-- [x] **Exact Match Engine** (Reject if anchor is ambiguous or missing) <!-- test: src/apply/patch.rs -->
-- [ ] **Auto-Fallback to FILE** (If patch > 75% of file size)
+- [x] **PATCH block extraction** (LEFT_CTX, OLD, RIGHT_CTX, NEW)
+- [x] **Base SHA256 Verification** (Prevent stale patches)
+- [x] **Exact Match Engine** (Reject if anchor is ambiguous or missing)
+- [ ] **Auto-Fallback to FILE** (Deferred)
+
+---
+
+## v1.0.0 — Production Ready ⏳ NEXT
 
 ### Patch UX
 - [ ] **"Did you mean?" Diagnostics** (On match failure)
 - [ ] **Visual Patch Diff Summary**
 
----
-
-## v1.0.0 — Production Ready 🔒
-
+### Polish
 - [ ] **Machine-Readable Event Log** (.slopchop/events.jsonl)
 - [ ] **CLI Polish & Exit Code Standardization**
-- [ ] **Global Watcher Daemon** (slopchop watch)
 - [ ] **Distribution** (Scoop, Winget, Homebrew)
