@@ -181,11 +181,11 @@ pub fn check_banned(ctx: &CheckContext, banned_query: &Query, out: &mut Vec<Viol
     let matches = cursor.matches(banned_query, ctx.root, ctx.source.as_bytes());
 
     for m in matches {
-        process_banned_match_group(&m, ctx, out);
+        process_banned_matches(&m, ctx, out);
     }
 }
 
-fn process_banned_match_group(m: &QueryMatch, ctx: &CheckContext, out: &mut Vec<Violation>) {
+fn process_banned_matches(m: &QueryMatch, ctx: &CheckContext, out: &mut Vec<Violation>) {
     for capture in m.captures {
         if let Ok(text) = capture.node.utf8_text(ctx.source.as_bytes()) {
             let row = capture.node.start_position().row + 1;
@@ -260,4 +260,4 @@ fn count_camel_parts(s: &str) -> usize {
         }
     }
     words
-}
+}
