@@ -7,7 +7,5 @@ ROADMAP.md
 tasks.toml
 SIGNATURES.txt
 SIGNATURES.rs
-note-on-small-changes.txt
-chatgpt-ideas.txt
 .slopchop
-slopchop_pivot_brief.md
+docs
