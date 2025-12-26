@@ -4,6 +4,7 @@ use crate::apply::types::ApplyContext;
 use crate::clipboard;
 use crate::config::Config;
 use crate::discovery;
+use crate::events::{EventKind, EventLogger};
 use crate::reporting;
 use crate::spinner::Spinner;
 use crate::stage;
@@ -21,6 +22,9 @@ use std::process::Command;
 /// # Errors
 /// Returns error if command execution fails.
 pub fn run_verification_pipeline<P: AsRef<Path>>(ctx: &ApplyContext, cwd: P) -> Result<bool> {
+    let logger = EventLogger::new(&ctx.repo_root);
+    logger.log(EventKind::CheckStarted);
+
     println!("{}", "\n→ Verifying changes...".blue().bold());
 
     let working_dir = cwd.as_ref();
@@ -29,6 +33,7 @@ pub fn run_verification_pipeline<P: AsRef<Path>>(ctx: &ApplyContext, cwd: P) -> 
     if let Some(commands) = ctx.config.commands.get("check") {
         for cmd in commands {
             if !run_stage_in_dir(cmd, cmd, working_dir)? {
+                logger.log(EventKind::CheckFailed { exit_code: 1 });
                 return Ok(false);
             }
         }
@@ -37,9 +42,11 @@ pub fn run_verification_pipeline<P: AsRef<Path>>(ctx: &ApplyContext, cwd: P) -> 
     // 2. Run SlopChop scan (Structural check) - Internal Call
     // We run this in-process to avoid binary mismatch/recursion/PATH issues with subprocesses.
     if !run_internal_scan(working_dir)? {
+        logger.log(EventKind::CheckFailed { exit_code: 1 });
         return Ok(false);
     }
 
+    logger.log(EventKind::CheckPassed);
     Ok(true)
 }
 
@@ -108,10 +115,6 @@ fn run_internal_scan(cwd: &Path) -> Result<bool> {
         Ok(Ok(success)) => {
             sp.stop(success);
             if !success {
-                // If failed, we need to print the report. 
-                // We re-run or we should have captured it. 
-                // For simplicity and to avoid complex buffering, we re-run the scan *logic* to print.
-                // It's fast enough.
                 println!("{}", "-".repeat(60).red());
                 println!("{} Failed: {}", "[!]".red(), "slopchop scan".bold());
                 
@@ -122,7 +125,7 @@ fn run_internal_scan(cwd: &Path) -> Result<bool> {
                 let engine = RuleEngine::new(config);
                 let report = engine.scan(files);
                 reporting::print_report(&report)?;
-                env::set_current_dir(env::current_dir()?.parent().unwrap_or(Path::new(".")))?; // best effort restore if panic
+                env::set_current_dir(env::current_dir()?.parent().unwrap_or(Path::new(".")))?; 
                 
                 println!("{}", "-".repeat(60).red());
                 return Ok(false);

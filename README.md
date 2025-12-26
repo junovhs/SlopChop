@@ -67,13 +67,22 @@ The `XSC7XSC` sigil is:
  XSC7XSC FILE XSC7XSC src/auth.rs
  // file content...
  XSC7XSC END XSC7XSC
+ 
+ XSC7XSC PATCH XSC7XSC src/auth.rs
+ BASE_SHA256: <hash>
+ MAX_MATCHES: 1
+ LEFT_CTX: ...
+ OLD: ...
+ RIGHT_CTX: ...
+ NEW: ...
+ XSC7XSC END XSC7XSC
 ```
 
 ---
 
 ## Surfaces & Commands
 
-### `slopchop` (Structural Scan)
+### `slopchop scan` (Structural Scan)
 A fast, deterministic scan for Law violations.
 *   **Deterministic:** Always produces the same results for the same input.
 *   **Actionable:** Outputs compiler-grade error messages with file/line/column pointers.
@@ -88,6 +97,9 @@ The ultimate gatekeeper command. It runs:
 Applies a protocol payload from clipboard, stdin, or file.
 *   **Atomic:** All files apply together or none do.
 *   **Surgical:** Validates path safety, blocks traversal (`../`), and prevents writes to sensitive dirs (`.git`, `.env`).
+*   **Modes:**
+    *   `FILE`: Replaces entire file content.
+    *   `PATCH`: Context-anchored surgical editing with hash verification.
 *   **Options:** 
     *   `--reset`: Wipe the sandbox and start fresh.
     *   `--promote`: Commit verified staged changes to the real repo.
@@ -125,6 +137,7 @@ theme = "Cyberpunk" # NASA, Corporate, or Cyberpunk
 auto_copy = true    # Auto-copy context.txt to clipboard after pack
 auto_format = false # Run project formatter after apply
 backup_retention = 5
+progress_bars = true
 require_plan = false # Force payloads to include a PLAN block
 
 [commands]
@@ -168,9 +181,10 @@ slopchop apply --reset
 
 ---
 
-## Latest: v0.9.0 - The Scalpel
+## Latest: v1.0.0 - The Trust Boundary
 
-SlopChop has evolved into a precision instrument with **Surgical Patching**.
-*   **Surgical Edits:** Use `PATCH` blocks to modify specific lines in a file without rewriting the whole content. Verified with SHA256 safety locks.
-*   **Parser Hardening:** Strict protocol validation prevents injection attacks and ensures reliable parsing of complex payloads.
-*   **Sandbox Isolation:** All changes (Files & Patches) are applied to a Shadow Worktree first, ensuring your production code is never touched until verification passes.
+SlopChop v1.0.0 completes the transition to a fully staged, high-integrity architecture.
+*   **Staged Workspace:** Changes are sandboxed in `.slopchop/stage/` until verified.
+*   **Context-Anchored Patching:** Surgical `PATCH` blocks with `BASE_SHA256` locking prevent stale overwrites.
+*   **Audit Trail:** Every action is logged to `.slopchop/events.jsonl`.
+*   **No Git Dependency:** SlopChop manages its own transactional state.

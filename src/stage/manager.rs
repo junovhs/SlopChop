@@ -5,6 +5,7 @@ use super::copy::{copy_repo_to_stage, remove_stage, CopyStats};
 use super::promote::{cleanup_old_backups, promote_to_workspace, PromoteResult};
 use super::state::StageState;
 use super::{backups_path, stage_path, state_file_path, worktree_path};
+use crate::events::{EventKind, EventLogger};
 use anyhow::{Context, Result};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -120,6 +121,11 @@ impl StageManager {
         // Initialize state
         let new_state = StageState::new();
         new_state.save(&state_file_path(&self.repo_root))?;
+        
+        // Log event
+        let logger = EventLogger::new(&self.repo_root);
+        logger.log(EventKind::StageCreated { id: new_state.id.clone() });
+
         self.state = Some(new_state);
 
         Ok(EnsureResult::Created(copy_stats))
@@ -227,6 +233,10 @@ impl StageManager {
                 .with_context(|| format!("Failed to reset stage: {}", stage.display()))?;
         }
 
+        // Log event
+        let logger = EventLogger::new(&self.repo_root);
+        logger.log(EventKind::StageReset);
+
         self.state = None;
         Ok(())
     }
@@ -267,4 +277,4 @@ impl EnsureResult {
     pub fn was_created(&self) -> bool {
         matches!(self, EnsureResult::Created(_))
     }
-}
+}

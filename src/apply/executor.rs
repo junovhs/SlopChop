@@ -4,6 +4,7 @@
 use crate::apply::types::{ApplyContext, ApplyOutcome, ExtractedFiles, Manifest, Operation};
 use crate::apply::verification;
 use crate::apply::writer;
+use crate::events::{EventKind, EventLogger};
 use crate::stage::StageManager;
 use anyhow::Result;
 use colored::Colorize;
@@ -18,6 +19,9 @@ pub fn apply_to_stage_transaction(
     extracted: &ExtractedFiles,
     ctx: &ApplyContext,
 ) -> Result<ApplyOutcome> {
+    let logger = EventLogger::new(&ctx.repo_root);
+    logger.log(EventKind::ApplyStarted);
+
     if ctx.dry_run {
         return Ok(ApplyOutcome::Success {
             written: vec!["(Dry Run) Verified".to_string()],
@@ -28,6 +32,24 @@ pub fn apply_to_stage_transaction(
     }
 
     let (mut stage, outcome) = execute_stage_transaction(manifest, extracted, ctx)?;
+
+    // Log outcome
+    match &outcome {
+        ApplyOutcome::Success { written, deleted, .. } => {
+            logger.log(EventKind::ApplySucceeded {
+                files_written: written.len(),
+                files_deleted: deleted.len(),
+            });
+        }
+        ApplyOutcome::ParseError(e) | ApplyOutcome::WriteError(e) => {
+            logger.log(EventKind::ApplyRejected { reason: e.clone() });
+        }
+        ApplyOutcome::ValidationFailure { errors, .. } => {
+            let reason = errors.join("; ");
+            logger.log(EventKind::ApplyRejected { reason });
+        }
+        _ => {}
+    }
 
     if ctx.check_after {
         return run_post_apply_verification(ctx, &mut stage, outcome);
@@ -102,13 +124,26 @@ fn run_post_apply_verification(
 }
 
 fn promote_stage(ctx: &ApplyContext, stage: &mut StageManager) -> Result<ApplyOutcome> {
-    let retention = ctx.config.preferences.backup_retention;
-    let result = stage.promote(retention)?;
+    let logger = EventLogger::new(&ctx.repo_root);
+    logger.log(EventKind::PromoteStarted);
 
-    Ok(ApplyOutcome::Promoted {
-        written: result.files_written,
-        deleted: result.files_deleted,
-    })
+    let retention = ctx.config.preferences.backup_retention;
+    match stage.promote(retention) {
+        Ok(result) => {
+            logger.log(EventKind::PromoteSucceeded {
+                files_written: result.files_written.len(),
+                files_deleted: result.files_deleted.len(),
+            });
+            Ok(ApplyOutcome::Promoted {
+                written: result.files_written,
+                deleted: result.files_deleted,
+            })
+        }
+        Err(e) => {
+            logger.log(EventKind::PromoteFailed { error: e.to_string() });
+            Err(e)
+        }
+    }
 }
 
 fn print_stage_info(stage: &StageManager) {
@@ -151,4 +186,4 @@ pub fn run_promote_standalone(ctx: &ApplyContext) -> Result<ApplyOutcome> {
     }
     stage.load_state()?;
     promote_stage(ctx, &mut stage)
-}
+}

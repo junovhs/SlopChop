@@ -8,12 +8,14 @@
 
 ## 1) Past (What changed recently)
 
-**Phase 3A (Patch UX & Diagnostics) complete.**
-- **Refactored Patch Engine:** Split `src/apply/patch.rs` into atomic submodules (`parser_v1`, `diagnostics`, etc.).
-- **Canonical V1:** Enforced `BASE_SHA256` and `MAX_MATCHES: 1`.
-- **Diagnostics:** Added "Did you mean?" probe logic and ambiguous match excerpts.
-- **Safety:** Removed global replace in favor of single-occurrence splicing.
-- **Compliance:** Satisfied 3 Laws (Atomicity, Complexity, Paranoia).
+**Phase 3 (Polish) complete.**
+- **Exit Codes:** Standardized `SlopChopExit` enum for predictable scripting automation.
+- **Event Log:** `EventLogger` writes structured JSONL to `.slopchop/events.jsonl` for audit trails.
+- **Surface Cleanup:** Removed Git-related keys (`auto_commit`, etc.) from documentation and internal config to match the architecture.
+
+**Phase 3A (Patch UX) complete.**
+- **Canonical V1 Patching:** Strict context anchoring, SHA256 locking, and `MAX_MATCHES: 1`.
+- **Diagnostics:** "Did you mean?" probe logic and unambiguous failure messaging.
 
 **v0.9.0 shipped.** The architectural pivot is complete and validated:
 - **Staged workspace:** `slopchop apply` writes to `.slopchop/stage/worktree`.
@@ -23,33 +25,24 @@
 
 ## 2) Present (Where we are right now)
 
-**Status:** OPERATIONAL / GREEN
+**Status:** GOLD / RELEASE CANDIDATE (v1.0.0 Ready)
 
 ### Operator-visible contract
-- `slopchop apply` supports V1 (Context-Anchored) and V0 (Search/Replace legacy).
-- Diagnostics are deterministic and bounded.
-- `slopchop check` is passing (clippy, tests, scan).
+- `slopchop apply` ingests to stage (File + Patch).
+- `slopchop check` verifies stage.
+- `slopchop apply --promote` commits to workspace.
+- `events.jsonl` records the history.
 
 ### Trust boundary posture
-- Patching is strictly anchored and hashed.
-- Failures do not modify state.
-- Ambiguity is rejected with guidance.
+- Zero trust for input payloads (must match hash, must match anchor).
+- Zero accidental mutation (writes restricted to stage until explicit promote).
+- Zero ambiguity (patches reject on >1 match).
 
 ---
 
 ## 3) Future (What we do next)
 
-We are in **Phase 3 (Polish) → v1.0.0**.
+We have met the definition of done for v1.0.0.
 
-### Phase 3B: CLI Polish & Event Log (NEXT OBJECTIVE)
-To reach v1.0, we need observability and automation stability.
-- **Standardize Exit Codes:** Documented, stable codes for success, check-fail, patch-fail, etc.
-- **Machine-Readable Events:** Emit `events.jsonl` for audit trails (apply, check, promote).
-- **Surface Cleanup:** Remove any remaining Git-related code or config keys.
-
-(Full spec and priorities live in `/docs/v1-brief.md`.)
-
----
-
-## Immediate Next Action
-Begin **Phase 3B (CLI Polish & Event Log)**.
+### Immediate Next Action
+**Release v1.0.0**.
