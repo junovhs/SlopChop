@@ -149,10 +149,12 @@ The path to a hardened v1.0.0 trust boundary.
 - [x] **Reserved Name Protection** (Block files named "MANIFEST", "PLAN", etc.)
 
 ### Surgical PATCH Blocks
-- [x] **PATCH block extraction** (LEFT_CTX, OLD, RIGHT_CTX, NEW)
+- [x] **PATCH block extraction** (strict SEARCH/REPLACE form)
 - [x] **Base SHA256 Verification** (Prevent stale patches)
-- [x] **Exact Match Engine** (Reject if anchor is ambiguous or missing)
+- [x] **Exact Match Engine** (Reject if match is ambiguous or missing)
+- [ ] **Context-Anchored PATCH (LEFT_CTX / OLD / RIGHT_CTX / NEW)** (Canonical v1.0 format)
 - [ ] **Auto-Fallback to FILE** (Deferred)
+
 
 ---
 
