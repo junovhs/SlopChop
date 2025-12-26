@@ -8,27 +8,32 @@
 
 ## 1) Past (What changed recently)
 
+**Phase 3A (Patch UX & Diagnostics) complete.**
+- **Refactored Patch Engine:** Split `src/apply/patch.rs` into atomic submodules (`parser_v1`, `diagnostics`, etc.).
+- **Canonical V1:** Enforced `BASE_SHA256` and `MAX_MATCHES: 1`.
+- **Diagnostics:** Added "Did you mean?" probe logic and ambiguous match excerpts.
+- **Safety:** Removed global replace in favor of single-occurrence splicing.
+- **Compliance:** Satisfied 3 Laws (Atomicity, Complexity, Paranoia).
+
 **v0.9.0 shipped.** The architectural pivot is complete and validated:
-- **Staged workspace:** `slopchop apply` writes to `.slopchop/stage/worktree` (not the real repo).
-- **Transactional promote:** `slopchop apply --promote` promotes verified changes to the real workspace (scoped to touched paths, with backup/rollback).
-- **Parser hardening:** strict block validation + reserved-name protection.
-- **Surgical patching (v0.9):** strict PATCH application with base hash enforcement and ambiguity rejection (current shipped format is strict SEARCH/REPLACE).
+- **Staged workspace:** `slopchop apply` writes to `.slopchop/stage/worktree`.
+- **Transactional promote:** `slopchop apply --promote` promotes verified changes.
 
 ---
 
 ## 2) Present (Where we are right now)
 
-**Status:** OPERATIONAL / HARDENING (v0.9.0 released)
+**Status:** OPERATIONAL / GREEN
 
-### Operator-visible contract (current behavior)
-- `slopchop apply` writes into stage; supports `FILE` and `PATCH`.
-- `slopchop check` runs against stage if present; otherwise workspace.
-- `slopchop apply --promote` promotes touched paths from stage → workspace transactionally.
+### Operator-visible contract
+- `slopchop apply` supports V1 (Context-Anchored) and V0 (Search/Replace legacy).
+- Diagnostics are deterministic and bounded.
+- `slopchop check` is passing (clippy, tests, scan).
 
-### Trust boundary posture (current)
-- Conservative failure: rejects ambiguity/staleness instead of guessing.
-- Default writes are confined to the stage.
-- Promotion is bounded and reversible on failure.
+### Trust boundary posture
+- Patching is strictly anchored and hashed.
+- Failures do not modify state.
+- Ambiguity is rejected with guidance.
 
 ---
 
@@ -36,19 +41,15 @@
 
 We are in **Phase 3 (Polish) → v1.0.0**.
 
-### Phase 3A: Patch UX & Diagnostics (NEXT OBJECTIVE)
-Patch failures are safe but blunt. v1.0 requires deterministic, bounded, actionable diagnostics:
-- “Did you mean?” suggestions (diagnostic locate only; never fuzzy-apply).
-- Bounded visual diff summaries for match failures.
-- Clear “NEXT:” instructions (repack/regenerate patch vs send full FILE).
-
-### v1.0 Protocol Upgrade (PATCH format)
-- Canonicalize PATCH to **context-anchored** form (LEFT_CTX / OLD / RIGHT_CTX / NEW).
-- Retain v0.9 SEARCH/REPLACE PATCH only as deprecated compatibility (optional), without expanding the command surface.
+### Phase 3B: CLI Polish & Event Log (NEXT OBJECTIVE)
+To reach v1.0, we need observability and automation stability.
+- **Standardize Exit Codes:** Documented, stable codes for success, check-fail, patch-fail, etc.
+- **Machine-Readable Events:** Emit `events.jsonl` for audit trails (apply, check, promote).
+- **Surface Cleanup:** Remove any remaining Git-related code or config keys.
 
 (Full spec and priorities live in `/docs/v1-brief.md`.)
 
 ---
 
 ## Immediate Next Action
-Begin **Phase 3A (Patch UX & Diagnostics)**.
+Begin **Phase 3B (CLI Polish & Event Log)**.
