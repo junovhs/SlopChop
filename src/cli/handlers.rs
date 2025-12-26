@@ -1,8 +1,9 @@
 // src/cli/handlers.rs
 use crate::apply;
-use crate::apply::types::ApplyContext;
+use crate::apply::types::{ApplyContext, ApplyOutcome};
 use crate::cli::args::ApplyArgs;
 use crate::config::Config;
+use crate::exit::SlopChopExit;
 use crate::pack::{self, OutputFormat, PackOptions};
 use crate::prompt::PromptGenerator;
 use crate::signatures::{self, SignatureOptions};
@@ -35,8 +36,8 @@ pub struct PackArgs {
 /// Handles the check command.
 ///
 /// # Errors
-/// Returns error if verification pipeline fails.
-pub fn handle_check() -> Result<()> {
+/// Returns error if verification pipeline fails to execute.
+pub fn handle_check() -> Result<SlopChopExit> {
     let config = Config::load();
     let repo_root = get_repo_root();
     let ctx = ApplyContext::new(&config, repo_root.clone());
@@ -46,9 +47,9 @@ pub fn handle_check() -> Result<()> {
 
     if apply::verification::run_verification_pipeline(&ctx, &cwd)? {
         println!("{}", "[OK] All checks passed.".green().bold());
-        Ok(())
+        Ok(SlopChopExit::Success)
     } else {
-        std::process::exit(1);
+        Ok(SlopChopExit::CheckFailed)
     }
 }
 
@@ -56,13 +57,14 @@ pub fn handle_check() -> Result<()> {
 ///
 /// # Errors
 /// Returns error if command execution fails.
-pub fn handle_fix() -> Result<()> {
+pub fn handle_fix() -> Result<SlopChopExit> {
     let config = Config::load();
     let Some(fix_cmds) = config.commands.get("fix") else {
         println!("No 'fix' command configured in slopchop.toml");
-        return Ok(());
+        return Ok(SlopChopExit::Success);
     };
 
+    let mut failed = false;
     for cmd in fix_cmds {
         println!("Running: {cmd}");
         let parts: Vec<&str> = cmd.split_whitespace().collect();
@@ -72,26 +74,32 @@ pub fn handle_fix() -> Result<()> {
         let status = Command::new(prog).args(args).status()?;
         if !status.success() {
             eprintln!("Command failed: {cmd}");
+            failed = true;
         }
     }
-    Ok(())
+    
+    if failed {
+        Ok(SlopChopExit::Error)
+    } else {
+        Ok(SlopChopExit::Success)
+    }
 }
 
 /// Handles the dashboard command.
 ///
 /// # Errors
-/// Returns error if TUI fails.
-pub fn handle_dashboard() -> Result<()> {
+/// Returns error if TUI fails to initialize or run.
+pub fn handle_dashboard() -> Result<SlopChopExit> {
     let mut config = Config::load();
     crate::tui::dashboard::run(&mut config)?;
-    Ok(())
+    Ok(SlopChopExit::Success)
 }
 
 /// Handles the prompt generation command.
 ///
 /// # Errors
 /// Returns error if prompt generation fails or clipboard access fails.
-pub fn handle_prompt(copy: bool) -> Result<()> {
+pub fn handle_prompt(copy: bool) -> Result<SlopChopExit> {
     let config = Config::load();
     let gen = PromptGenerator::new(config.rules);
     let prompt = gen.generate().map_err(|e| anyhow!(e.to_string()))?;
@@ -102,14 +110,14 @@ pub fn handle_prompt(copy: bool) -> Result<()> {
     } else {
         println!("{prompt}");
     }
-    Ok(())
+    Ok(SlopChopExit::Success)
 }
 
 /// Handles the pack command.
 ///
 /// # Errors
 /// Returns error if packing fails.
-pub fn handle_pack(args: PackArgs) -> Result<()> {
+pub fn handle_pack(args: PackArgs) -> Result<SlopChopExit> {
     let opts = PackOptions {
         stdout: args.stdout,
         copy: args.copy,
@@ -123,14 +131,14 @@ pub fn handle_pack(args: PackArgs) -> Result<()> {
         depth: args.depth,
     };
     pack::run(&opts)?;
-    Ok(())
+    Ok(SlopChopExit::Success)
 }
 
 /// Handles the trace command.
 ///
 /// # Errors
 /// Returns error if tracing fails.
-pub fn handle_trace(file: &Path, depth: usize, budget: usize) -> Result<()> {
+pub fn handle_trace(file: &Path, depth: usize, budget: usize) -> Result<SlopChopExit> {
     let opts = TraceOptions {
         anchor: file.to_path_buf(),
         depth,
@@ -138,33 +146,33 @@ pub fn handle_trace(file: &Path, depth: usize, budget: usize) -> Result<()> {
     };
     let output = trace::run(&opts)?;
     println!("{output}");
-    Ok(())
+    Ok(SlopChopExit::Success)
 }
 
 /// Handles the map command.
 ///
 /// # Errors
 /// Returns error if mapping fails.
-pub fn handle_map(deps: bool) -> Result<()> {
+pub fn handle_map(deps: bool) -> Result<SlopChopExit> {
     let output = trace::map(deps)?;
     println!("{output}");
-    Ok(())
+    Ok(SlopChopExit::Success)
 }
 
 /// Handles the signatures command.
 ///
 /// # Errors
-/// Returns error if extraction fails.
-pub fn handle_signatures(opts: SignatureOptions) -> Result<()> {
+/// Returns error if signature extraction fails.
+pub fn handle_signatures(opts: SignatureOptions) -> Result<SlopChopExit> {
     signatures::run(&opts).map_err(|e| anyhow!(e.to_string()))?;
-    Ok(())
+    Ok(SlopChopExit::Success)
 }
 
 /// Handles the apply command with CLI arguments.
 ///
 /// # Errors
-/// Returns error if application fails.
-pub fn handle_apply(args: &ApplyArgs) -> Result<()> {
+/// Returns error if application fails or IO errors occur.
+pub fn handle_apply(args: &ApplyArgs) -> Result<SlopChopExit> {
     let config = Config::load();
     let repo_root = get_repo_root();
     let input = determine_input(args);
@@ -174,7 +182,7 @@ pub fn handle_apply(args: &ApplyArgs) -> Result<()> {
         let ctx = ApplyContext::new(&config, repo_root);
         let outcome = apply::run_promote(&ctx)?;
         apply::print_result(&outcome);
-        return Ok(());
+        return Ok(map_outcome_to_exit(&outcome));
     }
 
     let ctx = ApplyContext {
@@ -191,7 +199,27 @@ pub fn handle_apply(args: &ApplyArgs) -> Result<()> {
     let outcome = apply::run_apply(&ctx)?;
     apply::print_result(&outcome);
 
-    Ok(())
+    Ok(map_outcome_to_exit(&outcome))
+}
+
+fn map_outcome_to_exit(outcome: &ApplyOutcome) -> SlopChopExit {
+    match outcome {
+        ApplyOutcome::Success { .. } | ApplyOutcome::Promoted { .. } | ApplyOutcome::StageReset => {
+            SlopChopExit::Success
+        }
+        ApplyOutcome::ValidationFailure { .. } => SlopChopExit::InvalidInput,
+        ApplyOutcome::ParseError(msg) => {
+            if msg.contains("Patch mismatch")
+                || msg.contains("Ambiguous")
+                || msg.contains("Could not find exact match")
+            {
+                SlopChopExit::PatchFailure
+            } else {
+                SlopChopExit::InvalidInput
+            }
+        }
+        ApplyOutcome::WriteError(_) => SlopChopExit::Error,
+    }
 }
 
 fn determine_input(args: &ApplyArgs) -> apply::types::ApplyInput {
