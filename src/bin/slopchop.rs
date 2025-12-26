@@ -20,6 +20,7 @@ fn main() -> ExitCode {
 
     let result = match args.command {
         Some(Commands::Prompt { copy }) => cli::handle_prompt(copy),
+        Some(Commands::Scan { verbose }) => cli::handle_scan(verbose),
         Some(Commands::Check) => cli::handle_check(),
         Some(Commands::Fix) => cli::handle_fix(),
         Some(Commands::Apply {

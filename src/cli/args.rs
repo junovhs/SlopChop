@@ -20,6 +20,10 @@ pub enum Commands {
     },
     Check,
     Fix,
+    Scan {
+        #[arg(long, short)]
+        verbose: bool,
+    },
     Apply {
         #[arg(long, short)]
         force: bool,

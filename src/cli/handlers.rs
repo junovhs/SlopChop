@@ -1,11 +1,14 @@
 // src/cli/handlers.rs
+use crate::analysis::RuleEngine;
 use crate::apply;
 use crate::apply::types::{ApplyContext, ApplyOutcome};
 use crate::cli::args::ApplyArgs;
 use crate::config::Config;
+use crate::discovery;
 use crate::exit::SlopChopExit;
 use crate::pack::{self, OutputFormat, PackOptions};
 use crate::prompt::PromptGenerator;
+use crate::reporting;
 use crate::signatures::{self, SignatureOptions};
 use crate::stage;
 use crate::trace::{self, TraceOptions};
@@ -31,6 +34,27 @@ pub struct PackArgs {
     pub target: Option<PathBuf>,
     pub focus: Vec<PathBuf>,
     pub depth: usize,
+}
+
+/// Handles the scan command.
+///
+/// # Errors
+/// Returns error if discovery or scanning fails.
+pub fn handle_scan(verbose: bool) -> Result<SlopChopExit> {
+    let mut config = Config::load();
+    config.verbose = verbose;
+    
+    let files = discovery::discover(&config)?;
+    let engine = RuleEngine::new(config);
+    let report = engine.scan(files);
+    
+    reporting::print_report(&report)?;
+    
+    if report.has_errors() {
+        Ok(SlopChopExit::CheckFailed)
+    } else {
+        Ok(SlopChopExit::Success)
+    }
 }
 
 /// Handles the check command.
@@ -217,7 +241,7 @@ fn map_outcome_to_exit(outcome: &ApplyOutcome) -> SlopChopExit {
             } else {
                 SlopChopExit::InvalidInput
             }
-        }
+        },
         ApplyOutcome::WriteError(_) => SlopChopExit::Error,
     }
 }

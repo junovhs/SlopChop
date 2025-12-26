@@ -1,10 +1,15 @@
 // src/apply/verification.rs
+use crate::analysis::RuleEngine;
 use crate::apply::types::ApplyContext;
 use crate::clipboard;
+use crate::config::Config;
+use crate::discovery;
+use crate::reporting;
 use crate::spinner::Spinner;
 use crate::stage;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use colored::Colorize;
+use std::env;
 use std::path::Path;
 use std::process::Command;
 
@@ -29,8 +34,9 @@ pub fn run_verification_pipeline<P: AsRef<Path>>(ctx: &ApplyContext, cwd: P) -> 
         }
     }
 
-    // 2. Run SlopChop scan (Structural check)
-    if !run_stage_in_dir("slopchop scan", "slopchop", working_dir)? {
+    // 2. Run SlopChop scan (Structural check) - Internal Call
+    // We run this in-process to avoid binary mismatch/recursion/PATH issues with subprocesses.
+    if !run_internal_scan(working_dir)? {
         return Ok(false);
     }
 
@@ -71,6 +77,61 @@ fn run_stage_in_dir(label: &str, cmd_str: &str, cwd: &Path) -> Result<bool> {
     }
 
     Ok(success)
+}
+
+fn run_internal_scan(cwd: &Path) -> Result<bool> {
+    let sp = Spinner::start("slopchop scan");
+    
+    // RAII-style CWD guard
+    let original_cwd = env::current_dir()?;
+    env::set_current_dir(cwd)?;
+    
+    // Run scan logic
+    let scan_result = std::panic::catch_unwind(|| -> Result<bool> {
+        // Reload config from the target directory to respect local settings
+        let config = Config::load();
+        let files = discovery::discover(&config)?;
+        let engine = RuleEngine::new(config);
+        let report = engine.scan(files);
+        
+        if report.has_errors() {
+            Ok(false)
+        } else {
+            Ok(true)
+        }
+    });
+
+    // Restore CWD immediately
+    env::set_current_dir(original_cwd)?;
+
+    match scan_result {
+        Ok(Ok(success)) => {
+            sp.stop(success);
+            if !success {
+                // If failed, we need to print the report. 
+                // We re-run or we should have captured it. 
+                // For simplicity and to avoid complex buffering, we re-run the scan *logic* to print.
+                // It's fast enough.
+                println!("{}", "-".repeat(60).red());
+                println!("{} Failed: {}", "[!]".red(), "slopchop scan".bold());
+                
+                // Re-run to print output to stdout
+                env::set_current_dir(cwd)?;
+                let config = Config::load();
+                let files = discovery::discover(&config)?;
+                let engine = RuleEngine::new(config);
+                let report = engine.scan(files);
+                reporting::print_report(&report)?;
+                env::set_current_dir(env::current_dir()?.parent().unwrap_or(Path::new(".")))?; // best effort restore if panic
+                
+                println!("{}", "-".repeat(60).red());
+                return Ok(false);
+            }
+            Ok(true)
+        }
+        Ok(Err(e)) => Err(e),
+        Err(_) => Err(anyhow!("Internal scan panicked")),
+    }
 }
 
 fn handle_failure(stage_name: &str, summary: &str) {
