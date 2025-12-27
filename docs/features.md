@@ -70,6 +70,9 @@ The patch engine is context-anchored and cryptographically locked.
     *   **`--focus <file>`**: The killer feature. Puts the target file in full view, but compresses all other files into "Skeletons" (signatures only, no bodies) to save tokens.
     *   **`--noprompt`**: Excludes the system prompt instructions (raw code only).
     *   **`--copy`**: Copies result to clipboard.
+    *   **Globbing Tip**: To select multiple files (e.g., all markdown), let your shell do the work. Do **not** quote the wildcard.
+        *   ✅ `slopchop pack --focus docs/*.md`
+        *   ❌ `slopchop pack --focus "docs/*.md"` (Passes literal asterisk; finds nothing)
 
 *   **`slopchop prompt`**
     *   Outputs the raw System Prompt (The 3 Laws + Protocol instructions) to paste into an LLM.
