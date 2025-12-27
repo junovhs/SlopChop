@@ -127,21 +127,25 @@ fn render_dependencies(out: &mut String, graph: &RepoGraph, file: &Path, parent_
     let deps = graph.neighbors(file);
     if deps.is_empty() { return; }
 
-    let prefix = if parent_is_last { "      " } else { "  │   " };
+    let prefix = if parent_is_last { "    " } else { "│   " };
 
     for (i, dep) in deps.iter().enumerate() {
         let is_last_dep = i == deps.len() - 1;
         let connector = if is_last_dep { "└── " } else { "├── " };
         let line = format_dep_line(file, dep, prefix, connector);
-        let _ = writeln!(out, "{line}");
+        let _ = writeln!(out, "  {line}");
     }
 }
 
 fn format_dep_line(file: &Path, dep: &Path, prefix: &str, connector: &str) -> String {
     let dep_name = dep.to_string_lossy();
     let distance = measure_distance(file, dep);
-    let dist_label = if distance > 2 { " [FAR]".red() } else { "".normal() };
-    format!("  {prefix} {connector} {dep_name} {dist_label}")
+    
+    // Locality heuristic: Same directory is 0. 
+    // Flag only if they are significantly distant (cross-module/cross-package).
+    let dist_label = if distance > 4 { " [FAR]".red() } else { "".normal() };
+    
+    format!("{prefix}  {connector}{dep_name}{dist_label}")
 }
 
 fn measure_distance(a: &Path, b: &Path) -> usize {
