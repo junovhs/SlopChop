@@ -30,6 +30,10 @@ pub fn process_input(content: &str, ctx: &ApplyContext) -> Result<ApplyOutcome> 
 
     let (manifest, mut extracted) = extract_content(&blocks)?;
 
+    if ctx.sanitize {
+        perform_sanitization(&mut extracted);
+    }
+
     // Process PATCH blocks
     if let Err(e) = apply_patches(&blocks, &mut extracted, ctx) {
         return Ok(ApplyOutcome::ParseError(format!("Patch Error: {e}")));
@@ -38,10 +42,6 @@ pub fn process_input(content: &str, ctx: &ApplyContext) -> Result<ApplyOutcome> 
     let validation = validator::validate(&manifest, &extracted);
     if !matches!(validation, ApplyOutcome::Success { .. }) {
         return Ok(validation);
-    }
-
-    if ctx.sanitize {
-        perform_sanitization(&mut extracted);
     }
 
     executor::apply_to_stage_transaction(&manifest, &extracted, ctx)
