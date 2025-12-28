@@ -34,6 +34,5 @@ We are entering the **Multi-Language Era (v1.3.x)**.
 *   **TypeScript Support:** Extend locality scanning to TS/JS projects. The infrastructure is language-agnostic; we need import extraction and resolution for TS.
 *   **Python Support:** Same pattern — import extraction via tree-sitter.
 *   **Wire Locality into Check:** Make locality violations block `slopchop check` when `mode = "error"`.
-*   **Distribution:** Homebrew tap, Scoop bucket, crates.io publish.
 ### Immediate Next Action
 **Add TypeScript import resolution to `graph/resolver.rs` and test locality scanning on a TS project.**
