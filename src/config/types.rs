@@ -53,6 +53,8 @@ pub struct RuleConfig {
     pub ignore_tokens_on: Vec<String>,
     #[serde(default)]
     pub safety: SafetyConfig,
+    #[serde(default)]
+    pub locality: super::locality::LocalityConfig,
 }
 
 impl Default for RuleConfig {
@@ -66,6 +68,7 @@ impl Default for RuleConfig {
             ignore_naming_on: Vec::new(),
             ignore_tokens_on: default_ignore_tokens(),
             safety: SafetyConfig::default(),
+            locality: super::locality::LocalityConfig::default(),
         }
     }
 }

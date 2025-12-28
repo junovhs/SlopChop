@@ -1,7 +1,9 @@
 // src/config/mod.rs
 pub mod io;
+pub mod locality;
 pub mod types;
 
+pub use self::locality::LocalityConfig;
 pub use self::types::{
     CommandEntry, Config, Preferences, RuleConfig, SlopChopToml,
 };

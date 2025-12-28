@@ -23,6 +23,8 @@ Fix,
 Scan {
 #[arg(long, short)]
 verbose: bool,
+#[arg(long, short)]
+locality: bool,
 },
 Apply {
 #[arg(long, short)]

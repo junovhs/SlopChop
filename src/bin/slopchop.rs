@@ -2,15 +2,13 @@ use clap::Parser;
 use slopchop_core::cli::{self, args::{Cli, Commands}};
 use slopchop_core::exit::SlopChopExit;
 use std::process::{ExitCode, Termination};
-
 fn main() -> ExitCode {
     let args = Cli::parse();
-
     let result = match args.command {
         Some(Commands::Prompt { copy }) => cli::handle_prompt(copy),
         Some(Commands::Check) => cli::handle_check(),
         Some(Commands::Fix) => cli::handle_fix(),
-        Some(Commands::Scan { verbose }) => cli::handle_scan(verbose),
+        Some(Commands::Scan { verbose, locality }) => cli::handle_scan(verbose, locality),
         Some(Commands::Apply {
             force,
             dry_run,
@@ -84,12 +82,11 @@ fn main() -> ExitCode {
             } else {
                 use clap::CommandFactory;
                 let _ = Cli::command().print_help();
-                println!(); // new line
+                println!();
                 Ok(SlopChopExit::Success)
             }
         },
     };
-
     match result {
         Ok(exit) => exit.report(),
         Err(e) => {

@@ -5,45 +5,56 @@ max_nesting_depth = 3
 max_function_args = 5
 max_function_words = 5
 ignore_naming_on = [
-"tests",
-"spec",
-"src/stage/state.rs",
-"src/stage/tests_manager.rs",
-"src/stage/tests_promote.rs",
-"src/apply/patch/tests.rs",
-"src/apply/parser.rs",
-"src/apply/verification.rs",
-"src/apply/executor.rs",
-"src/stage/copy.rs",
-"src/audit",
-"src/pack",
-"src/clipboard",
-"src/signatures"
+    "tests",
+    "spec",
+    "src/stage/state.rs",
+    "src/stage/tests_manager.rs",
+    "src/stage/tests_promote.rs",
+    "src/apply/patch/tests.rs",
+    "src/apply/parser.rs",
+    "src/apply/verification.rs",
+    "src/apply/executor.rs",
+    "src/stage/copy.rs",
+    "src/audit",
+    "src/pack",
+    "src/clipboard",
+    "src/signatures",
 ]
 ignore_tokens_on = [
-"README.md",
-"CHANGELOG.md",
-"CONTRIBUTING.md",
-"lock",
-"docs",
-"pivot_brief.md",
+    "README.md",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "lock",
+    "docs",
+    "pivot_brief.md",
 ]
+
 [rules.safety]
 require_safety_comment = true
 ban_unsafe = false
-[rules.layers.definitions]
-[rules.layers.allowed_deps]
+
+[rules.locality]
+max_distance = 4
+l1_threshold = 2
+hub_threshold = 1.0
+min_hub_afferent = 5
+god_module_threshold = 20
+deadwood_threshold = 2
+mode = "warn"
+hubs = []
+exempt_patterns = []
+
 [preferences]
-theme = "Cyberpunk"
 auto_copy = true
 auto_format = false
 system_bell = false
 backup_retention = 5
 progress_bars = true
-require_plan = false
+require_plan = true
+
 [commands]
-fix = ["cargo fmt"]
 check = [
-"cargo clippy --all-targets -- -D warnings -W clippy::pedantic",
-"cargo test",
+    "cargo clippy --all-targets -- -D warnings -W clippy::pedantic",
+    "cargo test",
 ]
+fix = ["cargo fmt"]

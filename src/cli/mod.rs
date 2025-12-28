@@ -4,6 +4,7 @@
 pub mod args;
 pub mod audit;
 pub mod handlers;
+pub mod locality;
 
 pub use args::{Cli, Commands};
 pub use handlers::{

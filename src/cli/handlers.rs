@@ -40,7 +40,11 @@ pub struct PackArgs {
 ///
 /// # Errors
 /// Returns error if discovery or scanning fails.
-pub fn handle_scan(verbose: bool) -> Result<SlopChopExit> {
+pub fn handle_scan(verbose: bool, locality: bool) -> Result<SlopChopExit> {
+    if locality {
+        return super::locality::handle_locality();
+    }
+
     let mut config = Config::load();
     config.verbose = verbose;
     
