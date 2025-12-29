@@ -84,7 +84,7 @@ fn write_file_entry(
     contents: &HashMap<PathBuf, String>,
     graph: Option<&RepoGraph>,
 ) {
-    let connector = if is_last { "└── " } else { "├── " };
+    let connector = if is_last { "`-- " } else { "|-- " };
     let name = file.file_name().unwrap_or_default().to_string_lossy();
     let stats = get_file_stats(file, contents);
     let meta = format!("{:.1} KB  {} toks", stats.size_kb, stats.tokens).dimmed();
@@ -102,11 +102,11 @@ fn render_dependencies(out: &mut String, graph: &RepoGraph, file: &Path, parent_
         return;
     }
 
-    let prefix = if parent_is_last { "    " } else { "│   " };
+    let prefix = if parent_is_last { "    " } else { "|   " };
 
     for (i, dep) in deps.iter().enumerate() {
         let is_last_dep = i == deps.len() - 1;
-        let connector = if is_last_dep { "└── " } else { "├── " };
+        let connector = if is_last_dep { "`-- " } else { "|-- " };
         let line = format_dep_line(file, dep, prefix, connector);
         let _ = writeln!(out, "  {line}");
     }
@@ -142,4 +142,4 @@ fn get_file_stats(path: &Path, contents: &HashMap<PathBuf, String>) -> FileStats
         size_kb: content.len() as f64 / 1024.0,
         tokens: Tokenizer::count(content),
     }
-}
+}

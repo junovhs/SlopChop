@@ -5,8 +5,8 @@ use slopchop_core::clean;
 use slopchop_core::cli::args::ApplyArgs;
 use slopchop_core::cli::audit::AuditCliOptions;
 use slopchop_core::cli::{
-    handle_apply, handle_check, handle_map, handle_pack, handle_scan,
-    handle_signatures, Cli, Commands, PackArgs,
+    handle_apply, handle_check, handle_map, handle_pack, handle_scan, handle_signatures, Cli,
+    Commands, PackArgs,
 };
 use slopchop_core::exit::SlopChopExit;
 use slopchop_core::signatures::SignatureOptions;
@@ -64,12 +64,6 @@ fn dispatch(cmd: Commands) -> Result<SlopChopExit> {
 
         Commands::Clean { commit } => {
             clean::run(commit)?;
-            Ok(SlopChopExit::Success)
-        }
-
-        Commands::Config => {
-            println!("Configuration file: slopchop.toml");
-            println!("Run 'cat slopchop.toml' to view current settings.");
             Ok(SlopChopExit::Success)
         }
 

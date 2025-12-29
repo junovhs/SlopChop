@@ -161,7 +161,6 @@ fn determine_sanitize(args: &ApplyArgs) -> bool {
     if args.sanitize {
         return true;
     }
-    // Defaults: File/Stdin -> Strict, Clipboard -> Sanitize
     !matches!((args.stdin, &args.file), (true, _) | (_, Some(_)))
 }
 
@@ -193,4 +192,4 @@ fn determine_input(args: &ApplyArgs) -> apply::types::ApplyInput {
     } else {
         apply::types::ApplyInput::Clipboard
     }
-}
+}

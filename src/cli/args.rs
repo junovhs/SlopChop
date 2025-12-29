@@ -52,9 +52,6 @@ pub enum Commands {
         commit: bool,
     },
 
-    /// Show or edit configuration
-    Config,
-
     /// Find code duplication and consolidation opportunities [EXPERIMENTAL]
     Audit {
         #[arg(long, default_value = "terminal")]
@@ -125,4 +122,4 @@ pub struct ApplyArgs {
     pub promote: bool,
     pub sanitize: bool,
     pub strict: bool,
-}
+}
