@@ -1,5 +1,6 @@
 // src/apply/mod.rs
 pub mod backup;
+mod blocks;
 pub mod executor;
 pub mod manifest;
 pub mod messages;

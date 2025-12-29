@@ -1,13 +1,13 @@
 // src/bin/slopchop.rs
 use anyhow::Result;
 use clap::Parser;
+use slopchop_core::clean;
+use slopchop_core::cli::args::ApplyArgs;
+use slopchop_core::cli::audit::AuditCliOptions;
 use slopchop_core::cli::{
-    handle_apply, handle_audit, handle_check, handle_map, handle_pack, handle_scan,
+    handle_apply, handle_check, handle_map, handle_pack, handle_scan,
     handle_signatures, Cli, Commands, PackArgs,
 };
-use slopchop_core::cli::args::ApplyArgs;
-use slopchop_core::clean;
-use slopchop_core::config::Config;
 use slopchop_core::exit::SlopChopExit;
 use slopchop_core::signatures::SignatureOptions;
 
@@ -26,10 +26,7 @@ fn run() -> Result<SlopChopExit> {
     let cli = Cli::parse();
 
     match cli.command {
-        None => {
-            // Default behavior: show help or run scan
-            handle_scan(false, false)
-        }
+        None => handle_scan(false, false),
         Some(cmd) => dispatch(cmd),
     }
 }
@@ -71,8 +68,8 @@ fn dispatch(cmd: Commands) -> Result<SlopChopExit> {
         }
 
         Commands::Config => {
-            let config = Config::load();
-            println!("{}", toml::to_string_pretty(&config)?);
+            println!("Configuration file: slopchop.toml");
+            println!("Run 'cat slopchop.toml' to view current settings.");
             Ok(SlopChopExit::Success)
         }
 
@@ -84,7 +81,19 @@ fn dispatch(cmd: Commands) -> Result<SlopChopExit> {
             min_lines,
             max,
             verbose,
-        } => handle_audit(format, no_dead, no_dups, no_patterns, min_lines, max, verbose),
+        } => {
+            let opts = AuditCliOptions {
+                format: &format,
+                no_dead,
+                no_dups,
+                no_patterns,
+                min_lines,
+                max,
+                verbose,
+            };
+            slopchop_core::cli::audit::handle(&opts)?;
+            Ok(SlopChopExit::Success)
+        }
 
         Commands::Pack {
             stdout,
@@ -120,4 +129,4 @@ fn dispatch(cmd: Commands) -> Result<SlopChopExit> {
             handle_signatures(opts)
         }
     }
-}
+}

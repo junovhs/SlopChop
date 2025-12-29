@@ -23,11 +23,10 @@ pub fn run_verification_pipeline<P: AsRef<Path>>(ctx: &ApplyContext, cwd: P) -> 
     let logger = EventLogger::new(&ctx.repo_root);
     logger.log(EventKind::CheckStarted);
 
-    println!("{}", "\n→ Verifying changes...".blue().bold());
+    println!("{}", "\n Verifying changes...".blue().bold());
 
     let working_dir = cwd.as_ref();
 
-    // 1. Run external checks (e.g. clippy, eslint)
     if let Some(commands) = ctx.config.commands.get("check") {
         for cmd in commands {
             if !run_stage_in_dir(cmd, cmd, working_dir)? {
@@ -37,13 +36,11 @@ pub fn run_verification_pipeline<P: AsRef<Path>>(ctx: &ApplyContext, cwd: P) -> 
         }
     }
 
-    // 2. Run SlopChop structural scan
     if !run_internal_scan(working_dir)? {
         logger.log(EventKind::CheckFailed { exit_code: 1 });
         return Ok(false);
     }
 
-    // 3. Run locality scan (if enabled)
     if !run_locality_scan(working_dir)? {
         logger.log(EventKind::CheckFailed { exit_code: 1 });
         return Ok(false);
@@ -96,147 +93,72 @@ fn run_internal_scan(cwd: &Path) -> Result<bool> {
     let original_cwd = env::current_dir()?;
     env::set_current_dir(cwd)?;
     
-    let scan_result = execute_scan();
+    let config = Config::load();
+    let files = discovery::discover(&config)?;
+    let engine = RuleEngine::new(config);
+    let report = engine.scan(files);
     
-    env::set_current_dir(&original_cwd)?;
+    env::set_current_dir(original_cwd)?;
+    
+    let success = !report.has_errors();
+    sp.stop(success);
 
-    match scan_result {
-        Ok(true) => { sp.stop(true); Ok(true) }
-        Ok(false) => {
-            sp.stop(false);
-            print_scan_failure(cwd, &original_cwd)?;
-            Ok(false)
-        }
-        Err(e) => Err(e),
+    if !success {
+        reporting::print_report(&report)?;
     }
-}
 
-fn execute_scan() -> Result<bool> {
-    let config = Config::load();
-    let files = discovery::discover(&config)?;
-    let engine = RuleEngine::new(config);
-    let report = engine.scan(files);
-    Ok(!report.has_errors())
-}
-
-fn print_scan_failure(cwd: &Path, original: &Path) -> Result<()> {
-    println!("{}", "-".repeat(60).red());
-    println!("{} Failed: {}", "[!]".red(), "slopchop scan".bold());
-    
-    env::set_current_dir(cwd)?;
-    let config = Config::load();
-    let files = discovery::discover(&config)?;
-    let engine = RuleEngine::new(config);
-    let report = engine.scan(files);
-    reporting::print_report(&report)?;
-    env::set_current_dir(original)?;
-    
-    println!("{}", "-".repeat(60).red());
-    Ok(())
+    Ok(success)
 }
 
 fn run_locality_scan(cwd: &Path) -> Result<bool> {
     let config = Config::load();
     
-    if !config.rules.locality.is_enabled() {
+    if !config.rules.locality.is_enabled() || !config.rules.locality.is_error_mode() {
         return Ok(true);
     }
-
-    let is_blocking = config.rules.locality.is_error_mode();
-    let label = if is_blocking { "slopchop scan --locality" } else { "slopchop scan --locality (warn)" };
     
-    let sp = Spinner::start(label);
+    let sp = Spinner::start("slopchop scan --locality");
+
     let original_cwd = env::current_dir()?;
     env::set_current_dir(cwd)?;
-    
-    let result = locality::check_locality_silent(cwd);
-    
-    env::set_current_dir(&original_cwd)?;
 
-    handle_locality_result(result, sp, cwd, &original_cwd)
-}
+    let result = locality::run_locality_check(cwd);
 
-fn handle_locality_result(
-    result: Result<(bool, usize)>,
-    sp: Spinner,
-    cwd: &Path,
-    original: &Path,
-) -> Result<bool> {
-    let (passed, violations) = result?;
-    
-    if violations == 0 {
-        sp.stop(true);
-        return Ok(true);
+    env::set_current_dir(original_cwd)?;
+
+    let success = result.as_ref().is_ok_and(|r| r.passed);
+    sp.stop(success);
+
+    if let Ok(ref res) = result {
+        if !res.passed {
+            println!("{} locality violations found", res.violations);
+        }
     }
-    
-    if passed {
-        sp.stop(true);
-        print_locality_warnings(cwd, original, violations)?;
-    } else {
-        sp.stop(false);
-        print_locality_failure(cwd, original)?;
-    }
-    
-    Ok(passed)
-}
 
-fn print_locality_warnings(cwd: &Path, original: &Path, count: usize) -> Result<()> {
-    println!("{}", "-".repeat(60).yellow());
-    println!("{} {} locality violation(s) (non-blocking)", "[!]".yellow(), count);
-    
-    env::set_current_dir(cwd)?;
-    let _ = locality::run_locality_check(cwd);
-    env::set_current_dir(original)?;
-    
-    println!("{}", "-".repeat(60).yellow());
-    Ok(())
-}
-
-fn print_locality_failure(cwd: &Path, original: &Path) -> Result<()> {
-    println!("{}", "-".repeat(60).red());
-    println!("{} Failed: {}", "[!]".red(), "slopchop scan --locality".bold());
-    
-    env::set_current_dir(cwd)?;
-    let _ = locality::run_locality_check(cwd);
-    env::set_current_dir(original)?;
-    
-    println!("{}", "-".repeat(60).red());
-    Ok(())
-}
-
-fn handle_failure(stage_name: &str, summary: &str) {
-    println!("{}", "-".repeat(60).red());
-    println!("{} Failed: {}", "[!]".red(), stage_name.bold());
-    println!("{}", summary.trim());
-    println!("{}", "-".repeat(60).red());
-
-    match clipboard::smart_copy(summary) {
-        Ok(msg) => println!("{} {}", "[+]".yellow(), msg),
-        Err(e) => println!("{} Failed to copy to clipboard: {}", "[!]".yellow(), e),
-    }
+    Ok(success)
 }
 
 fn summarize_output(output: &str, cmd: &str) -> String {
-    let dominated_by_cargo = cmd.contains("cargo");
-    let dominated_by_test = cmd.contains("test");
-
-    output
-        .lines()
-        .filter(|line| is_relevant_line(line, dominated_by_cargo, dominated_by_test))
-        .take(50)
-        .collect::<Vec<_>>()
-        .join("\n")
+    let lines: Vec<&str> = output.lines().collect();
+    let max_lines = 20;
+    
+    if lines.len() <= max_lines {
+        return output.to_string();
+    }
+    
+    let summary: String = lines.iter().take(max_lines).copied().collect::<Vec<_>>().join("\n");
+    format!("{summary}\n... ({} more lines, run '{cmd}' for full output)", lines.len() - max_lines)
 }
 
-fn is_relevant_line(line: &str, is_cargo: bool, is_test: bool) -> bool {
-    let trimmed = line.trim();
-    if trimmed.is_empty() { return false; }
-    if is_cargo && is_cargo_noise(trimmed) { return false; }
-    if is_test && trimmed.starts_with("running ") { return false; }
-    true
-}
+fn handle_failure(label: &str, summary: &str) {
+    println!("{}", "-".repeat(60));
+    println!("{} {label}", "[!] Failed:".red().bold());
+    println!("{summary}");
+    println!("{}", "-".repeat(60));
 
-fn is_cargo_noise(line: &str) -> bool {
-    line.contains("Compiling") || line.contains("Finished") || 
-    line.contains("Fresh") || line.contains("Downloading")
-}
+    if let Err(e) = clipboard::copy_to_clipboard(summary) {
+        eprintln!("Could not copy to clipboard: {e}");
+    } else {
+        println!("{}", "[+] Text copied to clipboard".dimmed());
+    }
+}

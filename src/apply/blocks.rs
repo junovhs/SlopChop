@@ -85,14 +85,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_create_block_plan() {
-        let block = create_block("PLAN", None, "My plan".into()).unwrap();
+    fn test_create_plan_block() -> Result<()> {
+        let block = create_block("PLAN", None, "My plan".into())?;
         assert!(matches!(block, Block::Plan(c) if c == "My plan"));
+        Ok(())
     }
 
     #[test]
-    fn test_create_block_file() {
-        let block = create_block("FILE", Some("src/main.rs".into()), "code".into()).unwrap();
+    fn test_create_file_block() -> Result<()> {
+        let block = create_block("FILE", Some("src/main.rs".into()), "code".into())?;
         match block {
             Block::File { path, content } => {
                 assert_eq!(path, "src/main.rs");
@@ -100,31 +101,31 @@ mod tests {
             }
             _ => panic!("Expected File block"),
         }
+        Ok(())
     }
 
     #[test]
-    fn test_validate_rejects_keywords() {
+    fn test_rejects_keyword_paths() {
         assert!(validate_path_keyword("MANIFEST").is_err());
         assert!(validate_path_keyword("plan").is_err());
         assert!(validate_path_keyword("src/main.rs").is_ok());
     }
 
     #[test]
-    fn test_clean_block_content_no_prefix() {
+    fn test_clean_empty_prefix() {
         let result = clean_block_content("\ncode\nmore\n", "");
         assert_eq!(result, "code\nmore");
     }
 
     #[test]
-    fn test_clean_block_content_with_prefix() {
+    fn test_clean_with_prefix() {
         let result = clean_block_content("\n> line1\n> line2", "> ");
         assert_eq!(result, "line1\nline2");
     }
 
     #[test]
-    fn test_clean_line_trimmed_fallback() {
-        // When prefix is "> " but line has just ">"
+    fn test_clean_line_fallback() {
         let result = clean_line(">code", "> ", ">");
         assert_eq!(result, "code");
     }
-}
+}
