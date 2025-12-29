@@ -57,19 +57,15 @@ fn validate_unsafe_node(
 }
 
 fn report_ban_violation(node: Node, out: &mut Vec<Violation>) {
-    out.push(Violation {
-        row: node.start_position().row + 1,
-        message: "Unsafe code is strictly prohibited by configuration.".to_string(),
-        law: "LAW OF PARANOIA",
-    });
+    let row = node.start_position().row + 1;
+    let msg = "Unsafe code is strictly prohibited by configuration.";
+    out.push(Violation::simple(row, msg.to_string(), "LAW OF PARANOIA"));
 }
 
 fn report_comment_violation(node: Node, out: &mut Vec<Violation>) {
-    out.push(Violation {
-        row: node.start_position().row + 1,
-        message: "Unsafe block missing justification. Add '// SAFETY:' comment.".to_string(),
-        law: "LAW OF PARANOIA",
-    });
+    let row = node.start_position().row + 1;
+    let msg = "Unsafe block missing justification. Add '// SAFETY:' comment.";
+    out.push(Violation::simple(row, msg.to_string(), "LAW OF PARANOIA"));
 }
 
 fn has_safety_comment(node: Node, source: &str) -> bool {

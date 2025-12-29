@@ -60,18 +60,20 @@ impl RuleEngine {
             return report;
         }
 
-        report.token_count = crate::tokens::Tokenizer::count(&source);
-        if report.token_count > self.config.rules.max_file_tokens
+        let tokens = crate::tokens::Tokenizer::count(&source);
+        report.token_count = tokens;
+
+        if tokens > self.config.rules.max_file_tokens
             && !Self::is_ignored(path, &self.config.rules.ignore_tokens_on)
         {
-            report.violations.push(Violation {
-                row: 1,
-                message: format!(
+            report.violations.push(Violation::simple(
+                1,
+                format!(
                     "File size is {} tokens (Limit: {})",
-                    report.token_count, self.config.rules.max_file_tokens
+                    tokens, self.config.rules.max_file_tokens
                 ),
-                law: "LAW OF ATOMICITY",
-            });
+                "LAW OF ATOMICITY",
+            ));
         }
 
         if let Some(lang) = Lang::from_ext(path.extension().and_then(|s| s.to_str()).unwrap_or(""))
@@ -150,7 +152,6 @@ impl RuleEngine {
             filename: ctx.filename,
             config: ctx.config,
         };
-        // Use dummy query for safety (it uses traversal)
         if let Ok(q) = Query::new(lang.grammar(), "") {
             safety::check_safety(&safety_ctx, &q, &mut report.violations);
         }
@@ -158,11 +159,7 @@ impl RuleEngine {
 
     fn get_query(lang: Lang, kind: QueryKind) -> Option<&'static str> {
         let q = lang.query(kind);
-        if q.is_empty() {
-            None
-        } else {
-            Some(q)
-        }
+        if q.is_empty() { None } else { Some(q) }
     }
 
     fn is_ignored(path: &std::path::Path, patterns: &[String]) -> bool {
@@ -171,9 +168,6 @@ impl RuleEngine {
     }
 
     fn has_ignore_directive(source: &str) -> bool {
-        source
-            .lines()
-            .take(5)
-            .any(|line| line.contains("slopchop:ignore"))
+        source.lines().take(5).any(|line| line.contains("slopchop:ignore"))
     }
 }

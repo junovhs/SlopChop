@@ -7,6 +7,34 @@ pub struct Violation {
     pub row: usize,
     pub message: String,
     pub law: &'static str,
+    pub details: Option<ViolationDetails>,
+}
+
+/// Rich details for prescriptive violation reporting.
+#[derive(Debug, Clone, Default)]
+pub struct ViolationDetails {
+    pub function_name: Option<String>,
+    pub analysis: Vec<String>,
+    pub suggestion: Option<String>,
+}
+
+impl Violation {
+    /// Creates a simple violation without details.
+    #[must_use]
+    pub fn simple(row: usize, message: String, law: &'static str) -> Self {
+        Self { row, message, law, details: None }
+    }
+
+    /// Creates a violation with prescriptive details.
+    #[must_use]
+    pub fn with_details(
+        row: usize,
+        message: String,
+        law: &'static str,
+        details: ViolationDetails,
+    ) -> Self {
+        Self { row, message, law, details: Some(details) }
+    }
 }
 
 /// Analysis results for a single file.
@@ -53,4 +81,4 @@ impl ScanReport {
     pub fn clean_file_count(&self) -> usize {
         self.files.iter().filter(|f| f.is_clean()).count()
     }
-}
+}

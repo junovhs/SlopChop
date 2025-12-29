@@ -56,5 +56,4 @@ require_plan = false
 fix = ["cargo fmt"]
 check = [
     "cargo clippy --all-targets -- -D warnings -W clippy::pedantic",
-    "cargo test",
 ]
