@@ -34,10 +34,4 @@ impl Tokenizer {
     pub fn is_available() -> bool {
         BPE.is_some()
     }
-
-    /// TEST FUNCTION TWO
-    #[must_use]
-    pub fn test_two() -> bool {
-        false
-    }
 }
