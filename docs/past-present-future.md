@@ -1,7 +1,7 @@
 # Past / Present / Future
 
 **Status:** Canonical (living snapshot)  
-**Last updated:** 2025-12-28  
+**Last updated:** 2026-01-02 (v1.3.1)  
 **Canonical policy:** This document states the current operational reality and the single next action.
 
 ---
@@ -22,6 +22,12 @@
 - Deleted ~2000 lines of unused code (`src/trace/`, `src/tui/`)
 - Prescriptive violations: errors now include ANALYSIS and SUGGESTION sections
 - Modularized analysis checks into `checks/naming.rs`, `checks/complexity.rs`, `checks/banned.rs`
+
+**v1.3.1: Doc Archival & Verification.**
+- Archived v1.3.0 feature proposals and stress tests.
+- Bumped version to v1.3.1.
+- Verified zero-violation state on the new topology.
+
 
 ---
 
@@ -57,8 +63,6 @@ The locality scanner requires manual hub config and produces false positives for
 ---
 
 ## 3) Future (What we do next)
-
-### Immediate Next Action
 
 ### Immediate Next Action
 
