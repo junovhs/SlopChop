@@ -1,6 +1,6 @@
 [package]
 name = "slopchop"
-version = "1.3.3"
+version = "1.3.4"
 edition = "2021"
 authors = ["Spencer Nunamaker <junovhs@gmail.com>"]
 description = "High-integrity code quality governance and transactional change management for AI-assisted development"
@@ -46,7 +46,7 @@ tiktoken-rs = "0.5"
 
 # UI / TUI (optional feature)
 ratatui = { version = "0.29", optional = true }
-crossterm = { version = "0.28", optional = true }
+crossterm = "0.28"
 
 # Structural Parsing
 tree-sitter = "0.20"
@@ -59,7 +59,7 @@ tempfile = "3.10"
 
 [features]
 default = ["tui"]
-tui = ["dep:ratatui", "dep:crossterm"]
+tui = ["dep:ratatui"]
 
 # Profile for release builds - optimize for size and speed
 [profile.release]

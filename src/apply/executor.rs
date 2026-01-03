@@ -127,9 +127,9 @@ fn run_post_apply_verification(
     stage: &mut StageManager,
     outcome: ApplyOutcome,
 ) -> Result<ApplyOutcome> {
-    let passed = verification::run_verification_pipeline(ctx, stage.worktree())?;
+    let result = verification::run_verification_pipeline(ctx, stage.worktree())?;
 
-    if passed {
+    if result.passed {
         println!("{}", " Verification passed!".green().bold());
         if ctx.auto_promote {
             return promote_stage(ctx, stage);
@@ -141,6 +141,16 @@ fn run_post_apply_verification(
         Ok(outcome)
     } else {
         println!("{}", "? Verification failed. Changes remain staged.".yellow());
+        
+        let modified_files: Vec<String> = if let Some(state) = stage.state() {
+             state.paths_to_write().iter().map(|p| p.path.clone()).collect()
+        } else {
+             Vec::new()
+        };
+        
+        let ai_msg = verification::generate_ai_feedback(&result.failed_checks, &modified_files);
+        crate::apply::messages::print_ai_feedback(&ai_msg);
+        
         print_stage_info(stage);
         Ok(outcome)
     }

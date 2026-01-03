@@ -122,5 +122,7 @@ fn dispatch(cmd: Commands) -> Result<SlopChopExit> {
             let opts = SignatureOptions { copy, stdout };
             handle_signatures(opts)
         }
+
+        Commands::Config => slopchop_core::cli::handlers::handle_config(),
     }
-}
+}

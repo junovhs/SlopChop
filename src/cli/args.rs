@@ -108,6 +108,9 @@ pub enum Commands {
         #[arg(long, short)]
         stdout: bool,
     },
+
+    /// Interactive configuration editor
+    Config,
 }
 
 #[allow(clippy::struct_excessive_bools)]
@@ -122,4 +125,4 @@ pub struct ApplyArgs {
     pub promote: bool,
     pub sanitize: bool,
     pub strict: bool,
-}
+}

@@ -43,6 +43,13 @@ impl Config {
     pub fn parse_toml(&mut self, content: &str) {
         io::parse_toml(self, content);
     }
+
+    /// Saves the current configuration to `slopchop.toml`.
+    /// # Errors
+    /// Returns error if file write fails.
+    pub fn save(&self) -> Result<()> {
+        io::save_to_file(&self.rules, &self.preferences, &self.commands)
+    }
 }
 
 pub use crate::constants::{

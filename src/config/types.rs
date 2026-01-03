@@ -16,6 +16,12 @@ pub struct Preferences {
     pub progress_bars: bool,
     #[serde(default)]
     pub require_plan: bool,
+    #[serde(default)]
+    pub write_fix_packet: bool,
+    #[serde(default = "default_fix_packet_path")]
+    pub fix_packet_path: String,
+    #[serde(default)]
+    pub auto_promote: bool,
 }
 
 impl Default for Preferences {
@@ -27,6 +33,9 @@ impl Default for Preferences {
             backup_retention: default_backup_retention(),
             progress_bars: default_progress_bars(),
             require_plan: false,
+            write_fix_packet: false,
+            fix_packet_path: default_fix_packet_path(),
+            auto_promote: false,
         }
     }
 }
@@ -34,6 +43,7 @@ impl Default for Preferences {
 fn default_auto_copy() -> bool { true }
 fn default_progress_bars() -> bool { true }
 fn default_backup_retention() -> usize { 5 }
+fn default_fix_packet_path() -> String { "slopchop-fixme.txt".to_string() }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RuleConfig {

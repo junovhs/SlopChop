@@ -70,7 +70,9 @@ pub fn handle_check() -> Result<SlopChopExit> {
 
     let cwd = stage::effective_cwd(&repo_root);
 
-    if apply::verification::run_verification_pipeline(&ctx, &cwd)? {
+    let result = apply::verification::run_verification_pipeline(&ctx, &cwd)?;
+
+    if result.passed {
         println!("{}", "[OK] All checks passed.".green().bold());
         Ok(SlopChopExit::Success)
     } else {
@@ -115,6 +117,15 @@ pub fn handle_map(deps: bool) -> Result<SlopChopExit> {
 /// Returns error if signature extraction fails.
 pub fn handle_signatures(opts: SignatureOptions) -> Result<SlopChopExit> {
     signatures::run(&opts)?;
+    Ok(SlopChopExit::Success)
+}
+
+/// Handles the config command.
+///
+/// # Errors
+/// Returns error if config editing fails.
+pub fn handle_config() -> Result<SlopChopExit> {
+    crate::cli::config_ui::run_config_editor()?;
     Ok(SlopChopExit::Success)
 }
 
@@ -192,4 +203,4 @@ fn determine_input(args: &ApplyArgs) -> apply::types::ApplyInput {
     } else {
         apply::types::ApplyInput::Clipboard
     }
-}
+}
