@@ -124,7 +124,6 @@ Searches for repo-wide duplication and consolidation opportunities.
 ## Configuration (`slopchop.toml`)
 
 SlopChop generates a project-specific config if none exists.
-
 ```toml
 [rules]
 max_file_tokens = 2000
@@ -186,15 +185,19 @@ slopchop apply --reset
 
 ---
 
-## Latest: v1.3.2 - High Integrity & Locality v2
+## Latest: v1.3.3 - Cross-Platform Patch Reliability
 
-SlopChop v1.3.2 is the "God Tier Integrity" release:
+SlopChop v1.3.3 fixes critical patch workflow issues:
+*   **Hash Normalization:** CRLF and LF files now produce identical hashes, fixing the "flip-flop" bug on Windows.
+*   **Multi-Patch Support:** Multiple patches to the same file in a single payload now work correctly.
+*   **Unified Hashing:** Single `compute_sha256()` function used across pack and apply.
+
+### Previous: v1.3.2 - High Integrity & Locality v2
 *   **Split-Brain Protection:** Blocks promotion if workspace files were manually modified after staging.
 *   **Hardened Sandbox:** Fixed S03 (Null byte paths) and I01 (Greedy sigils) vulnerabilities.
-*   **Locality v2:** Automated module layer inference and cycle detection to keep your architecture linear.
-*   **Physical Stress Testing:** 100% verified coverage across adversarial edge cases.
+*   **Locality v2:** Automated module layer inference and cycle detection.
 
-SlopChop v1.1.0 adds robust protection against "copy-paste slop":
-*   **Parser Resilience:** Tolerates indentation (`> `) and artifacts from chat UIs.
-*   **Sanitization:** Automatically strips UI-injected markdown code fences from payloads.
-*   **Enhanced Diagnostics:** PATCH failures now show "Did you mean?" hints and visual diffs.
+### Previous: v1.1.0 - Transport Hardening
+*   **Parser Resilience:** Tolerates indentation and artifacts from chat UIs.
+*   **Sanitization:** Automatically strips UI-injected markdown code fences.
+*   **Enhanced Diagnostics:** PATCH failures show "Did you mean?" hints.

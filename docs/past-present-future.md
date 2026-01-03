@@ -1,24 +1,30 @@
 # Past / Present / Future
 
 **Status:** Canonical (living snapshot)  
-**Last updated:** 2026-01-02 (v1.3.3)  
+**Last updated:** 2026-01-03 (v1.3.3)  
 **Canonical policy:** This document states the current operational reality and the single next action.
 
 ---
 
 ## 1) Past (What changed recently)
 
-**v1.3.3: Hash Normalization Fix.**
+**v1.3.3: Cross-Platform Patch Reliability.**
 - Fixed critical CRLF hash flip-flopping bug on Windows that blocked patch workflow.
+- Fixed multi-patch verification: only first patch to each file is hash-verified.
 - Consolidated to single `compute_sha256()` function with line ending normalization.
-- Removed duplicate `compute_hash()` from `formats.rs`.
+- Added `apply_with_options()` to support skip-hash for chained patches.
 - Added `test_eol_normalization` and `test_hash_stability` tests.
 
-**v1.2.x: The Law of Locality was added.**
-- Stability Classifier computing fan-in, fan-out, Instability, and Skew
-- Node identity classification (StableHub, VolatileLeaf, IsolatedDeadwood, GodModule)
-- Universal Locality Algorithm validating dependency edges
-- CLI integration via `slopchop scan --locality`
+**v1.3.2: Patch Security & Stress Test Hardening.**
+- Fixed critical vulnerabilities: S03 (Null Byte in Path) and I01 (Sigil Injection).
+- Verified semantic matcher robustness (W06: Trailing Newline Fallback).
+- Strengthened protocol parser with specific prefix binding.
+- Systematic stress testing of Categories 1-9 completed.
+
+**v1.3.1: Doc Archival & Verification.**
+- Archived v1.3.0 feature proposals and stress tests.
+- Bumped version to v1.3.1.
+- Verified zero-violation state on the new topology.
 
 **v1.3.0: Locality v2 & Consolidation.**
 - **Locality v2:** Cycle detection, auto-hub detection, and layer inference.
@@ -29,25 +35,19 @@
 - Prescriptive violations: errors now include ANALYSIS and SUGGESTION sections
 - Modularized analysis checks into `checks/naming.rs`, `checks/complexity.rs`, `checks/banned.rs`
 
-**v1.3.1: Doc Archival & Verification.**
-- Archived v1.3.0 feature proposals and stress tests.
-- Bumped version to v1.3.1.
-- Verified zero-violation state on the new topology.
-
-**v1.3.2: Patch Security & Stress Test Hardening.**
-- Fixed critical vulnerabilities: S03 (Null Byte in Path) and I01 (Sigil Injection).
-- Verified semantic matcher robustness (W06: Trailing Newline Fallback).
-- Strengthened protocol parser with specific prefix binding.
-- Systematic stress testing of Categories 1-9 completed.
-
+**v1.2.x: The Law of Locality was added.**
+- Stability Classifier computing fan-in, fan-out, Instability, and Skew
+- Node identity classification (StableHub, VolatileLeaf, IsolatedDeadwood, GodModule)
+- Universal Locality Algorithm validating dependency edges
+- CLI integration via `slopchop scan --locality`
 
 ---
 
 ## 2) Present (Where we are right now)
 
-**Status:** STABLE - Patch workflow unblocked
+**Status:** STABLE - Patch workflow fully operational
 
-SlopChop passes all its own checks. Hash computation is now cross-platform stable.
+SlopChop passes all its own checks. Hash computation is cross-platform stable. Multi-patch payloads work correctly.
 
 ### Core Commands
 
@@ -67,10 +67,6 @@ SlopChop passes all its own checks. Hash computation is now cross-platform stabl
 | `audit` | Code duplication detection | |
 | `map` | Repository visualization | |
 | `signatures` | Type-surface maps for AI | |
-
-### Known Issue
-
-The locality scanner requires manual hub config and produces false positives for legitimate layered architectures. This is addressed in the approved proposal.
 
 ---
 
@@ -100,4 +96,3 @@ The locality scanner requires manual hub config and produces false positives for
 - **Test coverage enforcement:** Separate tooling
 - **Advanced visualization:** Dashboard is dead
 - **Method B optimization:** Signatures/map experiments frozen
-
