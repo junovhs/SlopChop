@@ -68,31 +68,93 @@ SlopChop passes all its own checks. Hash computation is cross-platform stable. M
 | `map` | Repository visualization | |
 | `signatures` | Type-surface maps for AI | |
 
+### Known Issues
+
+1. **Paste-back packet broken**: When verification fails, the AI feedback message prints but is no longer auto-copied to clipboard. This broke during a refactor and was never restored.
+
+2. **No config UI**: After deleting the bloated TUI dashboard, there's no interactive way to configure SlopChop. Users must edit `slopchop.toml` manually.
+
 ---
 
 ## 3) Future (What we do next)
 
-### Immediate Next Action
+### v1.3.4: UX Polish (Immediate Next Action)
 
-**Validate Locality v2 on external projects.**
+| Feature | Description | Effort |
+|---------|-------------|--------|
+| **Fix paste-back** | Restore auto-copy of AI feedback to clipboard on verification failure | Small |
+| **`slopchop config`** | Minimal interactive config editor using crossterm directly (no ratatui) | Medium |
+| **Configurable output** | Option to write fix packet to file instead of clipboard | Small |
 
-| Action | Description | Outcome |
-|-------|-------------|---------|
-| Validation | Run on 3-5 external Rust repos | Battle-hardened heuristics |
-| Mode Error | Switch `mode = "error"` as default | Zero-tolerance topology |
-| Performance | Parallelize dependency graph construction | Faster scans |
+See `docs/v1.3.4-ux-spec.md` for full technical specification.
 
-### After Locality v2
+### After v1.3.4
 
-- Validate on external Rust projects
-- Consider `mode = "error"` as default once battle-tested
-- TypeScript import resolution improvements (if needed)
+| Feature | Description | Priority |
+|---------|-------------|----------|
+| Locality validation | Run on 3-5 external Rust repos to battle-test heuristics | Medium |
+| `mode = "error"` default | Switch locality to blocking mode once validated | Low |
+| TypeScript imports | Better path alias and index file resolution | Low |
+| Distribution | Scoop, Winget, Homebrew packages | Low |
 
 ---
 
 ## 4) Non-Goals (What we are NOT doing)
 
-- **Python support:** Not a real use case yet
-- **Test coverage enforcement:** Separate tooling
-- **Advanced visualization:** Dashboard is dead
-- **Method B optimization:** Signatures/map experiments frozen
+These were considered and deliberately rejected:
+
+| Feature | Reason |
+|---------|--------|
+| **History/generations** | Stage is ephemeral by design. Users wipe it immediately after promote. No value in tracking generations. |
+| **75% PATCH threshold** | Micromanaging. AI can decide when to use PATCH vs FILE. Automatic rejection adds friction without benefit. |
+| **META block** | Redundant. BASE_SHA256 per-patch already catches staleness. Belt-and-suspenders paranoia with no real-world failure mode. |
+| **Python support** | Not a real use case yet. |
+| **Test coverage enforcement** | Separate tooling (cargo-tarpaulin, etc). |
+| **Advanced visualization** | Dashboard was bloat. Deleted. |
+| **Method B (signatures)** | Frozen experiment. Context windows are large enough now. |
+
+---
+
+## 5) Architecture Notes
+
+### The Paste-Back Loop (Target State)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  1. User runs: slopchop apply -c                            │
+│  2. SlopChop writes to stage, runs verification             │
+│  3. If verification FAILS:                                  │
+│     a. Generate AI feedback packet (violations + context)   │
+│     b. Auto-copy to clipboard (or write to file per config) │
+│     c. Print: "Paste this back to the AI"                   │
+│  4. User pastes to AI, gets fix                             │
+│  5. User copies AI response, runs slopchop apply -c again   │
+│  6. Repeat until green                                      │
+│  7. User runs: slopchop apply --promote                     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### The Config Command (Target State)
+
+```
+$ slopchop config
+
+┌─ SlopChop Configuration ──────────────────┐
+│                                           │
+│  Rules                                    │
+│  ├─ Max file tokens    [2000]             │
+│  ├─ Max complexity     [8]                │
+│  ├─ Max nesting        [3]                │
+│  └─ Max args           [5]                │
+│                                           │
+│  Preferences                              │
+│  ├─ [x] Auto-copy to clipboard            │
+│  ├─ [ ] Write fix packet to file          │
+│  ├─ [x] Require PLAN block                │
+│  └─ [ ] Auto-promote on green             │
+│                                           │
+│  [Save]  [Cancel]                         │
+└───────────────────────────────────────────┘
+```
+
+Minimal TUI using only `crossterm` for input handling. No ratatui, no widgets, no state machine complexity. ~200 lines of code.
