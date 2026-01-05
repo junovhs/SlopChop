@@ -142,7 +142,7 @@ const QUERIES: [[&str; 6]; 3] = [
             (function_definition) @export
             (class_definition) @export
         ", // Exports
-        "(function_definition body: (block) @body)", // Skeleton
+        "(function_definition body: (block) @body)",      // Skeleton
     ],
     // TypeScript
     [
@@ -185,4 +185,12 @@ const QUERIES: [[&str; 6]; 3] = [
             (arrow_function body: (statement_block) @body)
         ", // Skeleton
     ],
-];
+];
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_from_ext() {
+        assert_eq!(Lang::from_ext("rs"), Some(Lang::Rust));
+    }
+}

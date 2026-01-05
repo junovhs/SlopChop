@@ -52,12 +52,14 @@ fn mutate_logic(lang: Lang, source: &str, file: PathBuf) -> Result<(String, Sabo
     let tree = parser.parse(source, None).context("Failed to parse file")?;
     let root = tree.root_node();
 
-    // Query for binary operators (==, !=, <, >) and boolean literals
+    // Query for binary operators and boolean literals
     let query_str = match lang {
-        Lang::Rust | Lang::TypeScript | Lang::Python => r"
+        Lang::Rust | Lang::TypeScript | Lang::Python => r#"
             (binary_expression operator: _ @op)
             (boolean_literal) @bool
-        ",
+            (binary_expression ["&&" "||"] @op)
+            [(true) (false)] @bool
+        "#,
     };
 
     // Note: This is a simplified query. Real impl needs specific lang checks or general ones.
@@ -125,6 +127,8 @@ fn flip_bool_op(op: &str) -> Option<&'static str> {
     match op {
         "true" => Some("false"),
         "false" => Some("true"),
+        "&&" => Some("||"),
+        "||" => Some("&&"),
         _ => None,
     }
 }

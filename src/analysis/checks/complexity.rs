@@ -14,13 +14,18 @@ pub fn check_metrics(
     func_query: &Query,
     complexity_query: &Query,
     out: &mut Vec<Violation>,
-) {
+) -> usize {
     let mut cursor = QueryCursor::new();
     let matches = cursor.matches(func_query, ctx.root, ctx.source.as_bytes());
 
+    let mut max_complexity = 0;
     for m in matches {
-        process_match(&m, ctx, complexity_query, out);
+        let comp = process_match(&m, ctx, complexity_query, out);
+        if comp > max_complexity {
+            max_complexity = comp;
+        }
     }
+    max_complexity
 }
 
 fn process_match(
@@ -28,14 +33,14 @@ fn process_match(
     ctx: &CheckContext,
     complexity_query: &Query,
     out: &mut Vec<Violation>,
-) {
+) -> usize {
     for capture in m.captures {
         let node = capture.node;
         if is_function_kind(node.kind()) {
-            analyze_function(node, ctx, complexity_query, out);
-            return;
+            return analyze_function(node, ctx, complexity_query, out);
         }
     }
+    0
 }
 
 fn is_function_kind(kind: &str) -> bool {
@@ -54,13 +59,13 @@ fn analyze_function(
     ctx: &CheckContext,
     complexity_query: &Query,
     out: &mut Vec<Violation>,
-) {
+) -> usize {
     let func_name = extract_function_name(node, ctx.source);
     let row = node.start_position().row + 1;
 
     check_arity(node, ctx.config, &func_name, row, out);
     check_nesting(node, ctx.config, &func_name, row, out);
-    check_cyclomatic(node, ctx, complexity_query, out);
+    check_cyclomatic(node, ctx, complexity_query, out)
 }
 
 fn extract_function_name(node: Node, source: &str) -> String {
@@ -160,7 +165,7 @@ fn check_cyclomatic(
     ctx: &CheckContext,
     query: &Query,
     out: &mut Vec<Violation>,
-) {
+) -> usize {
     let func_name = extract_function_name(node, ctx.source);
     let row = node.start_position().row + 1;
     let (complexity, branch_lines) = measure_complexity(node, ctx.source, query);
@@ -194,6 +199,7 @@ fn check_cyclomatic(
             details,
         ));
     }
+    complexity
 }
 
 fn measure_complexity(node: Node, source: &str, query: &Query) -> (usize, Vec<(usize, String)>) {
@@ -213,4 +219,4 @@ fn measure_complexity(node: Node, source: &str, query: &Query) -> (usize, Vec<(u
     }
 
     (count, branches)
-}
+}

@@ -128,7 +128,8 @@ impl RuleEngine {
                 Query::new(lang.grammar(), d_str),
                 Query::new(lang.grammar(), c_str),
             ) {
-                checks::check_metrics(ctx, &d, &c, &mut report.violations);
+                let score = checks::check_metrics(ctx, &d, &c, &mut report.violations);
+                report.complexity_score = score;
             }
         }
     }
