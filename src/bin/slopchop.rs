@@ -5,8 +5,8 @@ use slopchop_core::clean;
 use slopchop_core::cli::args::ApplyArgs;
 use slopchop_core::cli::audit::AuditCliOptions;
 use slopchop_core::cli::{
-    handle_apply, handle_check, handle_map, handle_pack, handle_scan, handle_signatures, Cli,
-    Commands, PackArgs,
+    handle_apply, handle_check, handle_map, handle_pack, handle_scan, handle_signatures,
+    handle_stage, Cli, Commands, PackArgs,
 };
 use slopchop_core::exit::SlopChopExit;
 use slopchop_core::signatures::SignatureOptions;
@@ -49,6 +49,7 @@ fn dispatch(cmd: Commands) -> Result<SlopChopExit> {
             file,
             reset,
             promote,
+            sync,
             sanitize,
             strict,
         } => {
@@ -60,6 +61,7 @@ fn dispatch(cmd: Commands) -> Result<SlopChopExit> {
                 file,
                 reset,
                 promote,
+                sync,
                 sanitize,
                 strict,
             };
@@ -130,5 +132,7 @@ fn dispatch(cmd: Commands) -> Result<SlopChopExit> {
         Commands::Config => slopchop_core::cli::handlers::handle_config(),
 
         Commands::Sabotage { file } => slopchop_core::cli::handlers::handle_sabotage(&file),
+
+        Commands::Stage { force } => handle_stage(force),
     }
 }

@@ -1,12 +1,17 @@
 # Past / Present / Future
 
-**Status:** ACTIVE DEV - v1.4.0
-**Last updated:** 2026-01-04
+**Status:** STABLE - v1.4.0
+**Last updated:** 2026-01-05
 **Canonical policy:** This document states the current operational reality. All previous history is archived in `docs/archived/`.
 
 ---
 
 ## 1) Past (What changed recently)
+
+**v1.4.0: Agentic Stage & Nuclear Sync (Completed)**
+- **Stage Management:** Added `slopchop stage` for explicit sandbox initialization.
+- **Nuclear Sync:** Added `apply --sync` for direct-to-root mirroring.
+- **Heuristic Nag:** Added passive advisory for high edit volume.
 
 **v1.3.5: Agentic Interfaces (Completed)**
 - **JSON Output:** Added `--json` to `scan` and `check` for machine-readable verification.
@@ -21,13 +26,14 @@
 
 ## 2) Present (Where we are right now)
 
-**Status:** RE-ARCHITECTING WORKFLOW (v1.4.0)
+**Status:** STABLE (v1.4.0)
 
-We are moving away from "Clipboard Payloads" as the primary workflow for autonomous agents. We are establishing the **"Agent-in-Stage"** protocol where agents edit the sandbox directly.
+The **"Agent-in-Stage"** protocol is now the primary workflow. Agents are expected to initialize a stage, perform edits directly in the sandbox, verify via `check`, and promote via `sync`.
 
 ### Operational State
 - SlopChop passes all internal 3-Law checks.
-- Machine-readable JSON output is stable for Roadmap integration.
+- Nuclear Sync is hardened with critical path protections.
+- Heuristic Nag prevents split-brain scenarios by encouraging regular syncs.
 
 ---
 

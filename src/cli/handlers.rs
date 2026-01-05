@@ -15,7 +15,8 @@ use anyhow::Result;
 use colored::Colorize;
 use std::path::PathBuf;
 
-fn get_repo_root() -> PathBuf {
+#[must_use]
+pub fn get_repo_root() -> PathBuf {
     std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
 }
 
@@ -185,6 +186,10 @@ pub fn handle_apply(args: &ApplyArgs) -> Result<SlopChopExit> {
     let repo_root = get_repo_root();
     let input = determine_input(args);
 
+    if args.sync {
+        return super::stage_handlers::handle_sync(&repo_root);
+    }
+
     if args.promote {
         let ctx = ApplyContext::new(&config, repo_root);
         let outcome = apply::run_promote(&ctx)?;
@@ -212,6 +217,8 @@ pub fn handle_apply(args: &ApplyArgs) -> Result<SlopChopExit> {
 
     Ok(map_outcome_to_exit(&outcome))
 }
+
+
 
 fn determine_sanitize(args: &ApplyArgs) -> bool {
     if args.strict {
@@ -252,3 +259,7 @@ fn determine_input(args: &ApplyArgs) -> apply::types::ApplyInput {
         apply::types::ApplyInput::Clipboard
     }
 }
+
+// Re-export from stage_handlers for backwards compatibility
+pub use super::stage_handlers::handle_stage;
+

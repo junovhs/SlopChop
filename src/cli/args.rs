@@ -47,6 +47,9 @@ pub enum Commands {
         reset: bool,
         #[arg(long)]
         promote: bool,
+        /// Nuclear sync: mirror stage to workspace, delete non-stage files
+        #[arg(long, conflicts_with = "promote")]
+        sync: bool,
         #[arg(long)]
         sanitize: bool,
         #[arg(long, conflicts_with = "sanitize")]
@@ -125,6 +128,13 @@ pub enum Commands {
         #[arg(value_name = "FILE")]
         file: PathBuf,
     },
+
+    /// Initialize or reset the staging sandbox for direct editing
+    Stage {
+        /// Skip confirmation prompt for existing stage
+        #[arg(long, short)]
+        force: bool,
+    },
 }
 
 #[allow(clippy::struct_excessive_bools)]
@@ -137,6 +147,7 @@ pub struct ApplyArgs {
     pub file: Option<PathBuf>,
     pub reset: bool,
     pub promote: bool,
+    pub sync: bool,
     pub sanitize: bool,
     pub strict: bool,
 }

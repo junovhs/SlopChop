@@ -52,6 +52,11 @@ pub fn run_verification_pipeline<P: AsRef<Path>>(
     }
     command_results.push(locality_result);
 
+    // 4. Heuristic Nag (advisory for high edit volume)
+    if !ctx.silent {
+        maybe_print_edit_advisory(&ctx.repo_root);
+    }
+
     if passed {
         logger.log(EventKind::CheckPassed);
     }
@@ -62,6 +67,37 @@ pub fn run_verification_pipeline<P: AsRef<Path>>(
         passed,
     })
 }
+
+/// Threshold for triggering the high edit volume advisory.
+const NAG_THRESHOLD: usize = 3;
+
+/// Prints an advisory if many files have been modified in the current stage.
+fn maybe_print_edit_advisory(repo_root: &Path) {
+    use crate::stage;
+
+    if !stage::stage_exists(repo_root) {
+        return;
+    }
+
+    let mut manager = stage::StageManager::new(repo_root);
+    if manager.load_state().is_err() {
+        return;
+    }
+
+    let Some(state) = manager.state() else { return };
+    let touched_count = state.touched.len();
+
+    if touched_count > NAG_THRESHOLD {
+        println!();
+        println!("{}", "━".repeat(60).yellow());
+        println!("{}", "[ADVISORY] High Edit Volume Detected".yellow().bold());
+        println!("  {touched_count} files modified in this stage session.");
+        println!("  Consider syncing soon to maintain high-integrity checkpoints.");
+        println!("  Run: {} to promote changes.", "slopchop apply --sync".cyan());
+        println!("{}", "━".repeat(60).yellow());
+    }
+}
+
 
 fn run_external_checks(
     ctx: &ApplyContext, 

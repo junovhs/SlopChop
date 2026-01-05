@@ -31,11 +31,12 @@ SlopChop implements an **Implicit Staged Workspace**. This is its most significa
 Unlike traditional tools that write directly to your source files, `slopchop apply` never touches your real files initially. Instead, it creates a **Shadow Worktree** in `.slopchop/stage/worktree/`.
 
 ### The Loop:
-1.  **Stage:** You `apply` a change payload. SlopChop writes it to the sandbox and records a `base_hash` of the workspace.
-2.  **Verify:** You run `check`. SlopChop executes your test suite and its own scan **inside the sandbox**.
-3.  **Promote:** Run `slopchop apply --promote`. SlopChop verifies that the workspace files haven't changed since Step 1 (**Split-Brain Protection**) before atomically moving files.
+1.  **Stage:** Run `slopchop stage` to initialize a fresh staging sandbox.
+2.  **Edit:** Make changes directly in `.slopchop/stage/worktree/`.
+3.  **Verify:** Run `slopchop check`. SlopChop executes tests and scans the sandbox.
+4.  **Sync:** Run `slopchop apply --sync`. SlopChop mirrors the stage back to the root, preserving infrastructure.
 
-This ensures your repository never ends in a "half-broken" state. If a change fails verification, you simply `reset` the stage or patch the sandbox.
+This ensures your repository never ends in a "half-broken" state. If a change fails verification, you simply patch or reset the stage.
 
 ---
 
@@ -92,11 +93,13 @@ The ultimate gatekeeper command. It runs:
 1.  Your configured commands (formatters, linters, tests).
 2.  The SlopChop structural scan.
 *   **Context Aware:** If a stage exists, it runs checks inside the stage. If not, it runs them in your workspace.
+*   **Heuristic Nag:** Warns you if the staged edit volume is too high (>3 files), encouraging frequent sync pulses.
 
 ### `slopchop apply` (Hardened Ingestion)
 Applies a protocol payload from clipboard, stdin, or file.
 *   **Atomic:** All files apply together or none do.
 *   **Surgical:** Validates path safety, blocks traversal (`../`), and prevents writes to sensitive dirs (`.git`, `.env`).
+*   **Syncing:** The `--sync` flag mirrors the entire staging worktree to the root repository, providing a "nuclear" but safe synchronization pulse.
 *   **Modes:**
     *   `FILE`: Replaces entire file content.
     *   `PATCH`: Context-anchored surgical editing with hash verification.
@@ -105,6 +108,11 @@ Applies a protocol payload from clipboard, stdin, or file.
     *   `--promote`: Commit verified staged changes to the real repo.
     *   `--sanitize`: Strip UI/Markdown artifacts (Default for Clipboard).
     *   `--strict`: Disable sanitization (use for raw file pipes).
+
+### `slopchop stage` (The Sandbox) [v1.4.0]
+Explicitly manages the staging area.
+*   **Stage:** `slopchop stage` initializes or wipes/recreates the sandbox.
+*   **Safe:** Always copies based on `.slopchopignore` and critical path exclusions.
 
 ### `slopchop config` (Interactive Setup)
 Opens a TUI editor to configure rules and preferences.
@@ -204,4 +212,4 @@ SlopChop v1.3.4 adds interactive configuration and improves the AI workflow loop
 ### Previous: v1.3.2 - High Integrity & Locality v2
 *   **Split-Brain Protection:** Blocks promotion if workspace files were manually modified.
 *   **Hardened Sandbox:** Fixed S03 and I01 vulnerabilities.
-
+

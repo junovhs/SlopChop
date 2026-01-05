@@ -9,14 +9,16 @@ mod copy;
 mod manager;
 mod promote;
 mod state;
+mod sync;
 
 #[cfg(test)]
 mod tests_manager;
 #[cfg(test)]
 mod tests_promote;
 
-pub use manager::StageManager;
+pub use manager::{EnsureResult, StageManager};
 pub use state::{StageState, TouchKind, TouchedPath};
+pub use sync::{mirror_stage_to_workspace, should_preserve, SyncResult};
 
 use std::path::{Path, PathBuf};
 
@@ -81,4 +83,4 @@ pub fn effective_cwd(repo_root: &Path) -> PathBuf {
     } else {
         repo_root.to_path_buf()
     }
-}
+}
