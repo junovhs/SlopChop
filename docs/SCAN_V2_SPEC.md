@@ -1,7 +1,7 @@
 # SlopChop Scan v2.0 Specification
 
-**Status:** Planning  
-**Date:** 2026-01-08  
+**Status:** Implementation In Progress
+**Date:** 2026-01-09  
 **Philosophy:** Do the hard thing first. No shortcuts. Real solutions.
 
 ---
@@ -42,15 +42,14 @@ These are computed values with thresholds.
 
 | Metric | Threshold | Category | Notes |
 |--------|-----------|----------|-------|
-| **File Tokens** | > 2000 | Atomicity | Keep |
-| **Cognitive Complexity** | > 15 | Complexity | Replaces cyclomatic |
-| **Nesting Depth** | > 3 | Complexity | Keep |
-| **Function Args** | > 5 | Complexity | Keep |
-| **LCOM4** | > 1 | State | Class should be split |
-| **AHF** | < 60% | State | State is leaking |
-| **CBO** | > 9 | State | Defect predictor |
-| **SFOUT** | > 7 | Performance | Architectural bottleneck |
-| **Author Entropy** | > 0.8 | State | No clear owner (git) |
+| **File Tokens** | > 2000 | Atomicity | [DONE] Keep |
+| **Cognitive Complexity** | > 15 | Complexity | [DONE] Replaces cyclomatic |
+| **Nesting Depth** | > 3 | Complexity | [DONE] Keep |
+| **Function Args** | > 5 | Complexity | [DONE] Keep |
+| **LCOM4** | > 1 | State | [DONE] Class should be split |
+| **AHF** | < 60% | State | [DONE] State is leaking |
+| **CBO** | > 9 | State | [DONE] Defect predictor |
+| **SFOUT** | > 7 | Performance | [DONE] Architectural bottleneck |
 
 ### Metric Definitions
 
@@ -63,8 +62,6 @@ These are computed values with thresholds.
 **CBO (Coupling Between Objects):** Count of distinct classes/modules this class depends on or is depended upon by. High CBO predicts defects.
 
 **SFOUT (Structural Fan-Out):** Number of outgoing calls/dependencies from a function or module. High fan-out = bottleneck, ripple effects on change.
-
-**Author Entropy:** Shannon entropy of commit authorship. `H = -Σ(p_i × log2(p_i))` where p_i is proportion of changes by author i. High entropy = no clear owner = defects.
 
 ---
 
@@ -166,11 +163,6 @@ Ordered by difficulty. Hardest first.
 - Build dependency graph between modules
 - Count edges per node
 - Requires: import/use resolution, cross-file
-
-**Author Entropy**
-- Shell out to git blame
-- Parse output, calculate Shannon entropy per file/module
-- Requires: git integration
 
 **N+1 Detection**
 - Must know what constitutes a "database call"
@@ -274,7 +266,6 @@ lcom4_max = 1
 ahf_min = 60
 cbo_max = 9
 sfout_max = 7
-author_entropy_max = 0.8
 
 # Enable/disable categories
 [scan.categories]
