@@ -1,20 +1,11 @@
-// src/analysis/safety.rs
-//! Safety checks and hygiene enforcement (Law of Paranoia).
-
-use crate::config::types::RuleConfig;
+use crate::analysis::checks;
+use crate::config::RuleConfig;
 use crate::types::Violation;
 use std::path::Path;
 use tree_sitter::{Node, Query};
 
-pub struct CheckContext<'a> {
-    pub root: Node<'a>,
-    pub source: &'a str,
-    pub filename: &'a str,
-    pub config: &'a RuleConfig,
-}
-
 /// Checks for unsafe blocks and ensures they have justification comments.
-pub fn check_safety(ctx: &CheckContext, _query: &Query, out: &mut Vec<Violation>) {
+pub fn check_safety(ctx: &checks::CheckContext, _query: &Query, out: &mut Vec<Violation>) {
     if !is_rust_file(ctx.filename) {
         return;
     }
@@ -117,4 +108,4 @@ fn check_lines_above(row: usize, source: &str) -> bool {
 
 fn check_line_content(trimmed: &str) -> bool {
     trimmed.starts_with("//") && trimmed.contains("SAFETY:")
-}
+}

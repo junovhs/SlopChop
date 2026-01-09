@@ -9,11 +9,11 @@ pub mod v2;
 
 use crate::config::Config;
 use crate::lang::Lang;
-use crate::types::{FileReport, Violation, ViolationDetails};
-use rayon::prelude::*;
-use std::path::PathBuf;
-use tree_sitter::{Parser, Query};
+use crate::types::{FileReport, Violation, ScanReport};
+use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
+use std::path::{Path, PathBuf};
 
+/// Orchestrates the analysis of multiple files.
 pub struct RuleEngine {
     config: Config,
 }
@@ -24,198 +24,85 @@ impl RuleEngine {
         Self { config }
     }
 
+    /// Entry point for scanning files.
     #[must_use]
-    #[allow(clippy::needless_pass_by_value)]
-    pub fn scan(&self, files: Vec<PathBuf>) -> crate::types::ScanReport {
+    pub fn scan(&self, files: Vec<PathBuf>) -> ScanReport {
         let start = std::time::Instant::now();
 
-        // 1. Parallel Structural Analysis (V1 + Cognitive)
+        // 1. AST Analysis
         let mut results: Vec<FileReport> = files
             .par_iter()
-            .map(|path| self.analyze_file(path))
+            .map(|path| analyze_file(path, &self.config))
             .collect();
 
-        // 2. Deep Analysis (V2 - LCOM4, CBO, SFOUT)
+        // 2. Structural Analysis
         let v2_engine = v2::ScanEngineV2::new(self.config.clone());
         let deep_violations = v2_engine.run(&files);
 
-        // 3. Merge Deep Analysis Violations
-        Self::merge_deep_violations(&mut results, &deep_violations);
+        // 3. Merge
+        merge_violations(&mut results, &deep_violations);
 
         let total_violations: usize = results.iter().map(|r| r.violations.len()).sum();
         let total_tokens: usize = results.iter().map(|r| r.token_count).sum();
 
-        crate::types::ScanReport {
+        ScanReport {
             files: results,
             total_violations,
             total_tokens,
             duration_ms: start.elapsed().as_millis(),
         }
     }
+}
 
-    fn merge_deep_violations(
-        results: &mut [FileReport], 
-        deep_violations: &std::collections::HashMap<PathBuf, Vec<Violation>>
-    ) {
-        for report in results {
-            if let Some(violations) = deep_violations.get(&report.path) {
-                report.violations.extend(violations.clone());
-            }
-        }
+fn analyze_file(path: &Path, config: &Config) -> FileReport {
+    let mut report = FileReport {
+        path: path.to_path_buf(),
+        token_count: 0,
+        complexity_score: 0,
+        violations: Vec::new(),
+    };
+
+    let Ok(source) = std::fs::read_to_string(path) else {
+        return report;
+    };
+
+    if has_ignore_directive(&source) {
+        return report;
     }
 
-    fn analyze_file(&self, path: &std::path::Path) -> FileReport {
-        let mut report = FileReport {
-            path: path.to_path_buf(),
-            token_count: 0,
-            complexity_score: 0,
-            violations: Vec::new(),
-        };
+    let tokens = crate::tokens::Tokenizer::count(&source);
+    report.token_count = tokens;
 
-        let Ok(source) = std::fs::read_to_string(path) else {
-            return report;
-        };
-
-        if Self::has_ignore_directive(&source) {
-            return report;
-        }
-
-        let tokens = crate::tokens::Tokenizer::count(&source);
-        report.token_count = tokens;
-
-        if tokens > self.config.rules.max_file_tokens
-            && !Self::is_ignored(path, &self.config.rules.ignore_tokens_on)
-        {
-            report.violations.push(Violation::simple(
-                1,
-                format!(
-                    "File size is {} tokens (Limit: {})",
-                    tokens, self.config.rules.max_file_tokens
-                ),
-                "LAW OF ATOMICITY",
-            ));
-        }
-
-        if let Some(lang) = Lang::from_ext(path.extension().and_then(|s| s.to_str()).unwrap_or(""))
-        {
-            self.run_ast_checks(lang, &source, path.to_str().unwrap_or(""), &mut report);
-        }
-
-        report
+    if tokens > config.rules.max_file_tokens && !is_ignored(path, &config.rules.ignore_tokens_on) {
+        report.violations.push(Violation::simple(
+            1,
+            format!("File size is {tokens} tokens (Limit: {})", config.rules.max_file_tokens),
+            "LAW OF ATOMICITY",
+        ));
     }
 
-    fn run_ast_checks(&self, lang: Lang, source: &str, filename: &str, report: &mut FileReport) {
-        let mut parser = Parser::new();
-        if parser.set_language(lang.grammar()).is_err() {
-            return;
-        }
-
-        let Some(tree) = parser.parse(source, None) else {
-            return;
-        };
-        let root = tree.root_node();
-
-        let ctx = checks::CheckContext {
-            root,
-            source,
-            filename,
-            config: &self.config.rules,
-        };
-
-        Self::check_naming(lang, &ctx, report);
-        Self::check_v2_complexity(lang, &ctx, report);
-        checks::check_syntax(&ctx, &mut report.violations);
-
-        if lang == Lang::Rust {
-            Self::check_rust_specifics(lang, &ctx, report);
-        }
+    if let Some(lang) = Lang::from_ext(path.extension().and_then(|s| s.to_str()).unwrap_or("")) {
+        let result = ast::Analyzer::new().analyze(lang, path.to_str().unwrap_or(""), &source, &config.rules);
+        report.violations.extend(result.violations);
+        report.complexity_score = result.max_complexity;
     }
 
-    fn check_naming(lang: Lang, ctx: &checks::CheckContext, report: &mut FileReport) {
-        if let Ok(q) = Query::new(lang.grammar(), lang.q_naming()) {
-            checks::check_naming(ctx, &q, &mut report.violations);
+    report
+}
+
+fn merge_violations(results: &mut [FileReport], deep: &std::collections::HashMap<PathBuf, Vec<Violation>>) {
+    for r in results {
+        if let Some(v) = deep.get(&r.path) {
+            r.violations.extend(v.clone());
         }
     }
+}
 
-    fn check_v2_complexity(lang: Lang, ctx: &checks::CheckContext, report: &mut FileReport) {
-        let Ok(q_defs) = Query::new(lang.grammar(), lang.q_defs()) else { return; };
-        let mut cursor = tree_sitter::QueryCursor::new();
-        let matches = cursor.matches(&q_defs, ctx.root, ctx.source.as_bytes());
+fn is_ignored(path: &Path, patterns: &[String]) -> bool {
+    let path_str = path.to_string_lossy();
+    patterns.iter().any(|p| path_str.contains(p))
+}
 
-        let mut max_complexity = 0;
-
-        for m in matches {
-            for cap in m.captures {
-                let score = Self::process_function_node(cap.node, ctx, report);
-                if score > max_complexity {
-                    max_complexity = score;
-                }
-            }
-        }
-        report.complexity_score = max_complexity;
-    }
-
-    fn process_function_node(node: tree_sitter::Node, ctx: &checks::CheckContext, report: &mut FileReport) -> usize {
-        if !Self::is_function_node(node.kind()) {
-            return 0;
-        }
-        
-        let score = v2::cognitive::CognitiveAnalyzer::calculate(node, ctx.source);
-
-        if score > 15 {
-            let name = node.child_by_field_name("name")
-                .and_then(|n| n.utf8_text(ctx.source.as_bytes()).ok())
-                .unwrap_or("<anonymous>");
-
-            report.violations.push(Violation::with_details(
-                node.start_position().row + 1,
-                format!("Function '{name}' has cognitive complexity {score} (Max: 15)"),
-                "LAW OF COMPLEXITY",
-                ViolationDetails {
-                    function_name: Some(name.to_string()),
-                    analysis: vec![format!("Cognitive score: {score}")],
-                    suggestion: Some("Break logic into smaller, linear functions.".into()),
-                }
-            ));
-        }
-        score
-    }
-
-    fn is_function_node(kind: &str) -> bool {
-        matches!(kind, "function_item" | "function_definition" | "method_definition" | "function_declaration")
-    }
-
-    fn check_rust_specifics(
-        lang: Lang,
-        ctx: &checks::CheckContext,
-        report: &mut FileReport,
-    ) {
-        let banned_query_str = r#"
-            (call_expression
-                function: (field_expression field: (field_identifier) @method)
-                (#match? @method "^(unwrap|expect)$"))
-        "#;
-        if let Ok(q) = Query::new(lang.grammar(), banned_query_str) {
-            checks::check_banned(ctx, &q, &mut report.violations);
-        }
-
-        let safety_ctx = safety::CheckContext {
-            root: ctx.root,
-            source: ctx.source,
-            filename: ctx.filename,
-            config: ctx.config,
-        };
-        if let Ok(q) = Query::new(lang.grammar(), "") {
-            safety::check_safety(&safety_ctx, &q, &mut report.violations);
-        }
-    }
-
-    fn is_ignored(path: &std::path::Path, patterns: &[String]) -> bool {
-        let path_str = path.to_string_lossy();
-        patterns.iter().any(|p| path_str.contains(p))
-    }
-
-    fn has_ignore_directive(source: &str) -> bool {
-        source.lines().take(5).any(|line| line.contains("slopchop:ignore"))
-    }
+fn has_ignore_directive(source: &str) -> bool {
+    source.lines().take(5).any(|line| line.contains("slopchop:ignore"))
 }

@@ -4,18 +4,25 @@ use std::collections::{HashMap, HashSet};
 /// Represents a cohesion and coupling scope (Class, Struct+Impl, Enum).
 #[derive(Debug, Clone)]
 pub struct Scope {
-    pub name: String,
-    pub row: usize,
-    pub is_enum: bool,
-    pub fields: HashMap<String, FieldInfo>,
-    pub methods: HashMap<String, Method>,
-    pub derives: HashSet<String>,
+    name: String,
+    row: usize,
+    is_enum: bool,
+    fields: HashMap<String, FieldInfo>,
+    methods: HashMap<String, Method>,
+    derives: HashSet<String>,
 }
 
 #[derive(Debug, Clone)]
 pub struct FieldInfo {
     pub name: String,
     pub is_public: bool,
+}
+
+impl FieldInfo {
+    #[must_use]
+    pub fn new(name: &str, is_public: bool) -> Self {
+        Self { name: name.to_string(), is_public }
+    }
 }
 
 /// Represents a method within a scope.
@@ -32,6 +39,20 @@ pub struct Method {
     pub cognitive_complexity: usize,
     /// Does the method mutate state? (&mut self)
     pub is_mutable: bool,
+}
+
+impl Method {
+    #[must_use]
+    pub fn new(name: &str, complexity: usize, is_mutable: bool) -> Self {
+        Self {
+            name: name.to_string(),
+            field_access: HashSet::new(),
+            internal_calls: HashSet::new(),
+            external_calls: HashSet::new(),
+            cognitive_complexity: complexity,
+            is_mutable,
+        }
+    }
 }
 
 impl Scope {
@@ -59,218 +80,34 @@ impl Scope {
         }
     }
 
-    /// Calculates LCOM4 (Lack of Cohesion of Methods).
+    #[must_use] pub fn name(&self) -> &str { &self.name }
+    #[must_use] pub fn row(&self) -> usize { self.row }
+    #[must_use] pub fn is_enum(&self) -> bool { self.is_enum }
+    #[must_use] pub fn fields(&self) -> &HashMap<String, FieldInfo> { &self.fields }
+    #[must_use] pub fn methods(&self) -> &HashMap<String, Method> { &self.methods }
+    #[must_use] pub fn derives(&self) -> &HashSet<String> { &self.derives }
+
     #[must_use]
-    pub fn calculate_lcom4(&self) -> usize {
-        if self.methods.is_empty() {
-            return 0;
-        }
-
-        let method_names: Vec<&String> = self.methods.keys().collect();
-        let adj = self.build_adjacency_graph(&method_names);
-
-        Self::count_components(&method_names, &adj)
+    pub fn has_derives(&self) -> bool {
+        !self.derives.is_empty()
     }
 
-    /// Calculates CBO (Coupling Between Objects).
-    /// Number of distinct external classes/scopes this scope depends on.
-    #[must_use]
-    pub fn calculate_cbo(&self) -> usize {
-        let mut unique_deps = HashSet::new();
-        for method in self.methods.values() {
-            for call in &method.external_calls {
-                unique_deps.insert(call);
-            }
-        }
-        unique_deps.len()
+    pub fn add_field(&mut self, name: String, info: FieldInfo) {
+        self.fields.insert(name, info);
     }
 
-    /// Calculates the maximum SFOUT (Structural Fan-Out) among methods.
-    /// SFOUT = number of outgoing calls from a single method.
-    #[must_use]
-    pub fn calculate_max_sfout(&self) -> usize {
-        self.methods
-            .values()
-            .map(|m| m.external_calls.len())
-            .max()
-            .unwrap_or(0)
+    pub fn add_method(&mut self, name: String, method: Method) {
+        self.methods.insert(name, method);
     }
 
-    /// Calculates AHF (Attribute Hiding Factor).
-    /// Percentage of fields that are private.
-    /// AHF = (`sum(is_private)` / `total_fields`) * 100
-    #[must_use]
-    #[allow(clippy::cast_precision_loss)]
-    pub fn calculate_ahf(&self) -> f64 {
-        if self.fields.is_empty() {
-            // If there are no fields, state leaking is impossible.
-            return 100.0;
-        }
-
-        let total_fields = self.fields.len() as f64;
-        let private_fields = self.fields.values().filter(|f| !f.is_public).count() as f64;
-
-        (private_fields / total_fields) * 100.0
+    pub fn add_derive(&mut self, derive: String) {
+        self.derives.insert(derive);
     }
 
-    /// Calculates the sum of cognitive complexity of all methods.
-    /// Used to distinguish "Data Structures" (complexity 0) from "Logic Objects".
     #[must_use]
     pub fn has_behavior(&self) -> bool {
         self.methods
             .values()
             .any(|m| m.cognitive_complexity > 0 || m.is_mutable)
-    }
-
-    fn build_adjacency_graph<'a>(
-        &self,
-        method_names: &[&'a String],
-    ) -> HashMap<&'a String, Vec<&'a String>> {
-        let mut adj = HashMap::new();
-        for name in method_names {
-            adj.insert(*name, Vec::new());
-        }
-
-        for (i, name_a) in method_names.iter().enumerate() {
-            let method_a = &self.methods[*name_a];
-
-            for name_b in method_names.iter().skip(i + 1) {
-                let method_b = &self.methods[*name_b];
-
-                if Self::are_connected(method_a, method_b) {
-                    adj.get_mut(*name_a).expect("Key exists").push(*name_b);
-                    adj.get_mut(*name_b).expect("Key exists").push(*name_a);
-                }
-            }
-        }
-        adj
-    }
-
-    fn count_components<'a>(
-        names: &[&'a String],
-        adj: &HashMap<&'a String, Vec<&'a String>>,
-    ) -> usize {
-        let mut visited = HashSet::new();
-        let mut components = 0;
-
-        for name in names {
-            if !visited.contains(name) {
-                components += 1;
-                Self::traverse(name, adj, &mut visited);
-            }
-        }
-        components
-    }
-
-    fn are_connected(a: &Method, b: &Method) -> bool {
-        if !a.field_access.is_disjoint(&b.field_access) {
-            return true;
-        }
-        if a.internal_calls.contains(&b.name) || b.internal_calls.contains(&a.name) {
-            return true;
-        }
-        false
-    }
-
-    fn traverse<'a>(
-        start: &'a String,
-        adj: &HashMap<&'a String, Vec<&'a String>>,
-        visited: &mut HashSet<&'a String>,
-    ) {
-        let mut stack = vec![start];
-        visited.insert(start);
-
-        while let Some(current) = stack.pop() {
-            let Some(neighbors) = adj.get(current) else {
-                continue;
-            };
-
-            for neighbor in neighbors {
-                if visited.insert(neighbor) {
-                    stack.push(neighbor);
-                }
-            }
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_lcom4_cohesive() {
-        let mut scope = Scope::new("Cohesive", 1);
-        scope.fields.insert(
-            "x".into(),
-            FieldInfo {
-                name: "x".into(),
-                is_public: false,
-            },
-        );
-
-        scope.methods.insert(
-            "get_x".into(),
-            Method {
-                name: "get_x".into(),
-                field_access: HashSet::from(["x".into()]),
-                internal_calls: HashSet::new(),
-                external_calls: HashSet::new(),
-                cognitive_complexity: 0,
-                is_mutable: false,
-            },
-        );
-
-        scope.methods.insert(
-            "set_x".into(),
-            Method {
-                name: "set_x".into(),
-                field_access: HashSet::from(["x".into()]),
-                internal_calls: HashSet::new(),
-                external_calls: HashSet::new(),
-                cognitive_complexity: 0,
-                is_mutable: false,
-            },
-        );
-
-        assert_eq!(scope.calculate_lcom4(), 1);
-    }
-
-    #[test]
-    fn test_ahf_calculation() {
-        let mut scope = Scope::new("TestAhf", 1);
-
-        // 3 private fields, 1 public field
-        // AHF = 3/4 = 75%
-        scope.fields.insert(
-            "p1".into(),
-            FieldInfo {
-                name: "p1".into(),
-                is_public: false,
-            },
-        );
-        scope.fields.insert(
-            "p2".into(),
-            FieldInfo {
-                name: "p2".into(),
-                is_public: false,
-            },
-        );
-        scope.fields.insert(
-            "p3".into(),
-            FieldInfo {
-                name: "p3".into(),
-                is_public: false,
-            },
-        );
-        scope.fields.insert(
-            "pub1".into(),
-            FieldInfo {
-                name: "pub1".into(),
-                is_public: true,
-            },
-        );
-
-        assert!((scope.calculate_ahf() - 75.0).abs() < f64::EPSILON);
     }
 }
