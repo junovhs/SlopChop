@@ -2,7 +2,7 @@ use crate::config::RuleConfig;
 use anyhow::Result;
 
 /// Current protocol version for AI compatibility tracking.
-const PROTOCOL_VERSION: &str = "1.3.4";
+const PROTOCOL_VERSION: &str = "1.6.0";
 
 pub struct PromptGenerator {
     config: RuleConfig,
@@ -42,7 +42,7 @@ impl PromptGenerator {
     #[must_use]
     pub fn generate_short(&self) -> String {
         format!(
-            "SlopChop v{}: <{}tok, C{}, D{}, A{}> Use XSC7XSC protocol.",
+            "SlopChop v{}: <{}tok, CC{}, D{}, A{}> Use XSC7XSC protocol.",
             PROTOCOL_VERSION,
             self.config.max_file_tokens,
             self.config.max_cyclomatic_complexity,
@@ -59,14 +59,23 @@ impl PromptGenerator {
         let sigil = "XSC7XSC";
 
         format!(
-            r"SYSTEM MANDATE: THE SLOPCHOP PROTOCOL
+            r#"SYSTEM MANDATE: THE SLOPCHOP PROTOCOL
 ROLE: High-Integrity Systems Architect.
 CONTEXT: You are coding inside a strict environment enforced by SlopChop.
 
-THE 3 LAWS:
-1. LAW OF ATOMICITY: Files MUST be < {tokens} tokens.
-2. LAW OF COMPLEXITY: Cyclomatic Complexity <= {complexity}, Nesting <= {depth}, Args <= {args}.
-3. LAW OF PARANOIA: No .unwrap() or .expect(). Use Result types for error handling.
+THE LAWS:
+| Metric | Limit | Catches |
+|--------|-------|---------|
+| File Tokens | < {tokens} | God files |
+| Cognitive Complexity | ≤ {complexity} | Tangled logic |
+| Nesting Depth | ≤ {depth} | Deep conditionals |
+| Function Args | ≤ {args} | Bloated signatures |
+| LCOM4 | = 1 | Incohesive classes (split if > 1) |
+| AHF | ≥ 60% | Leaking state (make fields private) |
+| CBO | ≤ 9 | Tight coupling (reduce dependencies) |
+| SFOUT | ≤ 7 | High fan-out (delegate to helpers) |
+
+LAW OF PARANOIA: No .unwrap() or .expect(). Use Result types.
 
 OUTPUT FORMAT (MANDATORY):
 All responses must use the {sigil} DNA sequence sigil. Do NOT use markdown code blocks.
@@ -104,11 +113,11 @@ NEW:
 
 RULES:
 - No truncation. Provide full file contents or complete patch blocks.
-- To bypass truncation detection on a specific line, append '// slopchop:ignore' to that line.
-- No markdown fences around code blocks. The {sigil} markers are the fences.
-- Use FILE blocks for new files or when changes exceed ~75% of a file's token limit.
-- Use PATCH blocks for small, targeted changes to existing files. Obtain BASE_SHA256 from the 'slopchop pack' command. Ensure LEFT_CTX + OLD + RIGHT_CTX forms a unique anchor.
-"
+- No markdown fences. The {sigil} markers are the fences.
+- Use FILE blocks for new files or when changes exceed ~75% of a file.
+- Use PATCH blocks for small, targeted changes. Obtain BASE_SHA256 from 'slopchop pack'.
+- Run 'slopchop check' after changes. Fix ALL violations before claiming done.
+"#
         )
     }
 
@@ -116,12 +125,14 @@ RULES:
         let sigil = "XSC7XSC";
         format!(
             r"SLOPCHOP v{PROTOCOL_VERSION} CONSTRAINTS:
-- File Tokens < {}
-- Complexity <= {}, Nesting <= {}
-- Use {sigil} Sigil Protocol (PLAN, MANIFEST, FILE, PATCH)",
+- Tokens < {}, CC ≤ {}, Depth ≤ {}, Args ≤ {}
+- LCOM4 = 1, AHF ≥ 60%, CBO ≤ 9, SFOUT ≤ 7
+- Use {sigil} Sigil Protocol (PLAN, MANIFEST, FILE, PATCH)
+- Run 'slopchop check' and fix all violations",
             self.config.max_file_tokens,
             self.config.max_cyclomatic_complexity,
             self.config.max_nesting_depth,
+            self.config.max_function_args,
         )
     }
 }
