@@ -44,17 +44,27 @@ pub enum Commands {
         #[arg(long, value_name = "FILE")]
         file: Option<PathBuf>,
         #[arg(long)]
-        reset: bool,
-        #[arg(long)]
         promote: bool,
-        /// Deprecated - use git branches instead
-        #[arg(long, conflicts_with = "promote", hide = true)]
-        sync: bool,
         #[arg(long)]
         sanitize: bool,
         #[arg(long, conflicts_with = "sanitize")]
         strict: bool,
     },
+
+    /// Create or reset the work branch
+    Branch {
+        #[arg(long, short)]
+        force: bool,
+    },
+
+    /// Promote work branch to main
+    Promote {
+        #[arg(long)]
+        dry_run: bool,
+    },
+
+    /// Abort work branch and return to main
+    Abort,
 
     /// Clean up artifacts
     Clean {
@@ -147,9 +157,10 @@ pub struct ApplyArgs {
     pub stdin: bool,
     pub check: bool,
     pub file: Option<PathBuf>,
-    pub reset: bool,
+    // Removed reset and sync
+    pub reset: bool, // Kept for struct compat if needed, but not in clap
     pub promote: bool,
-    pub sync: bool,
+    pub sync: bool, // Kept for struct compat if needed, but not in clap
     pub sanitize: bool,
     pub strict: bool,
 }
