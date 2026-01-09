@@ -66,11 +66,11 @@ fn find_unreachable(graph: &CallGraph) -> Vec<(Symbol, DeadCodeReason)> {
     let reachable = graph.compute_reachable();
 
     graph
-        .symbols
+        .symbols()
         .iter()
         .filter(|sym| !reachable.contains(*sym))
         .map(|sym| {
-            let reason = classify_dead_reason(sym, &graph.called_by, &reachable);
+            let reason = classify_dead_reason(sym, graph.called_by(), &reachable);
             (sym.clone(), reason)
         })
         .collect()

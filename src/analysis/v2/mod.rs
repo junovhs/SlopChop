@@ -2,6 +2,8 @@
 pub mod cognitive;
 pub mod scope;
 pub mod visitor;
+pub mod rust;
+pub mod metrics;
 
 use crate::config::Config;
 use crate::lang::Lang;
@@ -74,9 +76,9 @@ impl ScanEngineV2 {
 
             let mut violations = Vec::new();
 
-            let lcom4 = scope.calculate_lcom4();
-            let cbo = scope.calculate_cbo();
-            let sfout = scope.calculate_max_sfout();
+            let lcom4 = metrics::ScopeMetrics::calculate_lcom4(scope);
+            let cbo = metrics::ScopeMetrics::calculate_cbo(scope);
+            let sfout = metrics::ScopeMetrics::calculate_max_sfout(scope);
 
             Self::check_scope_cohesion(scope, lcom4, &mut violations);
             Self::check_scope_encapsulation(scope, &mut violations);
@@ -91,46 +93,36 @@ impl ScanEngineV2 {
     }
 
     fn check_scope_cohesion(scope: &scope::Scope, lcom4: usize, out: &mut Vec<Violation>) {
-        // LCOM4 was designed for OOP classes with instance variables.
-        // Enums are sum types — they don't have shared mutable state.
-        // Skip LCOM4 entirely for enums.
-        if scope.is_enum {
+        if scope.is_enum() {
             return;
         }
 
-        // LCOM4 requires state to measure cohesion against.
-        // Per Hitz & Montazeri: "methods share instance variables"
-        // If no method accesses any fields, cohesion is meaningless — skip.
-        // This filters out stateless utility structs.
-        let has_field_access = scope.methods.values().any(|m| !m.field_access.is_empty());
+        let has_field_access = scope.methods().values().any(|m| !m.field_access.is_empty());
         if !has_field_access {
             return;
         }
 
-        // Small types (< 4 methods) with low LCOM4 are usually fine DTOs.
-        // Real god objects have many methods in disconnected groups.
-        // Require at least 4 methods to flag LCOM4 violations.
-        if scope.methods.len() < 4 {
+        if scope.methods().len() < 4 {
             return;
         }
 
         if lcom4 > 1 {
             out.push(Violation::with_details(
-                scope.row,
-                format!("Class '{}' has low cohesion (LCOM4: {})", scope.name, lcom4),
+                scope.row(),
+                format!("Class '{}' has low cohesion (LCOM4: {})", scope.name(), lcom4),
                 "LCOM4",
                 ViolationDetails {
-                    function_name: Some(scope.name.clone()),
+                    function_name: Some(scope.name().to_string()),
                     analysis: vec![
                         format!("Connected components: {lcom4}"),
-                        format!("Methods: {}", scope.methods.len()),
+                        format!("Methods: {}", scope.methods().len()),
                         "Methods in this struct/class don't share fields or call each other."
                             .into(),
                         "This suggests it's doing multiple unrelated things.".into(),
                     ],
                     suggestion: Some(format!(
                         "Consider splitting '{}' into {} smaller, focused types.",
-                        scope.name, lcom4
+                        scope.name(), lcom4
                     )),
                 },
             ));
@@ -138,49 +130,39 @@ impl ScanEngineV2 {
     }
 
     fn check_scope_encapsulation(scope: &scope::Scope, out: &mut Vec<Violation>) {
-        if scope.is_enum {
+        if scope.is_enum() {
             return;
         }
 
-        // TUNE: Exception for Data Transfer Objects (DTOs) and Configs.
-        // If a struct is explicitly designed to be serialized or parsed from CLI,
-        // it serves as a data contract and must expose its fields.
-
-        if scope.derives.contains("Serialize") 
-            || scope.derives.contains("Deserialize")
-            || scope.derives.contains("Parser") // Clap
-            || scope.derives.contains("Args")   // Clap
+        if scope.derives().contains("Serialize") 
+            || scope.derives().contains("Deserialize")
+            || scope.derives().contains("Parser") // Clap
+            || scope.derives().contains("Args")   // Clap
         {
             return;
         }
 
-        // HEURISTIC: Structs with NO behavioral complexity are treated as "Data Structures".
-        // If a struct has logic (methods with complexity) OR mutates state, it should encapsulate.
         if !scope.has_behavior() {
             return;
         }
 
-        // Calculate AHF
-        let ahf = scope.calculate_ahf();
-        // Threshold: AHF < 60%
+        let ahf = metrics::ScopeMetrics::calculate_ahf(scope);
         if ahf < 60.0 {
-            // Only report if there are actually fields
-            if scope.fields.is_empty() {
+            if scope.fields().is_empty() {
                 return;
             }
 
-            // Create violation
              out.push(Violation::with_details(
-                scope.row,
-                format!("Class '{}' exposes too much state (AHF: {:.1}%)", scope.name, ahf),
+                scope.row(),
+                format!("Class '{}' exposes too much state (AHF: {:.1}%)", scope.name(), ahf),
                 "AHF",
                 ViolationDetails {
-                    function_name: Some(scope.name.clone()),
+                    function_name: Some(scope.name().to_string()),
                     analysis: vec![
                         format!("Attribute Hiding Factor (AHF) is {:.1}% (min 60%)", ahf),
                         format!("{} of {} fields are private.",
-                            scope.fields.values().filter(|f| !f.is_public).count(),
-                            scope.fields.len()
+                            scope.fields().values().filter(|f| !f.is_public).count(),
+                            scope.fields().len()
                         ),
                         "Low AHF means state is leaking, increasing coupling risk.".into(),
                     ],
@@ -200,11 +182,11 @@ impl ScanEngineV2 {
     ) {
         if cbo > 9 {
             out.push(Violation::with_details(
-                scope.row,
-                format!("Class '{}' is tightly coupled (CBO: {})", scope.name, cbo),
+                scope.row(),
+                format!("Class '{}' is tightly coupled (CBO: {})", scope.name(), cbo),
                 "CBO",
                 ViolationDetails {
-                    function_name: Some(scope.name.clone()),
+                    function_name: Some(scope.name().to_string()),
                     analysis: vec![
                         format!("External dependencies: {cbo}"),
                         "High coupling predicts defects and makes changes risky.".into(),
@@ -218,14 +200,14 @@ impl ScanEngineV2 {
 
         if sfout > 7 {
             out.push(Violation::with_details(
-                scope.row,
+                scope.row(),
                 format!(
                     "Class '{}' has high fan-out (Max SFOUT: {})",
-                    scope.name, sfout
+                    scope.name(), sfout
                 ),
                 "SFOUT",
                 ViolationDetails {
-                    function_name: Some(scope.name.clone()),
+                    function_name: Some(scope.name().to_string()),
                     analysis: vec![
                         format!("Max outgoing calls in one method: {sfout}"),
                         "High fan-out methods are bottlenecks — changes ripple everywhere.".into(),
@@ -238,7 +220,3 @@ impl ScanEngineV2 {
         }
     }
 }
-
-
-
-

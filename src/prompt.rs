@@ -1,3 +1,4 @@
+// src/prompt.rs
 use crate::config::RuleConfig;
 use anyhow::Result;
 
@@ -17,17 +18,17 @@ impl PromptGenerator {
     /// Generates the full system prompt.
     ///
     /// # Errors
-    /// Returns error if prompt generation fails (currently infallible).
+    /// Returns error if prompt generation fails.
     pub fn generate(&self) -> Result<String> {
-        Ok(self.build_system_prompt())
+        Ok(build_system_prompt(&self.config))
     }
 
     /// Generates the concise reminder prompt.
     ///
     /// # Errors
-    /// Returns error if reminder generation fails (currently infallible).
+    /// Returns error if reminder generation fails.
     pub fn generate_reminder(&self) -> Result<String> {
-        Ok(self.build_reminder())
+        Ok(build_reminder(&self.config))
     }
 
     /// Wraps the prompt with header/footer.
@@ -41,25 +42,19 @@ impl PromptGenerator {
     /// Generates a minimal one-liner for token-constrained contexts.
     #[must_use]
     pub fn generate_short(&self) -> String {
-        format!(
-            "SlopChop v{}: <{}tok, CC{}, D{}, A{}> Use XSC7XSC protocol.",
-            PROTOCOL_VERSION,
-            self.config.max_file_tokens,
-            self.config.max_cyclomatic_complexity,
-            self.config.max_nesting_depth,
-            self.config.max_function_args,
-        )
+        generate_short_text(&self.config)
     }
+}
 
-    fn build_system_prompt(&self) -> String {
-        let tokens = self.config.max_file_tokens;
-        let complexity = self.config.max_cyclomatic_complexity;
-        let depth = self.config.max_nesting_depth;
-        let args = self.config.max_function_args;
-        let sigil = "XSC7XSC";
+fn build_system_prompt(config: &RuleConfig) -> String {
+    let tokens = config.max_file_tokens;
+    let complexity = config.max_cyclomatic_complexity;
+    let depth = config.max_nesting_depth;
+    let args = config.max_function_args;
+    let sigil = "XSC7XSC";
 
-        format!(
-            r"SYSTEM MANDATE: THE SLOPCHOP PROTOCOL
+    format!(
+        r"SYSTEM MANDATE: THE SLOPCHOP PROTOCOL
 ROLE: High-Integrity Systems Architect.
 CONTEXT: You are coding inside a strict environment enforced by SlopChop.
 
@@ -118,21 +113,31 @@ RULES:
 - Use PATCH blocks for small, targeted changes. Obtain BASE_SHA256 from 'slopchop pack'.
 - Run 'slopchop check' after changes. Fix ALL violations before claiming done.
 "
-        )
-    }
+    )
+}
 
-    fn build_reminder(&self) -> String {
-        let sigil = "XSC7XSC";
-        format!(
-            r"SLOPCHOP v{PROTOCOL_VERSION} CONSTRAINTS:
+fn build_reminder(config: &RuleConfig) -> String {
+    let sigil = "XSC7XSC";
+    format!(
+        r"SLOPCHOP v{PROTOCOL_VERSION} CONSTRAINTS:
 - Tokens < {}, CC ≤ {}, Depth ≤ {}, Args ≤ {}
 - LCOM4 = 1, AHF ≥ 60%, CBO ≤ 9, SFOUT ≤ 7
 - Use {sigil} Sigil Protocol (PLAN, MANIFEST, FILE, PATCH)
 - Run 'slopchop check' and fix all violations",
-            self.config.max_file_tokens,
-            self.config.max_cyclomatic_complexity,
-            self.config.max_nesting_depth,
-            self.config.max_function_args,
-        )
-    }
+        config.max_file_tokens,
+        config.max_cyclomatic_complexity,
+        config.max_nesting_depth,
+        config.max_function_args,
+    )
+}
+
+fn generate_short_text(config: &RuleConfig) -> String {
+    format!(
+        "SlopChop v{}: <{}tok, CC{}, D{}, A{}> Use XSC7XSC protocol.",
+        PROTOCOL_VERSION,
+        config.max_file_tokens,
+        config.max_cyclomatic_complexity,
+        config.max_nesting_depth,
+        config.max_function_args,
+    )
 }

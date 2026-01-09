@@ -3,11 +3,11 @@ use std::collections::{HashMap, HashSet};
 
 /// Call graph for reachability analysis.
 pub struct CallGraph {
-    pub symbols: HashSet<Symbol>,
-    pub calls: HashMap<Symbol, HashSet<Symbol>>,
-    pub called_by: HashMap<Symbol, HashSet<Symbol>>,
-    pub entry_points: HashSet<Symbol>,
-    pub public_symbols: HashSet<Symbol>,
+    symbols: HashSet<Symbol>,
+    calls: HashMap<Symbol, HashSet<Symbol>>,
+    called_by: HashMap<Symbol, HashSet<Symbol>>,
+    entry_points: HashSet<Symbol>,
+    public_symbols: HashSet<Symbol>,
 }
 
 impl CallGraph {
@@ -90,6 +90,24 @@ impl CallGraph {
     #[must_use]
     pub fn edge_count(&self) -> usize {
         self.calls.values().map(HashSet::len).sum()
+    }
+    
+    /// Accessor for symbols (for analysis).
+    #[must_use]
+    pub fn symbols(&self) -> &HashSet<Symbol> {
+        &self.symbols
+    }
+
+    /// Accessor for called_by (for analysis).
+    #[must_use]
+    pub fn called_by(&self) -> &HashMap<Symbol, HashSet<Symbol>> {
+        &self.called_by
+    }
+
+    /// Accessor for calls (for analysis).
+    #[must_use]
+    pub fn calls(&self) -> &HashMap<Symbol, HashSet<Symbol>> {
+        &self.calls
     }
 }
 
