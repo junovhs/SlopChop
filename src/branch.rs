@@ -47,11 +47,12 @@ fn has_uncommitted_changes() -> bool {
 }
 
 /// Counts modified files on the work branch.
+#[must_use]
 pub fn count_modified_files() -> usize {
     let output = Command::new("git").args(["status", "--porcelain"]).output();
 
     match output {
-        Ok(o) => o.stdout.iter().filter(|&&b| b == b'\n').count(),
+        Ok(o) => String::from_utf8_lossy(&o.stdout).lines().count(),
         Err(_) => 0,
     }
 }
@@ -73,8 +74,7 @@ pub fn init_branch(force: bool) -> Result<BranchResult> {
             run_git(&["branch", "-D", WORK_BRANCH])?;
         } else {
             anyhow::bail!(
-                "Branch '{}' already exists. Use --force to reset it.",
-                WORK_BRANCH
+                "Branch '{WORK_BRANCH}' already exists. Use --force to reset it.",
             );
         }
     }
@@ -107,8 +107,7 @@ pub fn promote(dry_run: bool) -> Result<PromoteResult> {
     let current = current_branch()?;
     if current != WORK_BRANCH {
         anyhow::bail!(
-            "Not on work branch. Currently on '{}'. Run 'slopchop branch' first.",
-            current
+            "Not on work branch. Currently on '{current}'. Run 'slopchop branch' first.",
         );
     }
 
@@ -176,7 +175,7 @@ fn run_git(args: &[&str]) -> Result<()> {
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        anyhow::bail!("git {} failed: {}", args.join(" "), stderr);
+        anyhow::bail!("git {} failed: {stderr}", args.join(" "));
     }
 
     Ok(())

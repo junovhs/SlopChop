@@ -18,7 +18,6 @@ use crate::config::Config;
 use crate::discovery;
 use crate::prompt::PromptGenerator;
 use crate::tokens::Tokenizer;
-use crate::stage::StageManager;
 
 #[derive(Debug, Clone, ValueEnum, Default)]
 pub enum OutputFormat {
@@ -55,44 +54,29 @@ pub struct FocusContext {
 /// Returns an error if configuration loading, directory detection, or file writing fails.
 pub fn run(options: &PackOptions) -> Result<()> {
     let config = setup_config(options)?;
-    let repo_root = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-    let mut stage = StageManager::new(&repo_root);
-    let _ = stage.load_state();
 
-    print_start_message(options, stage.exists(), &config);
+    print_start_message(options, &config);
 
-    // If stage exists, we discover files relative to the stage worktree
-    let walk_root = if stage.exists() { stage.worktree() } else { repo_root.clone() };
-    
-    // Temporarily change CWD to stage if it exists so discovery finds the right files
-    let original_cwd = std::env::current_dir()?;
-    std::env::set_current_dir(&walk_root)?;
-    
     let files = discovery::discover(&config)?;
     if options.verbose {
-        eprintln!("?? Discovered {} files in {}...", files.len(), if stage.exists() { "stage" } else { "workspace" });
+        eprintln!("📂 Discovered {} files in workspace...", files.len());
     }
 
     let content = generate_content(&files, options, &config)?;
-    
-    // Restore CWD
-    std::env::set_current_dir(original_cwd)?;
-    
+
     let token_count = Tokenizer::count(&content);
     output_result(&content, token_count, options, &config)
 }
 
-fn print_start_message(options: &PackOptions, is_staged: bool, config: &Config) {
+fn print_start_message(options: &PackOptions, config: &Config) {
     if options.stdout { return; }
     if options.copy || config.preferences.auto_copy { return; }
 
-    let mode = if is_staged { "[STAGE MODE]" } else { "[WORKSPACE MODE]" };
-    
     if options.focus.is_empty() {
-        println!("{} ?? Knitting repository...", mode.cyan());
+        println!("{} 🧶 Knitting repository...", "[WORKSPACE MODE]".cyan());
     } else {
         let names: Vec<_> = options.focus.iter().map(|p| p.display().to_string()).collect();
-        println!("{} ?? Packing focus: {}", mode.cyan(), names.join(", "));
+        println!("{} 🎯 Packing focus: {}", "[WORKSPACE MODE]".cyan(), names.join(", "));
     }
 }
 
@@ -142,12 +126,6 @@ fn pack_files_to_output(files: &[PathBuf], ctx: &mut String, opts: &PackOptions,
         OutputFormat::Text => formats::pack_slopchop_focus(files, ctx, opts, focus),
         OutputFormat::Xml => formats::pack_xml_focus(files, ctx, opts, focus),
         OutputFormat::Spec => {
-            // Spec format ignores focus context (prints all selected files) or should it respect focus?
-            // "Pack only the doc comments... into a single Markdown file."
-            // If focus is provided, `files` passed here is ALREADY filtered/expanded if we used `build_focus_context`?
-            // Actually `build_focus_context` returns `combined`.
-            // So `files` here is the list of files to pack.
-            // pack_spec expects `&[PathBuf]`.
             let spec = formats::pack_spec(files)?;
             ctx.push_str(&spec);
             Ok(())
@@ -160,7 +138,7 @@ fn inject_violations(ctx: &mut String, files: &[PathBuf], config: &Config) -> Re
     let report = engine.scan(files.to_vec());
     if !report.has_errors() { return Ok(()); }
 
-    writeln!(ctx, "{}\n?? ACTIVE VIOLATIONS\n{}\n", "=".repeat(67), "=".repeat(67))?;
+    writeln!(ctx, "{}\n⚠ ACTIVE VIOLATIONS\n{}\n", "=".repeat(67), "=".repeat(67))?;
     for file in report.files.iter().filter(|f| !f.is_clean()) {
         for v in &file.violations {
             writeln!(ctx, "FILE: {} | LAW: {} | LINE: {} | {}", file.path.display(), v.law, v.row + 1, v.message)?;
@@ -183,8 +161,8 @@ fn write_footer(ctx: &mut String, config: &Config) -> Result<()> {
 }
 
 fn output_result(content: &str, tokens: usize, opts: &PackOptions, config: &Config) -> Result<()> {
-    let info = format!("\n?? Context Size: {} tokens", tokens.to_string().yellow().bold());
-    
+    let info = format!("\n📊 Context Size: {} tokens", tokens.to_string().yellow().bold());
+
     if opts.stdout {
         print!("{content}");
         eprintln!("{info}");
@@ -194,11 +172,11 @@ fn output_result(content: &str, tokens: usize, opts: &PackOptions, config: &Conf
     if opts.copy || config.preferences.auto_copy {
         match clipboard::smart_copy(content) {
             Ok(msg) => {
-                println!("{} ({msg}){info}", "� Copied to clipboard".green());
+                println!("{} ({msg}){info}", "📋 Copied to clipboard".green());
                 return Ok(());
             }
             Err(e) => {
-                eprintln!("{} Failed to copy to clipboard: {e}", "?".yellow());
+                eprintln!("{} Failed to copy to clipboard: {e}", "⚠".yellow());
                 eprintln!("Falling back to file output...");
             }
         }
@@ -206,6 +184,6 @@ fn output_result(content: &str, tokens: usize, opts: &PackOptions, config: &Conf
 
     let output_path = PathBuf::from("context.txt");
     fs::write(&output_path, content)?;
-    println!("? Generated 'context.txt'{info}");
+    println!("✅ Generated 'context.txt'{info}");
     Ok(())
 }

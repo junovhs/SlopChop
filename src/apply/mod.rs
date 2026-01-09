@@ -14,7 +14,6 @@ pub mod verification;
 pub mod writer;
 
 use crate::clipboard;
-use crate::stage::StageManager;
 use anyhow::{Context, Result};
 use colored::Colorize;
 use std::io::{self, Read};
@@ -26,21 +25,11 @@ use types::{ApplyContext, ApplyInput, ApplyOutcome};
 /// Returns error if input reading or processing fails.
 pub fn run_apply(ctx: &ApplyContext) -> Result<ApplyOutcome> {
     if ctx.reset_stage {
-        return reset_stage(ctx);
+        println!("{}", "Stage reset is deprecated. Use git branches instead.".yellow());
+        return Ok(ApplyOutcome::StageReset);
     }
     let content = read_input(&ctx.input)?;
     processor::process_input(&content, ctx)
-}
-
-fn reset_stage(ctx: &ApplyContext) -> Result<ApplyOutcome> {
-    let mut stage = StageManager::new(&ctx.repo_root);
-    if !stage.exists() {
-        println!("{}", "No stage to reset.".yellow());
-        return Ok(ApplyOutcome::StageReset);
-    }
-    stage.reset()?;
-    println!("{}", "Stage reset successfully.".green());
-    Ok(ApplyOutcome::StageReset)
 }
 
 fn read_input(input: &ApplyInput) -> Result<String> {

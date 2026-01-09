@@ -6,7 +6,6 @@ use crate::apply::patch;
 use crate::apply::types::{self, ApplyContext, ApplyOutcome, Block, FileContent};
 use crate::apply::validator;
 use crate::events::{EventKind, EventLogger};
-use crate::stage::StageManager;
 use anyhow::{anyhow, Result};
 use colored::Colorize;
 use std::collections::HashSet;
@@ -172,15 +171,12 @@ fn apply_patches(
     extracted: &mut types::ExtractedFiles,
     ctx: &ApplyContext,
 ) -> Result<()> {
-    let mut stage_manager = StageManager::new(&ctx.repo_root);
-    let _ = stage_manager.load_state();
-
     // Track files that have already been hash-verified
     let mut verified: HashSet<String> = HashSet::new();
 
     for block in blocks {
         if let Block::Patch { path, content } = block {
-            let base = get_base_content(path, extracted, &stage_manager, &ctx.repo_root)?;
+            let base = get_base_content(path, extracted, &ctx.repo_root)?;
 
             // Only verify hash on first patch to each file
             let skip_hash = verified.contains(path);
@@ -204,21 +200,13 @@ fn apply_patches(
 fn get_base_content(
     path: &str,
     extracted: &types::ExtractedFiles,
-    stage: &StageManager,
     repo_root: &Path,
 ) -> Result<String> {
     // 1. Check extracted (previous patches in same payload)
     if let Some(fc) = extracted.get(path) {
         return Ok(fc.content.clone());
     }
-    // 2. Check stage
-    if stage.exists() {
-        let p = stage.worktree().join(path);
-        if p.exists() {
-            return std::fs::read_to_string(p).map_err(|e| anyhow!("Read staged {path}: {e}"));
-        }
-    }
-    // 3. Check workspace
+    // 2. Check workspace
     let p = repo_root.join(path);
     if p.exists() {
         return std::fs::read_to_string(p).map_err(|e| anyhow!("Read original {path}: {e}"));

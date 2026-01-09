@@ -6,7 +6,7 @@ use slopchop_core::cli::args::ApplyArgs;
 use slopchop_core::cli::audit::AuditCliOptions;
 use slopchop_core::cli::{
     handle_apply, handle_check, handle_map, handle_mutate, handle_pack, handle_scan,
-    handle_signatures, handle_stage, Cli, Commands, PackArgs,
+    handle_signatures, Cli, Commands, PackArgs,
 };
 use slopchop_core::exit::SlopChopExit;
 use slopchop_core::signatures::SignatureOptions;
@@ -24,7 +24,6 @@ fn main() {
 
 fn run() -> Result<SlopChopExit> {
     let cli = Cli::parse();
-
     match cli.command {
         None => handle_scan(false, false, false),
         Some(cmd) => dispatch(cmd),
@@ -34,13 +33,11 @@ fn run() -> Result<SlopChopExit> {
 fn dispatch(cmd: Commands) -> Result<SlopChopExit> {
     match cmd {
         Commands::Check { json } => handle_check(json),
-
         Commands::Scan {
             verbose,
             locality,
             json,
         } => handle_scan(verbose, locality, json),
-
         Commands::Apply {
             force,
             dry_run,
@@ -67,12 +64,10 @@ fn dispatch(cmd: Commands) -> Result<SlopChopExit> {
             };
             handle_apply(&args)
         }
-
         Commands::Clean { commit } => {
             clean::run(commit)?;
             Ok(SlopChopExit::Success)
         }
-
         Commands::Audit {
             format,
             no_dead,
@@ -94,7 +89,6 @@ fn dispatch(cmd: Commands) -> Result<SlopChopExit> {
             slopchop_core::cli::audit::handle(&opts)?;
             Ok(SlopChopExit::Success)
         }
-
         Commands::Pack {
             stdout,
             copy,
@@ -121,20 +115,12 @@ fn dispatch(cmd: Commands) -> Result<SlopChopExit> {
             };
             handle_pack(args)
         }
-
         Commands::Map { deps } => handle_map(deps),
-
         Commands::Signatures { copy, stdout } => {
             let opts = SignatureOptions { copy, stdout };
             handle_signatures(opts)
         }
-
         Commands::Config => slopchop_core::cli::handlers::handle_config(),
-
-        Commands::Sabotage { file } => slopchop_core::cli::handlers::handle_sabotage(&file),
-
-        Commands::Stage { force } => handle_stage(force),
-
         Commands::Mutate {
             workers,
             timeout,

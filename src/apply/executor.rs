@@ -1,20 +1,26 @@
 // src/apply/executor.rs
-//! Handles the execution of apply actions: staging, verification, and promotion.
+//! Handles the execution of apply actions with automatic branch management.
+//!
+//! Workflow:
+//! 1. Create/switch to slopchop-work branch
+//! 2. Apply changes
+//! 3. Run verification
+//! 4. If passes: promote to main (or prompt based on config)
+//! 5. If fails: stay on branch, show errors
 
-use crate::apply::types::{ApplyContext, ApplyOutcome, ExtractedFiles, Manifest, Operation};
+use crate::apply::types::{ApplyContext, ApplyOutcome, ExtractedFiles, Manifest};
 use crate::apply::verification;
 use crate::apply::writer;
+use crate::branch;
 use crate::events::{EventKind, EventLogger};
-use crate::stage::StageManager;
 use anyhow::Result;
 use colored::Colorize;
-use std::path::Path;
 use std::io::{self, Write};
 
-/// Executes the transaction to write changes to the stage.
+/// Executes the full apply transaction with automatic branch management.
 ///
 /// # Errors
-/// Returns error if stage operations or file writing fails.
+/// Returns error if git operations or file writing fails.
 pub fn apply_to_stage_transaction(
     manifest: &Manifest,
     extracted: &ExtractedFiles,
@@ -32,10 +38,67 @@ pub fn apply_to_stage_transaction(
         });
     }
 
-    let (mut stage, outcome) = execute_stage_transaction(manifest, extracted, ctx)?;
+    // Step 1: Ensure we're on work branch
+    ensure_work_branch()?;
+
+    // Step 2: Write files
+    let retention = ctx.config.preferences.backup_retention;
+    let outcome = writer::write_files(manifest, extracted, Some(&ctx.repo_root), retention)?;
 
     // Log outcome
-    match &outcome {
+    log_outcome(&logger, &outcome);
+
+    // Step 3: Run verification if requested
+    if ctx.check_after {
+        return run_verification_and_maybe_promote(ctx, outcome);
+    }
+
+    print_work_branch_status();
+    Ok(outcome)
+}
+
+/// Ensures we're on the work branch, creating it if needed.
+fn ensure_work_branch() -> Result<()> {
+    if branch::on_work_branch() {
+        return Ok(());
+    }
+
+    match branch::init_branch(false) {
+        Ok(branch::BranchResult::Created) => {
+            println!("{}", "→ Created work branch 'slopchop-work'".blue());
+        }
+        Ok(branch::BranchResult::AlreadyOnBranch) => {}
+        Ok(branch::BranchResult::Reset) => {
+            println!("{}", "→ Reset work branch".blue());
+        }
+        Err(e) => {
+            // Branch might already exist but we're not on it
+            // Try to switch to it
+            if e.to_string().contains("already exists") {
+                switch_to_work_branch()?;
+            } else {
+                return Err(e);
+            }
+        }
+    }
+    Ok(())
+}
+
+fn switch_to_work_branch() -> Result<()> {
+    use std::process::Command;
+    let output = Command::new("git")
+        .args(["checkout", branch::work_branch_name()])
+        .output()?;
+
+    if !output.status.success() {
+        anyhow::bail!("Failed to switch to work branch");
+    }
+    println!("{}", "→ Switched to work branch 'slopchop-work'".blue());
+    Ok(())
+}
+
+fn log_outcome(logger: &EventLogger, outcome: &ApplyOutcome) {
+    match outcome {
         ApplyOutcome::Success { written, deleted, .. } => {
             logger.log(EventKind::ApplySucceeded {
                 files_written: written.len(),
@@ -51,146 +114,104 @@ pub fn apply_to_stage_transaction(
         }
         _ => {}
     }
-
-    if ctx.check_after {
-        return run_post_apply_verification(ctx, &mut stage, outcome);
-    }
-
-    print_stage_info(&stage);
-    Ok(outcome)
 }
 
-fn execute_stage_transaction(
-    manifest: &Manifest,
-    extracted: &ExtractedFiles,
+fn run_verification_and_maybe_promote(
     ctx: &ApplyContext,
-) -> Result<(StageManager, ApplyOutcome)> {
-    let mut stage = StageManager::new(&ctx.repo_root);
-    let ensure_result = stage.ensure_stage()?;
-
-    if ensure_result.was_created() {
-        println!("{}", "Created staging workspace.".blue());
-    }
-
-    let worktree = stage.worktree();
-    let retention = ctx.config.preferences.backup_retention;
-    
-    // Write actual files to the shadow worktree
-    let outcome = writer::write_files(manifest, extracted, Some(&worktree), retention)?;
-
-    // Update stage tracking state
-    update_stage_records(&mut stage, &ctx.repo_root, manifest)?;
-
-    let staged_outcome = remap_staged_outcome(outcome);
-    Ok((stage, staged_outcome))
-}
-
-fn update_stage_records(
-    stage: &mut StageManager,
-    repo_root: &Path,
-    manifest: &Manifest,
-) -> Result<()> {
-    for entry in manifest {
-        let base_hash = get_base_hash(repo_root, &entry.path)?;
-        match entry.operation {
-            Operation::Delete => stage.record_delete(&entry.path, base_hash)?,
-            Operation::Update | Operation::New => stage.record_write(&entry.path, base_hash)?,
-        }
-    }
-    stage.record_apply()
-}
-
-fn get_base_hash(repo_root: &Path, path: &str) -> Result<Option<String>> {
-    let base_path = repo_root.join(path);
-    if base_path.exists() && base_path.is_file() {
-        let content = std::fs::read_to_string(&base_path)?;
-        Ok(Some(crate::apply::patch::common::compute_sha256(&content)))
-    } else {
-        Ok(None)
-    }
-}
-
-fn remap_staged_outcome(outcome: ApplyOutcome) -> ApplyOutcome {
-    match outcome {
-        ApplyOutcome::Success { written, deleted, backed_up, .. } => ApplyOutcome::Success {
-            written,
-            deleted,
-            backed_up,
-            staged: true,
-        },
-        other => other,
-    }
-}
-
-fn run_post_apply_verification(
-    ctx: &ApplyContext,
-    stage: &mut StageManager,
     outcome: ApplyOutcome,
 ) -> Result<ApplyOutcome> {
-    let result = verification::run_verification_pipeline(ctx, stage.worktree())?;
+    let result = verification::run_verification_pipeline(ctx, &ctx.repo_root)?;
 
     if result.passed {
-        println!("{}", " Verification passed!".green().bold());
+        println!("{}", "✓ All checks passed!".green().bold());
+
+        // Commit changes on work branch first
+        commit_work_branch_changes()?;
+
+        // Auto-promote or prompt
         if ctx.auto_promote {
-            return promote_stage(ctx, stage);
+            return promote_to_main();
         }
-        if confirm("Promote staged changes to workspace?")? {
-            return promote_stage(ctx, stage);
+
+        if confirm("Promote to main?")? {
+            return promote_to_main();
         }
-        print_stage_info(stage);
+
+        println!("{}", "Changes committed on 'slopchop-work'. Run 'slopchop promote' when ready.".cyan());
         Ok(outcome)
     } else {
-        println!("{}", "? Verification failed. Changes remain staged.".yellow());
-        
-        let modified_files: Vec<String> = if let Some(state) = stage.state() {
-             state.paths_to_write().iter().map(|p| p.path.clone()).collect()
-        } else {
-             Vec::new()
+        println!("{}", "✗ Verification failed. Changes are on work branch.".yellow());
+
+        let modified_files: Vec<String> = match &outcome {
+            ApplyOutcome::Success { written, .. } => written.clone(),
+            _ => Vec::new(),
         };
-        
-        
+
         let ai_msg = verification::generate_ai_feedback(&result, &modified_files);
         crate::apply::messages::print_ai_feedback(&ai_msg);
-        
-        print_stage_info(stage);
+
+        println!("\n{}", "Fix the issues and run 'slopchop apply' again, or 'slopchop abort' to abandon.".cyan());
         Ok(outcome)
     }
 }
 
-fn promote_stage(ctx: &ApplyContext, stage: &mut StageManager) -> Result<ApplyOutcome> {
-    let logger = EventLogger::new(&ctx.repo_root);
-    logger.log(EventKind::PromoteStarted);
+fn commit_work_branch_changes() -> Result<()> {
+    use std::process::Command;
 
-    let retention = ctx.config.preferences.backup_retention;
-    match stage.promote(retention) {
-        Ok(result) => {
-            logger.log(EventKind::PromoteSucceeded {
-                files_written: result.files_written.len(),
-                files_deleted: result.files_deleted.len(),
-            });
+    // Stage all changes
+    let add = Command::new("git")
+        .args(["add", "-A"])
+        .output()?;
+
+    if !add.status.success() {
+        anyhow::bail!("Failed to stage changes");
+    }
+
+    // Check if there's anything to commit
+    let status = Command::new("git")
+        .args(["status", "--porcelain"])
+        .output()?;
+
+    if status.stdout.is_empty() {
+        return Ok(()); // Nothing to commit
+    }
+
+    // Commit
+    let commit = Command::new("git")
+        .args(["commit", "-m", "chore: apply slopchop changes"])
+        .output()?;
+
+    if !commit.status.success() {
+        let stderr = String::from_utf8_lossy(&commit.stderr);
+        anyhow::bail!("Failed to commit: {stderr}");
+    }
+
+    Ok(())
+}
+
+fn promote_to_main() -> Result<ApplyOutcome> {
+    match branch::promote(false)? {
+        branch::PromoteResult::Merged => {
+            println!("{}", "✓ Promoted to main. Work branch cleaned up.".green().bold());
             Ok(ApplyOutcome::Promoted {
-                written: result.files_written,
-                deleted: result.files_deleted,
+                written: vec![],
+                deleted: vec![],
             })
         }
-        Err(e) => {
-            logger.log(EventKind::PromoteFailed { error: e.to_string() });
-            Err(e)
+        branch::PromoteResult::DryRun => {
+            Ok(ApplyOutcome::Success {
+                written: vec![],
+                deleted: vec![],
+                backed_up: false,
+                staged: false,
+            })
         }
     }
 }
 
-fn print_stage_info(stage: &StageManager) {
-    println!(
-        "\n{} Changes staged. Run {} to verify, or {} to promote.",
-        " ".blue(),
-        "slopchop check".yellow(),
-        "slopchop apply --promote".yellow()
-    );
-    if let Some(state) = stage.state() {
-        let write_count = state.paths_to_write().len();
-        let delete_count = state.paths_to_delete().len();
-        println!("   Stage: {write_count} writes, {delete_count} deletes pending");
+fn print_work_branch_status() {
+    if branch::on_work_branch() {
+        println!("\n{}", "Changes applied on work branch. Run 'slopchop check' to verify.".cyan());
     }
 }
 
@@ -210,14 +231,11 @@ pub fn confirm(prompt: &str) -> Result<bool> {
 ///
 /// # Errors
 /// Returns error if promotion fails.
-pub fn run_promote_standalone(ctx: &ApplyContext) -> Result<ApplyOutcome> {
-    let mut stage = StageManager::new(&ctx.repo_root);
-    if !stage.exists() {
-        println!("{}", "No stage to promote.".yellow());
-        return Ok(ApplyOutcome::ParseError(
-            "No staged changes found.".to_string(),
-        ));
+pub fn run_promote_standalone(_ctx: &ApplyContext) -> Result<ApplyOutcome> {
+    if !branch::on_work_branch() {
+        println!("{}", "Not on work branch. Nothing to promote.".yellow());
+        return Ok(ApplyOutcome::ParseError("Not on work branch.".to_string()));
     }
-    stage.load_state()?;
-    promote_stage(ctx, &mut stage)
+
+    promote_to_main()
 }

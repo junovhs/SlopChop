@@ -9,11 +9,11 @@ use crate::exit::SlopChopExit;
 use crate::map;
 use crate::pack::{self, OutputFormat, PackOptions};
 use crate::reporting;
-use crate::stage;
 use crate::signatures::{self, SignatureOptions};
 use anyhow::Result;
 use colored::Colorize;
 use std::path::PathBuf;
+
 #[must_use]
 pub fn get_repo_root() -> PathBuf {
     std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
@@ -73,9 +73,7 @@ pub fn handle_check(json: bool) -> Result<SlopChopExit> {
     let mut ctx = ApplyContext::new(&config, repo_root.clone());
     ctx.silent = json;
 
-    let cwd = stage::effective_cwd(&repo_root);
-
-    let report = apply::verification::run_verification_pipeline(&ctx, &cwd)?;
+    let report = apply::verification::run_verification_pipeline(&ctx, &repo_root)?;
 
     if json {
         reporting::print_json(&report)?;
@@ -139,43 +137,6 @@ pub fn handle_config() -> Result<SlopChopExit> {
     Ok(SlopChopExit::Success)
 }
 
-/// Handles the sabotage command.
-///
-/// # Errors
-/// Returns error if sabotage fails.
-pub fn handle_sabotage(file: &std::path::Path) -> Result<SlopChopExit> {
-    let repo_root = get_repo_root();
-    let mut stage = stage::StageManager::new(&repo_root);
-    
-    if !stage.exists() {
-        // Auto-create stage if missing for convenience?
-        // The brief says "Must ONLY operate on .slopchop/stage/worktree".
-        // If stage doesn't exist, we can't operate on it.
-        println!("{}", "No stage found. Run 'slopchop apply' or create a stage first.".yellow());
-        return Ok(SlopChopExit::Error);
-    }
-    
-    // We might need to ensure the file exists in the stage.
-    // The user might pass a path relative to repo root, we need to map it.
-    // sabotage_file expects path relative to worktree root? 
-    // Actually sabotage_file takes "path" and joins it with worktree.
-    // So if user passes "src/main.rs", it looks for ".slopchop/stage/worktree/src/main.rs".
-    
-    let report = crate::analysis::sabotage::sabotage_file(file, &mut stage)?;
-    
-    if report.mutated {
-        println!("{}", "Sabotage successful!".green().bold());
-        println!("  File: {}", report.file.display());
-        println!("  Line: {}", report.line);
-        println!("  Mutation: '{}' -> '{}'", report.original_op.red(), report.new_op.green());
-        println!("\nRun 'slopchop check' to see if tests catch this bug!");
-        Ok(SlopChopExit::Success)
-    } else {
-        println!("{}", "No mutable logic found in file.".yellow());
-        Ok(SlopChopExit::Error)
-    }
-}
-
 /// Handles the apply command with CLI arguments.
 ///
 /// # Errors
@@ -186,7 +147,8 @@ pub fn handle_apply(args: &ApplyArgs) -> Result<SlopChopExit> {
     let input = determine_input(args);
 
     if args.sync {
-        return super::stage_handlers::handle_sync(&repo_root);
+        println!("{}", "Sync is deprecated. Use git branches instead.".yellow());
+        return Ok(SlopChopExit::Success);
     }
 
     if args.promote {
@@ -216,8 +178,6 @@ pub fn handle_apply(args: &ApplyArgs) -> Result<SlopChopExit> {
 
     Ok(map_outcome_to_exit(&outcome))
 }
-
-
 
 fn determine_sanitize(args: &ApplyArgs) -> bool {
     if args.strict {
@@ -258,7 +218,3 @@ fn determine_input(args: &ApplyArgs) -> apply::types::ApplyInput {
         apply::types::ApplyInput::Clipboard
     }
 }
-
-// Re-export from stage_handlers for backwards compatibility
-pub use super::stage_handlers::handle_stage;
-

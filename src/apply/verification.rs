@@ -33,7 +33,7 @@ pub fn run_verification_pipeline<P: AsRef<Path>>(
 
     let working_dir = cwd.as_ref();
     let runner = CommandRunner::new(ctx.silent);
-    
+
     // 1. External Commands
     let (mut command_results, mut passed) = run_external_checks(ctx, working_dir, &runner, &logger)?;
 
@@ -69,14 +69,14 @@ pub fn run_verification_pipeline<P: AsRef<Path>>(
 }
 
 fn run_external_checks(
-    ctx: &ApplyContext, 
-    cwd: &Path, 
+    ctx: &ApplyContext,
+    cwd: &Path,
     runner: &CommandRunner,
     logger: &EventLogger
 ) -> Result<(Vec<CommandResult>, bool)> {
     let mut results = Vec::new();
     let mut passed = true;
-    
+
     if let Some(commands) = ctx.config.commands.get("check") {
         for cmd in commands {
             let result = runner.run(cmd, cwd)?;
@@ -90,25 +90,37 @@ fn run_external_checks(
     Ok((results, passed))
 }
 
+/// Finds the largest valid char boundary <= idx.
+fn floor_char_boundary(s: &str, mut idx: usize) -> usize {
+    if idx >= s.len() {
+        return s.len();
+    }
+    while !s.is_char_boundary(idx) {
+        idx = idx.saturating_sub(1);
+    }
+    idx
+}
+
 #[must_use]
 pub fn generate_ai_feedback(report: &CheckReport, modified_files: &[String]) -> String {
     let mut msg = String::from("VERIFICATION FAILED\n\n");
 
     msg.push_str("The following checks failed:\n\n");
-    
+
     for cmd in report.commands.iter().filter(|c| c.exit_code != 0) {
         let _ = writeln!(msg, "COMMAND: {}", cmd.command);
         msg.push_str("OUTPUT:\n");
         let combined = format!("{}\n{}", cmd.stdout, cmd.stderr);
         let truncated = if combined.len() > 1000 {
-            format!("{}...\n[truncated]", &combined[..1000])
+            let safe_end = floor_char_boundary(&combined, 1000);
+            format!("{}...\n[truncated]", &combined[..safe_end])
         } else {
             combined
         };
         msg.push_str(&truncated);
         msg.push_str("\n\n");
     }
-    
+
     if report.scan.has_errors() {
         msg.push_str("COMMAND: slopchop scan\nOUTPUT:\nInternal violations found (see scan report).\n\n");
     }
@@ -124,13 +136,12 @@ pub fn generate_ai_feedback(report: &CheckReport, modified_files: &[String]) -> 
     msg
 }
 
-/// Runs verification using the effective cwd (stage if exists, else repo root).
+/// Runs verification using the repo root.
 ///
 /// # Errors
 /// Returns error if command execution fails.
 pub fn run_verification_auto(ctx: &ApplyContext) -> Result<bool> {
-    let cwd = crate::stage::effective_cwd(&ctx.repo_root);
-    let report = run_verification_pipeline(ctx, &cwd)?;
+    let report = run_verification_pipeline(ctx, &ctx.repo_root)?;
     Ok(report.passed)
 }
 
@@ -177,7 +188,7 @@ fn run_locality_scan(cwd: &Path, silent: bool) -> Result<CommandResult> {
 
     let passed: bool;
     let output: String;
-    
+
     if silent {
         let original_cwd = env::current_dir()?;
         env::set_current_dir(cwd)?;
@@ -201,7 +212,7 @@ fn run_locality_scan(cwd: &Path, silent: bool) -> Result<CommandResult> {
             output = format!("Locality check failed with {} violations.", res.violations);
         }
     }
-    
+
     let duration = start.elapsed();
     if let Some(s) = sp { s.stop(passed); }
 

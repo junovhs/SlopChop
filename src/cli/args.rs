@@ -31,7 +31,7 @@ pub enum Commands {
         json: bool,
     },
 
-    /// Apply AI-generated changes to staging area
+    /// Apply AI-generated changes
     Apply {
         #[arg(long, short)]
         force: bool,
@@ -47,8 +47,8 @@ pub enum Commands {
         reset: bool,
         #[arg(long)]
         promote: bool,
-        /// Nuclear sync: mirror stage to workspace, delete non-stage files
-        #[arg(long, conflicts_with = "promote")]
+        /// Deprecated - use git branches instead
+        #[arg(long, conflicts_with = "promote", hide = true)]
         sync: bool,
         #[arg(long)]
         sanitize: bool,
@@ -121,20 +121,6 @@ pub enum Commands {
 
     /// Interactive configuration editor
     Config,
-
-    /// Intentionally break code in stage to verify tests [EXPERIMENTAL]
-    Sabotage {
-        /// File to sabotage
-        #[arg(value_name = "FILE")]
-        file: PathBuf,
-    },
-
-    /// Initialize or reset the staging sandbox for direct editing
-    Stage {
-        /// Skip confirmation prompt for existing stage
-        #[arg(long, short)]
-        force: bool,
-    },
 
     /// Run mutation testing to find test gaps [EXPERIMENTAL]
     Mutate {

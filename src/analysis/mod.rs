@@ -4,7 +4,6 @@
 pub mod ast;
 pub mod checks;
 pub mod metrics;
-pub mod sabotage;
 pub mod safety;
 
 use crate::config::Config;
