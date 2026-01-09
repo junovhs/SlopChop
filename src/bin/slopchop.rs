@@ -1,131 +1,24 @@
-// src/bin/slopchop.rs
-use anyhow::Result;
 use clap::Parser;
-use slopchop_core::clean;
-use slopchop_core::cli::args::ApplyArgs;
-use slopchop_core::cli::audit::AuditCliOptions;
-use slopchop_core::cli::{
-    handle_apply, handle_check, handle_map, handle_mutate, handle_pack, handle_scan,
-    handle_signatures, Cli, Commands, PackArgs,
-};
+use colored::Colorize;
+use slopchop_core::cli::{self, Cli};
 use slopchop_core::exit::SlopChopExit;
-use slopchop_core::signatures::SignatureOptions;
 
-fn main() {
-    let exit_code = match run() {
-        Ok(exit) => exit.code(),
-        Err(e) => {
-            eprintln!("Error: {e:?}");
-            SlopChopExit::Error.code()
-        }
-    };
-    std::process::exit(exit_code);
-}
-
-fn run() -> Result<SlopChopExit> {
+fn main() -> SlopChopExit {
     let cli = Cli::parse();
-    match cli.command {
-        None => handle_scan(false, false, false),
-        Some(cmd) => dispatch(cmd),
-    }
-}
 
-fn dispatch(cmd: Commands) -> Result<SlopChopExit> {
-    match cmd {
-        Commands::Check { json } => handle_check(json),
-        Commands::Scan {
-            verbose,
-            locality,
-            json,
-        } => handle_scan(verbose, locality, json),
-        Commands::Apply {
-            force,
-            dry_run,
-            stdin,
-            check,
-            file,
-            reset,
-            promote,
-            sync,
-            sanitize,
-            strict,
-        } => {
-            let args = ApplyArgs {
-                force,
-                dry_run,
-                stdin,
-                check,
-                file,
-                reset,
-                promote,
-                sync,
-                sanitize,
-                strict,
-            };
-            handle_apply(&args)
+    let result = if let Some(cmd) = cli.command {
+        cli::dispatch::execute(cmd)
+    } else {
+        use clap::CommandFactory;
+        let _ = Cli::command().print_help();
+        Ok(SlopChopExit::Success)
+    };
+
+    match result {
+        Ok(exit_code) => exit_code,
+        Err(e) => {
+            eprintln!("{} {}", "Error:".red(), e);
+            SlopChopExit::Error
         }
-        Commands::Clean { commit } => {
-            clean::run(commit)?;
-            Ok(SlopChopExit::Success)
-        }
-        Commands::Audit {
-            format,
-            no_dead,
-            no_dups,
-            no_patterns,
-            min_lines,
-            max,
-            verbose,
-        } => {
-            let opts = AuditCliOptions {
-                format: &format,
-                no_dead,
-                no_dups,
-                no_patterns,
-                min_lines,
-                max,
-                verbose,
-            };
-            slopchop_core::cli::audit::handle(&opts)?;
-            Ok(SlopChopExit::Success)
-        }
-        Commands::Pack {
-            stdout,
-            copy,
-            noprompt,
-            format,
-            skeleton,
-            code_only,
-            verbose,
-            target,
-            focus,
-            depth,
-        } => {
-            let args = PackArgs {
-                stdout,
-                copy,
-                noprompt,
-                format,
-                skeleton,
-                code_only,
-                verbose,
-                target,
-                focus,
-                depth,
-            };
-            handle_pack(args)
-        }
-        Commands::Map { deps } => handle_map(deps),
-        Commands::Signatures { copy, stdout } => {
-            let opts = SignatureOptions { copy, stdout };
-            handle_signatures(opts)
-        }
-        Commands::Config => slopchop_core::cli::handlers::handle_config(),
-        Commands::Mutate {
-            workers,
-            timeout,
-            json,
-            filter,
-        } => handle_mutate(workers, timeout, json, filter),
     }
 }

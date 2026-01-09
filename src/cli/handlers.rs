@@ -137,6 +137,51 @@ pub fn handle_config() -> Result<SlopChopExit> {
     Ok(SlopChopExit::Success)
 }
 
+/// Handles the branch command.
+///
+/// # Errors
+/// Returns error if branch operations fail.
+pub fn handle_branch(force: bool) -> Result<SlopChopExit> {
+    match crate::branch::init_branch(force)? {
+        crate::branch::BranchResult::Created => {
+            println!("{}", "→ Created work branch 'slopchop-work'".blue());
+        }
+        crate::branch::BranchResult::Reset => {
+            println!("{}", "→ Reset work branch 'slopchop-work'".blue());
+        }
+        crate::branch::BranchResult::AlreadyOnBranch => {
+            println!("{}", "✓ Already on 'slopchop-work'".green());
+        }
+    }
+    Ok(SlopChopExit::Success)
+}
+
+/// Handles the promote command.
+///
+/// # Errors
+/// Returns error if promotion fails.
+pub fn handle_promote(dry_run: bool) -> Result<SlopChopExit> {
+    match crate::branch::promote(dry_run)? {
+        crate::branch::PromoteResult::DryRun => {
+            println!("{}", "[DRY RUN] Would merge 'slopchop-work' into main.".yellow());
+        }
+        crate::branch::PromoteResult::Merged => {
+            println!("{}", "✓ Merged 'slopchop-work' into main.".green().bold());
+        }
+    }
+    Ok(SlopChopExit::Success)
+}
+
+/// Handles the abort command.
+///
+/// # Errors
+/// Returns error if abort fails.
+pub fn handle_abort() -> Result<SlopChopExit> {
+    crate::branch::abort()?;
+    println!("{}", "✓ Aborted. Work branch deleted.".yellow());
+    Ok(SlopChopExit::Success)
+}
+
 /// Handles the apply command with CLI arguments.
 ///
 /// # Errors
