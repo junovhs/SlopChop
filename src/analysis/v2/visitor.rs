@@ -36,7 +36,8 @@ impl<'a> AstVisitor<'a> {
         for m in cursor.matches(&query, root, self.source.as_bytes()) {
             if let Some(cap) = m.captures.first() {
                 if let Ok(name) = cap.node.utf8_text(self.source.as_bytes()) {
-                    out.insert(name.to_string(), Scope::new(name));
+                    let row = cap.node.start_position().row + 1;
+                    out.insert(name.to_string(), Scope::new(name, row));
                 }
             }
         }
@@ -66,7 +67,8 @@ impl<'a> AstVisitor<'a> {
         }
 
         if let Some(body) = body_node {
-            let scope = out.entry(name).or_insert_with(|| Scope::new("Unknown"));
+            // If the struct wasn't seen (e.g. external or just impl), use row 1
+            let scope = out.entry(name).or_insert_with(|| Scope::new("Unknown", 1));
             self.process_impl_body(body, scope);
         }
     }

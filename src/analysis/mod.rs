@@ -29,10 +29,18 @@ impl RuleEngine {
     pub fn scan(&self, files: Vec<PathBuf>) -> crate::types::ScanReport {
         let start = std::time::Instant::now();
 
-        let results: Vec<FileReport> = files
+        // 1. Parallel Structural Analysis (V1 + Cognitive)
+        let mut results: Vec<FileReport> = files
             .par_iter()
             .map(|path| self.analyze_file(path))
             .collect();
+
+        // 2. Deep Analysis (V2 - LCOM4, CBO, SFOUT)
+        let v2_engine = v2::ScanEngineV2::new(self.config.clone());
+        let deep_violations = v2_engine.run(&files);
+
+        // 3. Merge Deep Analysis Violations
+        Self::merge_deep_violations(&mut results, &deep_violations);
 
         let total_violations: usize = results.iter().map(|r| r.violations.len()).sum();
         let total_tokens: usize = results.iter().map(|r| r.token_count).sum();
@@ -42,6 +50,17 @@ impl RuleEngine {
             total_violations,
             total_tokens,
             duration_ms: start.elapsed().as_millis(),
+        }
+    }
+
+    fn merge_deep_violations(
+        results: &mut [FileReport], 
+        deep_violations: &std::collections::HashMap<PathBuf, Vec<Violation>>
+    ) {
+        for report in results {
+            if let Some(violations) = deep_violations.get(&report.path) {
+                report.violations.extend(violations.clone());
+            }
         }
     }
 
@@ -117,7 +136,6 @@ impl RuleEngine {
         }
     }
 
-    /// Replaced Cyclomatic Complexity with Scan v2 Cognitive Complexity.
     fn check_v2_complexity(lang: Lang, ctx: &checks::CheckContext, report: &mut FileReport) {
         let Ok(q_defs) = Query::new(lang.grammar(), lang.q_defs()) else { return; };
         let mut cursor = tree_sitter::QueryCursor::new();
@@ -143,7 +161,7 @@ impl RuleEngine {
         
         let score = v2::cognitive::CognitiveAnalyzer::calculate(node, ctx.source);
 
-        if score > 15 { // V2 Spec threshold
+        if score > 15 {
             let name = node.child_by_field_name("name")
                 .and_then(|n| n.utf8_text(ctx.source.as_bytes()).ok())
                 .unwrap_or("<anonymous>");

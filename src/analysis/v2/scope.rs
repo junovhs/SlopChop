@@ -5,6 +5,7 @@ use std::collections::{HashMap, HashSet};
 #[derive(Debug, Clone)]
 pub struct Scope {
     pub name: String,
+    pub row: usize,
     pub fields: HashSet<String>,
     pub methods: HashMap<String, Method>,
 }
@@ -25,9 +26,10 @@ pub struct Method {
 
 impl Scope {
     #[must_use]
-    pub fn new(name: &str) -> Self {
+    pub fn new(name: &str, row: usize) -> Self {
         Self {
             name: name.to_string(),
+            row,
             fields: HashSet::new(),
             methods: HashMap::new(),
         }
@@ -47,6 +49,7 @@ impl Scope {
     }
 
     /// Calculates CBO (Coupling Between Objects).
+    /// Number of distinct external classes/scopes this scope depends on.
     #[must_use]
     pub fn calculate_cbo(&self) -> usize {
         let mut unique_deps = HashSet::new();
@@ -59,6 +62,7 @@ impl Scope {
     }
 
     /// Calculates the maximum SFOUT (Structural Fan-Out) among methods.
+    /// SFOUT = number of outgoing calls from a single method.
     #[must_use]
     pub fn calculate_max_sfout(&self) -> usize {
         self.methods
@@ -146,7 +150,7 @@ mod tests {
 
     #[test]
     fn test_lcom4_cohesive() {
-        let mut scope = Scope::new("Cohesive");
+        let mut scope = Scope::new("Cohesive", 1);
         scope.fields.insert("x".into());
 
         scope.methods.insert(
