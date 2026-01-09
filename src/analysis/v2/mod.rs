@@ -150,10 +150,13 @@ impl ScanEngineV2 {
             || scope.derives.contains("Deserialize")
             || scope.derives.contains("Parser") // Clap
             || scope.derives.contains("Args")   // Clap
-            || scope.name.ends_with("Args")
-            || scope.name.ends_with("Config")
-            || scope.name.ends_with("Options")
         {
+            return;
+        }
+
+        // HEURISTIC: Structs with NO behavioral complexity are treated as "Data Structures".
+        // If a struct has logic (methods with complexity) OR mutates state, it should encapsulate.
+        if !scope.has_behavior() {
             return;
         }
 

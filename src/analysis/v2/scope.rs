@@ -30,6 +30,8 @@ pub struct Method {
     pub external_calls: HashSet<String>,
     /// Human-understandability score
     pub cognitive_complexity: usize,
+    /// Does the method mutate state? (&mut self)
+    pub is_mutable: bool,
 }
 
 impl Scope {
@@ -96,8 +98,9 @@ impl Scope {
 
     /// Calculates AHF (Attribute Hiding Factor).
     /// Percentage of fields that are private.
-    /// AHF = (sum(is_private) / total_fields) * 100
+    /// AHF = (`sum(is_private)` / `total_fields`) * 100
     #[must_use]
+    #[allow(clippy::cast_precision_loss)]
     pub fn calculate_ahf(&self) -> f64 {
         if self.fields.is_empty() {
             // If there are no fields, state leaking is impossible.
@@ -108,6 +111,15 @@ impl Scope {
         let private_fields = self.fields.values().filter(|f| !f.is_public).count() as f64;
 
         (private_fields / total_fields) * 100.0
+    }
+
+    /// Calculates the sum of cognitive complexity of all methods.
+    /// Used to distinguish "Data Structures" (complexity 0) from "Logic Objects".
+    #[must_use]
+    pub fn has_behavior(&self) -> bool {
+        self.methods
+            .values()
+            .any(|m| m.cognitive_complexity > 0 || m.is_mutable)
     }
 
     fn build_adjacency_graph<'a>(
@@ -257,6 +269,6 @@ mod tests {
             },
         );
 
-        assert_eq!(scope.calculate_ahf(), 75.0);
+        assert!((scope.calculate_ahf() - 75.0).abs() < f64::EPSILON);
     }
 }

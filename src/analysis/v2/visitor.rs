@@ -230,9 +230,10 @@ impl<'a> AstVisitor<'a> {
         // Per Hitz & Montazeri (1995), LCOM4 measures cohesion of methods that
         // "share instance variables". Associated functions and constructors
         // don't access instance state and should be excluded.
-        if !self.has_self_parameter(node) {
+        // Returns None if static, Some(is_mut) if instance.
+        let Some(is_mutable) = Self::get_self_mutability(node, self.source) else {
             return None;
-        }
+        };
 
         let name_node = node.child_by_field_name("name")?;
         let name = name_node
@@ -246,6 +247,7 @@ impl<'a> AstVisitor<'a> {
             internal_calls: HashSet::new(),
             external_calls: HashSet::new(),
             cognitive_complexity: CognitiveAnalyzer::calculate(node, self.source),
+            is_mutable,
         };
 
         if let Some(body) = node.child_by_field_name("body") {
@@ -257,19 +259,18 @@ impl<'a> AstVisitor<'a> {
     }
 
     /// Checks if a function has a self parameter (is an instance method).
-    fn has_self_parameter(&self, node: Node) -> bool {
-        let Some(params) = node.child_by_field_name("parameters") else {
-            return false;
-        };
-
+    /// Returns: Some(true) if mutable (&mut self), Some(false) if immutable (&self), None if distinct.
+    fn get_self_mutability(node: Node, source: &str) -> Option<bool> {
+        let params = node.child_by_field_name("parameters")?;
         let mut cursor = params.walk();
         for child in params.children(&mut cursor) {
-            // self_parameter covers: self, &self, &mut self
             if child.kind() == "self_parameter" {
-                return true;
+                // Check if it contains "mut"
+                let text = child.utf8_text(source.as_bytes()).unwrap_or("");
+                return Some(text.contains("mut"));
             }
         }
-        false
+        None
     }
 
     fn walk_body_recursive(&self, node: Node, cursor: &mut TreeCursor, method: &mut Method) {
