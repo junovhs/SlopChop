@@ -5,21 +5,13 @@ pub mod visitor;
 
 use crate::config::Config;
 use crate::lang::Lang;
+use crate::types::{Violation, ViolationDetails};
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tree_sitter::Parser;
 
-/// Aggregated metrics for a Scan v2 run.
-#[derive(Debug, Default)]
-pub struct MetricsV2 {
-    pub lcom4_violations: usize,
-    pub high_cbo_count: usize,
-    pub high_sfout_count: usize,
-    pub max_cognitive: usize,
-}
-
-#[allow(dead_code)]
 pub struct ScanEngineV2 {
+    #[allow(dead_code)]
     config: Config,
 }
 
@@ -29,60 +21,105 @@ impl ScanEngineV2 {
         Self { config }
     }
 
-    /// Runs the Scan v2 engine over the provided files.
+    /// Runs the Scan v2 engine and returns violations mapped by file path.
     #[must_use]
-    pub fn run(&self, files: &[PathBuf]) -> MetricsV2 {
+    pub fn run(&self, files: &[PathBuf]) -> HashMap<PathBuf, Vec<Violation>> {
         let mut global_scopes = HashMap::new();
+        let mut path_map = HashMap::new();
 
         for path in files {
-            Self::process_file(path, &mut global_scopes);
+            if let Some((scopes, p_str)) = Self::process_file(path) {
+                for (name, scope) in scopes {
+                    let key = format!("{p_str}::{name}");
+                    global_scopes.insert(key, scope);
+                    path_map.insert(p_str.clone(), path.clone());
+                }
+            }
         }
 
-        Self::analyze_metrics(&global_scopes)
+        Self::analyze_all_scopes(&global_scopes, &path_map)
     }
 
-    fn process_file(path: &PathBuf, global_scopes: &mut HashMap<String, scope::Scope>) {
-        let Ok(source) = std::fs::read_to_string(path) else { return; };
-        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
-        let Some(lang) = Lang::from_ext(ext) else { return; };
+    fn process_file(path: &Path) -> Option<(HashMap<String, scope::Scope>, String)> {
+        let source = std::fs::read_to_string(path).ok()?;
+        let ext = path.extension()?.to_str()?;
+        let lang = Lang::from_ext(ext)?;
 
         let mut parser = Parser::new();
-        if parser.set_language(lang.grammar()).is_err() { return; }
+        parser.set_language(lang.grammar()).ok()?;
         
-        if let Some(tree) = parser.parse(&source, None) {
-            let visitor = visitor::AstVisitor::new(&source, lang);
-            let file_scopes = visitor.extract_scopes(tree.root_node());
-            global_scopes.extend(file_scopes);
+        let tree = parser.parse(&source, None)?;
+        let visitor = visitor::AstVisitor::new(&source, lang);
+        let file_scopes = visitor.extract_scopes(tree.root_node());
+        
+        Some((file_scopes, path.to_string_lossy().to_string()))
+    }
+
+    fn analyze_all_scopes(
+        scopes: &HashMap<String, scope::Scope>,
+        path_map: &HashMap<String, PathBuf>
+    ) -> HashMap<PathBuf, Vec<Violation>> {
+        let mut results: HashMap<PathBuf, Vec<Violation>> = HashMap::new();
+
+        for (full_name, scope) in scopes {
+            let path_str = full_name.split("::").next().unwrap_or("");
+            let Some(path) = path_map.get(path_str) else { continue; };
+            
+            let mut violations = Vec::new();
+            Self::check_scope_cohesion(scope, &mut violations);
+            Self::check_scope_coupling(scope, &mut violations);
+
+            if !violations.is_empty() {
+                results.entry(path.clone()).or_default().extend(violations);
+            }
+        }
+
+        results
+    }
+
+    fn check_scope_cohesion(scope: &scope::Scope, out: &mut Vec<Violation>) {
+        let lcom4 = scope.calculate_lcom4();
+        if lcom4 > 1 {
+            out.push(Violation::with_details(
+                scope.row,
+                format!("Class '{}' has low cohesion (LCOM4: {})", scope.name, lcom4),
+                "DEEP ANALYSIS",
+                ViolationDetails {
+                    function_name: Some(scope.name.clone()),
+                    analysis: vec![format!("Connected components: {lcom4}")],
+                    suggestion: Some("Consider splitting this class/struct into smaller units.".into()),
+                }
+            ));
         }
     }
 
-    fn analyze_metrics(scopes: &HashMap<String, scope::Scope>) -> MetricsV2 {
-        let mut metrics = MetricsV2::default();
-        for scope in scopes.values() {
-            Self::update_metrics_from_scope(scope, &mut metrics);
+    fn check_scope_coupling(scope: &scope::Scope, out: &mut Vec<Violation>) {
+        let cbo = scope.calculate_cbo();
+        if cbo > 9 {
+            out.push(Violation::with_details(
+                scope.row,
+                format!("Class '{}' is tightly coupled (CBO: {})", scope.name, cbo),
+                "DEEP ANALYSIS",
+                ViolationDetails {
+                    function_name: Some(scope.name.clone()),
+                    analysis: vec![format!("External dependencies: {cbo}")],
+                    suggestion: Some("Reduce dependencies on external modules.".into()),
+                }
+            ));
         }
-        metrics
-    }
 
-    fn update_metrics_from_scope(scope: &scope::Scope, metrics: &mut MetricsV2) {
-        Self::update_coupling_metrics(scope, metrics);
-        
-        if scope.calculate_lcom4() > 1 {
-            metrics.lcom4_violations += 1;
-        }
-        
-        let max_cog = scope.methods.values().map(|m| m.cognitive_complexity).max().unwrap_or(0);
-        if max_cog > metrics.max_cognitive {
-            metrics.max_cognitive = max_cog;
-        }
-    }
-
-    fn update_coupling_metrics(scope: &scope::Scope, metrics: &mut MetricsV2) {
-        if scope.calculate_cbo() > 9 {
-            metrics.high_cbo_count += 1;
-        }
-        if scope.calculate_max_sfout() > 7 {
-            metrics.high_sfout_count += 1;
+        let sfout = scope.calculate_max_sfout();
+        if sfout > 7 {
+            out.push(Violation::with_details(
+                scope.row,
+                format!("Class '{}' has high fan-out (Max SFOUT: {})", scope.name, sfout),
+                "DEEP ANALYSIS",
+                ViolationDetails {
+                    function_name: Some(scope.name.clone()),
+                    analysis: vec![format!("Max outgoing calls in one method: {sfout}")],
+                    suggestion: Some("Delegate responsibilities to helper classes.".into()),
+                }
+            ));
         }
     }
 }
