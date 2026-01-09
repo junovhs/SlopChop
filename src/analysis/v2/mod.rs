@@ -142,6 +142,21 @@ impl ScanEngineV2 {
             return;
         }
 
+        // TUNE: Exception for Data Transfer Objects (DTOs) and Configs.
+        // If a struct is explicitly designed to be serialized or parsed from CLI,
+        // it serves as a data contract and must expose its fields.
+
+        if scope.derives.contains("Serialize") 
+            || scope.derives.contains("Deserialize")
+            || scope.derives.contains("Parser") // Clap
+            || scope.derives.contains("Args")   // Clap
+            || scope.name.ends_with("Args")
+            || scope.name.ends_with("Config")
+            || scope.name.ends_with("Options")
+        {
+            return;
+        }
+
         // Calculate AHF
         let ahf = scope.calculate_ahf();
         // Threshold: AHF < 60%
@@ -220,5 +235,7 @@ impl ScanEngineV2 {
         }
     }
 }
+
+
 
 

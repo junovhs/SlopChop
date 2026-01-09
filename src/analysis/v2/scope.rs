@@ -9,6 +9,7 @@ pub struct Scope {
     pub is_enum: bool,
     pub fields: HashMap<String, FieldInfo>,
     pub methods: HashMap<String, Method>,
+    pub derives: HashSet<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -40,6 +41,7 @@ impl Scope {
             is_enum: false,
             fields: HashMap::new(),
             methods: HashMap::new(),
+            derives: HashSet::new(),
         }
     }
 
@@ -51,6 +53,7 @@ impl Scope {
             is_enum: true,
             fields: HashMap::new(),
             methods: HashMap::new(),
+            derives: HashSet::new(),
         }
     }
 

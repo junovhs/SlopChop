@@ -75,6 +75,12 @@ impl<'a> AstVisitor<'a> {
             .entry(struct_name.to_string())
             .or_insert_with(|| Scope::new(struct_name, struct_row));
 
+        // Attempt to extract derives if not already present
+        // (This is idempotent-ish since we use a Set, but avoiding re-parsing is good)
+        if scope.derives.is_empty() {
+            self.extract_derives(struct_node, &mut scope.derives);
+        }
+
         // Extract field info
         let Some(field_name_node) = field_node.child_by_field_name("name") else { return };
         let Ok(field_name) = field_name_node.utf8_text(self.source.as_bytes()) else { return };
@@ -99,6 +105,48 @@ impl<'a> AstVisitor<'a> {
                 is_public,
             },
         );
+    }
+
+    fn extract_derives(&self, struct_node: Node, out: &mut HashSet<String>) {
+        // Method 1: Check children (inner attributes)
+        let mut cursor = struct_node.walk();
+        for child in struct_node.children(&mut cursor) {
+             self.process_attribute_node(child, out);
+        }
+
+        // Method 2: Check previous siblings (outer attributes)
+        // Attributes like #[derive] appear before the struct_item as siblings in some TS parsers,
+        // or effectively as siblings in the CST if they aren't wrapped.
+        let mut prev = struct_node.prev_sibling();
+        while let Some(node) = prev {
+            if node.kind() == "attribute_item" {
+                 self.process_attribute_node(node, out);
+                 prev = node.prev_sibling();
+            } else if node.kind() == "line_comment" || node.kind() == "block_comment" || node.kind() == "doc_comment" {
+                 // Skip comments
+                 prev = node.prev_sibling();
+            } else {
+                 // Met something else (a previous struct, or whitespace?), stop.
+                 // Note: tree-sitter usually doesn't yield whitespace nodes unless configured.
+                 break;
+            }
+        }
+    }
+
+    fn process_attribute_node(&self, node: Node, out: &mut HashSet<String>) {
+        if node.kind() == "attribute_item" {
+            let text = node.utf8_text(self.source.as_bytes()).unwrap_or("");
+            if text.contains("derive") {
+                     let content = text.replace("#[derive(", "").replace(")]", "");
+                     for trait_name in content.split(',') {
+                         // Remove newlines/spaces
+                         let t = trait_name.trim().to_string();
+                         if !t.is_empty() {
+                            out.insert(t);
+                         }
+                     }
+            }
+        }
     }
 
     fn extract_rust_type_defs(
