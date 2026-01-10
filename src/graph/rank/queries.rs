@@ -1,7 +1,7 @@
 // src/graph/rank/queries.rs
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use crate::graph::rank::graph::{RepoGraph, Direction};
+use crate::graph::rank::graph::RepoGraph;
 use crate::graph::rank::tags::{Tag, TagKind};
 
 pub fn get_neighbors(graph: &RepoGraph, anchor: &Path) -> Vec<PathBuf> {

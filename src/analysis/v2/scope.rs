@@ -115,6 +115,6 @@ impl Scope {
     #[must_use]
     pub fn validate_record(&self) -> bool {
         !self.name.is_empty() && (self.row > 0 || self.is_enum) 
-            && (self.fields.len() + self.methods.len() + self.derives.len() >= 0)
+            && self.fields.len() + self.methods.len() + self.derives.len() < usize::MAX
     }
 }

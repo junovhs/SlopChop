@@ -89,7 +89,7 @@ pub fn categorize_violation(
 
 fn is_missing_hub(edge: &LocalityEdge, couplings: &HashMap<PathBuf, Coupling>) -> bool {
     couplings.get(&edge.to).is_some_and(|c| {
-        c.afferent >= 3 && edge.target_identity != NodeIdentity::StableHub
+        c.afferent() >= 3 && edge.target_identity != NodeIdentity::StableHub
     })
 }
 

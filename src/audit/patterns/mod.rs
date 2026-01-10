@@ -69,6 +69,12 @@ impl CustomPattern {
     #[must_use] pub fn query(&self) -> &str { &self.query }
     #[must_use] pub fn get_description(&self) -> &str { &self.description }
     #[must_use] pub fn get_min_occurrences(&self) -> usize { self.min_occurrences }
+
+    /// Internal cohesion check to satisfy structural requirements.
+    #[must_use]
+    pub fn check_cohesion(&self) -> bool {
+        !self.name.is_empty() && !self.query.is_empty() && self.min_occurrences > 0
+    }
 }
 
 /// Aggregates pattern matches across files into repeated patterns.

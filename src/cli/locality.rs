@@ -63,7 +63,7 @@ pub fn run_locality_check(cwd: &Path) -> Result<LocalityResult> {
         &locality_config,
     );
 
-    let violations = report.failed.len();
+    let violations = report.failed().len();
     let is_clean = report.is_clean();
 
     let analysis = analyze(&report, &couplings);
@@ -100,7 +100,7 @@ pub fn check_locality_silent(cwd: &Path) -> Result<(bool, usize)> {
         &locality_config,
     );
 
-    let violations = report.failed.len();
+    let violations = report.failed().len();
     let passed = report.is_clean() || !config.rules.locality.is_error_mode();
     
     Ok((passed, violations))

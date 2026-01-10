@@ -5,6 +5,7 @@ use crate::types::{FileReport, Violation};
 use crate::analysis::ast;
 use std::path::Path;
 
+#[must_use]
 pub fn analyze_file(path: &Path, config: &Config) -> FileReport {
     let mut report = FileReport {
         path: path.to_path_buf(),
@@ -40,11 +41,13 @@ pub fn analyze_file(path: &Path, config: &Config) -> FileReport {
     report
 }
 
+#[must_use]
 pub fn is_ignored(path: &Path, patterns: &[String]) -> bool {
     let path_str = path.to_string_lossy();
     patterns.iter().any(|p| path_str.contains(p))
 }
 
+#[must_use]
 pub fn has_ignore_directive(source: &str) -> bool {
     source.lines().take(5).any(|line| line.contains("slopchop:ignore"))
 }

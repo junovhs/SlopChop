@@ -33,9 +33,9 @@ pub fn analyze(
 ) -> TopologyAnalysis {
     let mut analysis = TopologyAnalysis::default();
 
-    for edge in &report.failed {
-        let kind = categorize_violation(edge, couplings, &report.layers);
-        let fan_in = couplings.get(&edge.to).map_or(0, |c| c.afferent);
+    for edge in report.failed() {
+        let kind = categorize_violation(edge, couplings, report.layers());
+        let fan_in = couplings.get(&edge.to).map_or(0, |c| c.afferent());
         let suggestion = kind.suggest(edge, fan_in);
         analysis.violations.push(CategorizedViolation {
             edge: edge.clone(),
@@ -46,6 +46,6 @@ pub fn analyze(
 
     analysis.god_modules = find_god_modules(&analysis.violations);
     analysis.hub_candidates = find_hub_candidates(couplings, report);
-    analysis.module_coupling = compute_module_coupling(&report.failed);
+    analysis.module_coupling = compute_module_coupling(report.failed());
     analysis
 }

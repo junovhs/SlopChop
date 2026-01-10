@@ -55,16 +55,16 @@ mod tests {
             .get(Path::new("hub.rs"))
             .cloned()
             .unwrap_or_default();
-        assert_eq!(hub.afferent, 3);
-        assert_eq!(hub.efferent, 1);
+        assert_eq!(hub.afferent(), 3);
+        assert_eq!(hub.efferent(), 1);
         assert!(hub.skew() > 0.0);
 
         let a = coupling
             .get(Path::new("a.rs"))
             .cloned()
             .unwrap_or_default();
-        assert_eq!(a.afferent, 0);
-        assert_eq!(a.efferent, 1);
+        assert_eq!(a.afferent(), 0);
+        assert_eq!(a.efferent(), 1);
         assert!(a.skew() < 0.0);
     }
 }
