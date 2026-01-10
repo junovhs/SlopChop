@@ -21,13 +21,26 @@ pub fn detect(source: &str, root: Node, path: &Path) -> Vec<Violation> {
 fn should_skip_perf(path: &Path) -> bool {
     let s = path.to_string_lossy();
     // CLI/UI/Reporting code is dominated by user I/O latency.
-    // Micro-optimizing loops here is usually premature optimization.
-    s.contains("/cli/") || 
-    s.contains("/ui/") || 
-    s.contains("/tui/") || 
-    s.contains("reporting") || 
-    s.contains("messages") ||
-    s.ends_with("main.rs")
+    if s.contains("/cli/") || s.contains("/ui/") || s.contains("/tui/") {
+        return true;
+    }
+    if s.contains("reporting") || s.contains("messages") {
+        return true;
+    }
+    
+    // Analysis code (AST visitors) runs once per file. Optimization here is
+    // often premature unless it's the hot path of the parser itself.
+    // We skip the pattern detectors themselves to avoid meta-noise.
+    if s.contains("analysis/v2/patterns") || s.contains("patterns/") {
+        return true;
+    }
+
+    // Main entry point is usually setup code
+    if s.ends_with("main.rs") {
+        return true;
+    }
+
+    false
 }
 
 /// Scans for loop-related performance issues.

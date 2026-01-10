@@ -5,8 +5,8 @@ pub mod state;
 pub mod concurrency;
 pub mod concurrency_lock;
 pub mod concurrency_sync;
-// Idiomatic patterns module removed as requested
 pub mod performance;
+pub mod security;
 
 use crate::types::Violation;
 use crate::lang::Lang;
@@ -30,6 +30,7 @@ pub fn detect_all(path: &Path, source: &str) -> Vec<Violation> {
     violations.extend(state::detect(source, root));
     violations.extend(concurrency::detect(source, root));
     violations.extend(performance::detect(source, root, path));
+    violations.extend(security::detect(source, root));
 
     violations
 }
