@@ -50,7 +50,7 @@ pub fn find_hub_candidates(
 ) -> Vec<HubCandidate> {
     let mut target_importers: HashMap<PathBuf, Vec<PathBuf>> = HashMap::new();
 
-    for edge in &report.failed {
+    for edge in report.failed() {
         target_importers
             .entry(edge.to.clone())
             .or_default()
@@ -61,7 +61,7 @@ pub fn find_hub_candidates(
         .into_iter()
         .filter(|(_, importers)| importers.len() >= 2)
         .map(|(path, importers)| {
-            let fan_in = couplings.get(&path).map_or(0, |c| c.afferent);
+            let fan_in = couplings.get(&path).map_or(0, |c| c.afferent());
             HubCandidate { path, fan_in, importers }
         })
         .collect()

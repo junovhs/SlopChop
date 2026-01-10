@@ -9,7 +9,7 @@ pub mod analysis;
 pub mod graph;
 
 pub use analysis::extract_references;
-use graph::CallGraph;
+use graph::{CallGraph, add_symbol, add_edge, compute_reachable};
 
 use crate::audit::types::{CodeUnit, DeadCode, DeadCodeReason};
 use std::collections::{HashMap, HashSet};
@@ -42,7 +42,7 @@ pub fn detect(
         let is_entry = is_entry_point(&unit.name, &unit.file, entry_points);
         let is_public = is_likely_public(&unit.name);
 
-        graph.add_symbol(symbol, is_public, is_entry);
+        add_symbol(&mut graph, symbol, is_public, is_entry);
     }
 
     for (file, from_name, to_name) in references {
@@ -55,7 +55,7 @@ pub fn detect(
             name: to_name.clone(),
         };
 
-        graph.add_edge(from, to);
+        add_edge(&mut graph, from, to);
     }
 
     let unreachable = find_unreachable(&graph);
@@ -63,7 +63,7 @@ pub fn detect(
 }
 
 fn find_unreachable(graph: &CallGraph) -> Vec<(Symbol, DeadCodeReason)> {
-    let reachable = graph.compute_reachable();
+    let reachable = compute_reachable(graph);
 
     graph
         .symbols()

@@ -27,9 +27,9 @@ fn print_summary(report: &ValidationReport) {
     println!(
         "\n{} {} edges | {} passed | {} failed",
         "LOCALITY SCAN".cyan().bold(),
-        report.total_edges,
-        report.passed.len().to_string().green(),
-        format_count(report.failed.len()),
+        report.total_edges(),
+        report.passed().len().to_string().green(),
+        format_count(report.failed().len()),
     );
 }
 
@@ -133,7 +133,7 @@ fn print_module_coupling(analysis: &TopologyAnalysis) {
 }
 
 fn print_entropy(report: &ValidationReport) {
-    let pct = report.entropy * 100.0;
+    let pct = report.entropy() * 100.0;
     let label = format!("{pct:.1}%");
 
     let colored = if pct > 30.0 {
@@ -148,7 +148,7 @@ fn print_entropy(report: &ValidationReport) {
 }
 
 fn print_layers(report: &ValidationReport) {
-    if report.layers.is_empty() {
+    if report.layers().is_empty() {
         return;
     }
 
@@ -156,7 +156,7 @@ fn print_layers(report: &ValidationReport) {
     
     // Group modules by layer
     let mut layers: std::collections::HashMap<usize, Vec<String>> = std::collections::HashMap::new();
-    for (path, layer) in &report.layers {
+    for (path, layer) in report.layers() {
         // Only show relevant top-level concepts or significant modules to avoid noise?
         // Proposal showed: "L0: constants, error..." (implied module basenames)
         let name = path.file_stem().and_then(|s| s.to_str()).unwrap_or("?");

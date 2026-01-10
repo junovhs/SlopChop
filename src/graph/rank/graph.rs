@@ -13,14 +13,10 @@ pub struct RepoGraph {
     pub(crate) ranks: HashMap<PathBuf, f64>,
 }
 
-#[derive(Clone, Copy)]
-pub(crate) enum Direction {
-    Dependency, 
-    Dependent,  
-}
 
 impl RepoGraph {
     /// Creates a new graph container.
+    #[must_use]
     pub fn new(
         tags: Vec<crate::graph::rank::tags::Tag>,
         defines: HashMap<String, HashSet<PathBuf>>,

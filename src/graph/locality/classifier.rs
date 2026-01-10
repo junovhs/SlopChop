@@ -44,8 +44,8 @@ pub fn classify(coupling: &Coupling, config: &ClassifierConfig) -> NodeIdentity 
 }
 
 fn is_god_module(coupling: &Coupling, config: &ClassifierConfig) -> bool {
-    coupling.afferent > config.god_module_threshold
-        && coupling.efferent > config.god_module_threshold
+    coupling.afferent() > config.god_module_threshold
+        && coupling.efferent() > config.god_module_threshold
 }
 
 fn is_deadwood(coupling: &Coupling, config: &ClassifierConfig) -> bool {
@@ -56,11 +56,11 @@ fn is_stable_hub(coupling: &Coupling, _config: &ClassifierConfig) -> bool {
     // Locality v2: Auto-detect hubs based on metrics.
     // High fan-in (>= 3) is the primary signal for a shared dependency.
     // We rely on is_god_module() (checked earlier) to filter out true monoliths.
-    coupling.afferent >= 3
+    coupling.afferent() >= 3
 }
 
 fn is_volatile_leaf(coupling: &Coupling, config: &ClassifierConfig) -> bool {
-    coupling.skew() < 0.0 && coupling.efferent >= config.volatile_leaf_efferent
+    coupling.skew() < 0.0 && coupling.efferent() >= config.volatile_leaf_efferent
 }
 
 #[cfg(test)]

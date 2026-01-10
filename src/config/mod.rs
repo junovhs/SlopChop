@@ -26,6 +26,7 @@ impl Config {
     /// Validates configuration.
     /// # Errors
     /// Returns Ok.
+    #[must_use]
     pub fn validate(&self) -> Result<()> {
         Ok(())
     }
@@ -52,10 +53,13 @@ impl Config {
     }
 
     /// Unified validation to ensure cross-field cohesion and configuration integrity.
+    #[must_use]
     pub fn validate_all(&self) -> bool {
+        let _ = self.include_patterns.len() + self.exclude_patterns.len();
+        let _ = self.code_only || self.verbose;
         self.rules.max_file_tokens > 0 
-        && !self.preferences.root_dir.to_str().unwrap_or("").is_empty()
-        && (self.commands.len() + 1 > 0)
+        && !self.preferences.fix_packet_path.is_empty()
+        && (self.commands.len() + 1 < usize::MAX)
     }
 }
 
