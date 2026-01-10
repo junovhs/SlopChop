@@ -87,15 +87,50 @@ impl ConfigItem {
     }
 
     fn get_numeric_value(self, config: &Config) -> String {
-        let val = match self {
+        let val = self.get_number(config);
+        format!("[{val}]")
+    }
+
+    pub fn get_number(self, config: &Config) -> usize {
+        match self {
             Self::MaxTokens => config.rules.max_file_tokens,
             Self::MaxComplexity => config.rules.max_cyclomatic_complexity,
             Self::MaxNesting => config.rules.max_nesting_depth,
             Self::MaxArgs => config.rules.max_function_args,
             Self::LocalityMaxDistance => config.rules.locality.max_distance,
             _ => 0,
-        };
-        format!("[{val}]")
+        }
+    }
+
+    pub fn set_number(self, config: &mut Config, value: usize) {
+        match self {
+            Self::MaxTokens => config.rules.max_file_tokens = value,
+            Self::MaxComplexity => config.rules.max_cyclomatic_complexity = value,
+            Self::MaxNesting => config.rules.max_nesting_depth = value,
+            Self::MaxArgs => config.rules.max_function_args = value,
+            Self::LocalityMaxDistance => config.rules.locality.max_distance = value,
+            _ => {}
+        }
+    }
+
+    pub fn toggle_boolean(self, config: &mut Config) {
+        match self {
+            Self::AutoCopy => config.preferences.auto_copy = !config.preferences.auto_copy,
+            Self::WriteFixPacket => config.preferences.write_fix_packet = !config.preferences.write_fix_packet,
+            Self::RequirePlan => config.preferences.require_plan = !config.preferences.require_plan,
+            Self::AutoPromote => config.preferences.auto_promote = !config.preferences.auto_promote,
+            _ => {}
+        }
+    }
+
+    pub fn cycle_enum(self, config: &mut Config) {
+        if self == Self::LocalityMode {
+            config.rules.locality.mode = match config.rules.locality.mode.as_str() {
+                "warn" => "error".to_string(),
+                "error" => "off".to_string(),
+                _ => "warn".to_string(),
+            };
+        }
     }
 }
 

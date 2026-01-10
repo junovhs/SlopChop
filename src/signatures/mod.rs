@@ -7,7 +7,7 @@ mod ordering;
 
 use crate::config::Config;
 use crate::discovery;
-use crate::graph::rank::RepoGraph;
+use crate::graph::rank::{RepoGraph, GraphEngine};
 use crate::lang::Lang;
 use crate::prompt::PromptGenerator;
 use crate::skeleton;
@@ -38,7 +38,7 @@ pub fn run(opts: &SignatureOptions) -> Result<()> {
 
     let files = discovery::discover(&config)?;
     let contents = read_all_files(&files);
-    let graph = RepoGraph::build(&to_tuples(&contents));
+    let graph = GraphEngine::build(&to_tuples(&contents));
 
     let ordered = ordering::topological_order(&graph, &files);
     let ranks = build_rank_map(&graph);
@@ -209,4 +209,4 @@ fn format_output(signatures: &[String], rules: &crate::config::RuleConfig) -> Re
 
 fn compile_query(lang: tree_sitter::Language, pattern: &str) -> Result<Query> {
     Query::new(lang, pattern).map_err(|e| anyhow!("Invalid tree-sitter query: {e}"))
-}
+}

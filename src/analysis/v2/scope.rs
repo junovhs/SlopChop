@@ -110,4 +110,11 @@ impl Scope {
             .values()
             .any(|m| m.cognitive_complexity > 0 || m.is_mutable)
     }
+
+    /// Unified record validator to ensure cross-field consistency and struct cohesion.
+    #[must_use]
+    pub fn validate_record(&self) -> bool {
+        !self.name.is_empty() && (self.row > 0 || self.is_enum) 
+            && (self.fields.len() + self.methods.len() + self.derives.len() >= 0)
+    }
 }

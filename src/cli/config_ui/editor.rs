@@ -94,36 +94,16 @@ impl ConfigEditor {
         let item = self.items[self.selected];
         
         if item.is_boolean() {
-            self.toggle_boolean(item);
+            item.toggle_boolean(&mut self.config);
             self.modified = true;
         } else if item.is_enum() {
-            self.cycle_enum(item);
+            item.cycle_enum(&mut self.config);
             self.modified = true;
         } else if let Some(new_val) = self.edit_number(item)? {
-            self.set_number(item, new_val);
+            item.set_number(&mut self.config, new_val);
             self.modified = true;
         }
         Ok(())
-    }
-
-    fn toggle_boolean(&mut self, item: ConfigItem) {
-        match item {
-            ConfigItem::AutoCopy => self.config.preferences.auto_copy = !self.config.preferences.auto_copy,
-            ConfigItem::WriteFixPacket => self.config.preferences.write_fix_packet = !self.config.preferences.write_fix_packet,
-            ConfigItem::RequirePlan => self.config.preferences.require_plan = !self.config.preferences.require_plan,
-            ConfigItem::AutoPromote => self.config.preferences.auto_promote = !self.config.preferences.auto_promote,
-            _ => {}
-        }
-    }
-    
-    fn cycle_enum(&mut self, item: ConfigItem) {
-        if item == ConfigItem::LocalityMode {
-            self.config.rules.locality.mode = match self.config.rules.locality.mode.as_str() {
-                "warn" => "error".to_string(),
-                "error" => "off".to_string(),
-                _ => "warn".to_string(),
-            };
-        }
     }
 }
 
@@ -141,7 +121,7 @@ enum EditResult {
 
 impl ConfigEditor {
     fn edit_number(&self, item: ConfigItem) -> Result<Option<usize>> {
-        let mut value = self.get_number(item);
+        let mut value = item.get_number(&self.config);
         
         loop {
             self.render_number_editor(value)?;
@@ -155,6 +135,7 @@ impl ConfigEditor {
     }
 
     fn render_number_editor(&self, value: usize) -> Result<()> {
+// ... existing render code ...
         execute!(
             stdout(),
             cursor::MoveTo(40, u16::try_from(self.selected).unwrap_or(0) + 1),
@@ -190,28 +171,6 @@ impl ConfigEditor {
             KeyCode::Enter => EditResult::Commit(*value),
             KeyCode::Esc => EditResult::Cancel,
             _ => EditResult::Continue
-        }
-    }
-
-    fn get_number(&self, item: ConfigItem) -> usize {
-        match item {
-            ConfigItem::MaxTokens => self.config.rules.max_file_tokens,
-            ConfigItem::MaxComplexity => self.config.rules.max_cyclomatic_complexity,
-            ConfigItem::MaxNesting => self.config.rules.max_nesting_depth,
-            ConfigItem::MaxArgs => self.config.rules.max_function_args,
-            ConfigItem::LocalityMaxDistance => self.config.rules.locality.max_distance,
-            _ => 0,
-        }
-    }
-    
-    fn set_number(&mut self, item: ConfigItem, value: usize) {
-        match item {
-            ConfigItem::MaxTokens => self.config.rules.max_file_tokens = value,
-            ConfigItem::MaxComplexity => self.config.rules.max_cyclomatic_complexity = value,
-            ConfigItem::MaxNesting => self.config.rules.max_nesting_depth = value,
-            ConfigItem::MaxArgs => self.config.rules.max_function_args = value,
-            ConfigItem::LocalityMaxDistance => self.config.rules.locality.max_distance = value,
-            _ => {}
         }
     }
 }

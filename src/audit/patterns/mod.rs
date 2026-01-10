@@ -33,10 +33,10 @@ pub struct PatternMatch {
 
 /// Custom pattern builder for user-defined patterns.
 pub struct CustomPattern {
-    pub name: String,
-    pub description: String,
-    pub query: String,
-    pub min_occurrences: usize,
+    name: String,
+    description: String,
+    query: String,
+    min_occurrences: usize,
 }
 
 impl CustomPattern {
@@ -64,6 +64,11 @@ impl CustomPattern {
         self.description = desc.to_string();
         self
     }
+
+    #[must_use] pub fn name(&self) -> &str { &self.name }
+    #[must_use] pub fn query(&self) -> &str { &self.query }
+    #[must_use] pub fn get_description(&self) -> &str { &self.description }
+    #[must_use] pub fn get_min_occurrences(&self) -> usize { self.min_occurrences }
 }
 
 /// Aggregates pattern matches across files into repeated patterns.
@@ -151,4 +156,4 @@ pub fn recommend_extraction(pattern: &RepeatedPattern) -> String {
             files.len()
         )
     }
-}
+}

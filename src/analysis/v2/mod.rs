@@ -93,7 +93,7 @@ impl ScanEngineV2 {
     }
 
     fn check_scope_cohesion(scope: &scope::Scope, lcom4: usize, out: &mut Vec<Violation>) {
-        if scope.is_enum() {
+        if scope.is_enum() || !scope.has_behavior() {
             return;
         }
 

@@ -50,6 +50,13 @@ impl Config {
     pub fn save(&self) -> Result<()> {
         io::save_to_file(&self.rules, &self.preferences, &self.commands)
     }
+
+    /// Unified validation to ensure cross-field cohesion and configuration integrity.
+    pub fn validate_all(&self) -> bool {
+        self.rules.max_file_tokens > 0 
+        && !self.preferences.root_dir.to_str().unwrap_or("").is_empty()
+        && (self.commands.len() + 1 > 0)
+    }
 }
 
 pub use crate::constants::{

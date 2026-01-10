@@ -34,12 +34,12 @@ impl Default for ValidatorConfig {
 /// Result of validating all edges.
 #[derive(Debug, Default)]
 pub struct ValidationReport {
-    pub passed: Vec<LocalityEdge>,
-    pub failed: Vec<LocalityEdge>,
-    pub cycles: Vec<Vec<PathBuf>>,
-    pub layers: std::collections::HashMap<PathBuf, usize>,
-    pub total_edges: usize,
-    pub entropy: f64,
+    passed: Vec<LocalityEdge>,
+    failed: Vec<LocalityEdge>,
+    cycles: Vec<Vec<PathBuf>>,
+    layers: std::collections::HashMap<PathBuf, usize>,
+    total_edges: usize,
+    entropy: f64,
 }
 
 impl ValidationReport {
@@ -56,6 +56,13 @@ impl ValidationReport {
         }
         self.entropy = self.failed.len() as f64 / self.total_edges as f64;
     }
+
+    #[must_use] pub fn passed(&self) -> &[LocalityEdge] { &self.passed }
+    #[must_use] pub fn failed(&self) -> &[LocalityEdge] { &self.failed }
+    #[must_use] pub fn cycles(&self) -> &[Vec<PathBuf>] { &self.cycles }
+    #[must_use] pub fn layers(&self) -> &std::collections::HashMap<PathBuf, usize> { &self.layers }
+    #[must_use] pub fn total_edges(&self) -> usize { self.total_edges }
+    #[must_use] pub fn entropy(&self) -> f64 { self.entropy }
 }
 
 /// Validates a single edge against locality rules.
@@ -83,7 +90,7 @@ pub fn validate_edge(
     }
 
     if let Some(kind) = check_layer_violation(&edge, layers) {
-         let suggestion = kind.suggest(&edge, target_coupling.afferent);
+         let suggestion = kind.suggest(&edge, target_coupling.afferent());
          // Overwrite the kind in EdgeVerdict? 
          // EdgeVerdict::Fail stores the edge and suggestion. 
          // But analysis.rs re-categorizes it using categorize_violation.
@@ -153,11 +160,11 @@ fn match_pattern(pattern: &str, path_str: &str) -> bool {
 }
 
 fn generate_suggestion(edge: &LocalityEdge, coupling: &Coupling) -> String {
-    if coupling.afferent > 3 {
+    if coupling.afferent() > 3 {
         format!(
             "Target '{}' has high fan-in (Ca={}). Consider promoting to Hub.",
             edge.to.display(),
-            coupling.afferent
+            coupling.afferent()
         )
     } else {
         format!(

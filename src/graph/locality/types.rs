@@ -7,9 +7,9 @@ use std::path::PathBuf;
 #[derive(Debug, Clone, Default)]
 pub struct Coupling {
     /// Afferent coupling (fan-in): files that depend ON this file.
-    pub afferent: usize,
+    afferent: usize,
     /// Efferent coupling (fan-out): files this file depends ON.
-    pub efferent: usize,
+    efferent: usize,
 }
 
 impl Coupling {
@@ -42,6 +42,9 @@ impl Coupling {
     pub fn total(&self) -> usize {
         self.afferent + self.efferent
     }
+
+    #[must_use] pub fn afferent(&self) -> usize { self.afferent }
+    #[must_use] pub fn efferent(&self) -> usize { self.efferent }
 }
 
 /// Classification of a node's role in the dependency topology.

@@ -5,7 +5,7 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
 
-use crate::graph::rank::RepoGraph;
+use crate::graph::rank::{RepoGraph, GraphEngine};
 
 /// Computes foveal (full) and peripheral (skeleton) file sets.
 #[must_use]
@@ -36,7 +36,7 @@ fn build_graph(contents: &HashMap<PathBuf, String>) -> RepoGraph {
         .iter()
         .map(|(p, c)| (p.clone(), c.clone()))
         .collect();
-    RepoGraph::build(&file_vec)
+    GraphEngine::build(&file_vec)
 }
 
 fn collect_foveal(focus: &[PathBuf], all_set: &HashSet<PathBuf>) -> HashSet<PathBuf> {
