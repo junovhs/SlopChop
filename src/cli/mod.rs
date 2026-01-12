@@ -2,7 +2,6 @@
 //! CLI command handlers.
 
 pub mod args;
-pub mod audit;
 pub mod config_ui;
 pub mod dispatch;
 pub mod handlers;
