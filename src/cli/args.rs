@@ -72,24 +72,6 @@ pub enum Commands {
         commit: bool,
     },
 
-    /// Find code duplication and consolidation opportunities [EXPERIMENTAL]
-    Audit {
-        #[arg(long, default_value = "terminal")]
-        format: String,
-        #[arg(long)]
-        no_dead: bool,
-        #[arg(long)]
-        no_dups: bool,
-        #[arg(long)]
-        no_patterns: bool,
-        #[arg(long, default_value = "5")]
-        min_lines: usize,
-        #[arg(long, default_value = "50")]
-        max: usize,
-        #[arg(long, short)]
-        verbose: bool,
-    },
-
     /// Generate AI context from codebase
     Pack {
         #[arg(long, short)]

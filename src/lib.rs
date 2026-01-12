@@ -1,6 +1,5 @@
 pub mod analysis;
 pub mod apply;
-pub mod audit;
 pub mod branch;
 pub mod clean;
 pub mod cli;
@@ -25,3 +24,4 @@ pub mod skeleton;
 pub mod spinner;
 pub mod tokens;
 pub mod types;
+pub mod utils;

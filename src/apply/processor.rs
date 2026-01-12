@@ -2,13 +2,11 @@
 use crate::apply::executor;
 use crate::apply::manifest;
 use crate::apply::parser;
-use crate::apply::patch;
 use crate::apply::types::{self, ApplyContext, ApplyOutcome, Block, FileContent};
 use crate::apply::validator;
 use crate::events::{EventKind, EventLogger};
 use anyhow::{anyhow, Result};
 use colored::Colorize;
-use std::collections::HashSet;
 use std::path::Path;
 
 /// Validates and applies a string payload containing a plan, manifest and files.
@@ -33,10 +31,9 @@ pub fn process_input(content: &str, ctx: &ApplyContext) -> Result<ApplyOutcome> 
         perform_sanitization(&mut extracted, ctx);
     }
 
-    // Process PATCH blocks
-    if let Err(e) = apply_patches(&blocks, &mut extracted, ctx) {
-        return Ok(ApplyOutcome::ParseError(format!("Patch Error: {e}")));
-    }
+    // PATCH block support is completely removed.
+    // If patches were present, they are ignored by extract_content (which only looks for FILE blocks)
+    // We could warn here, but simplistic is better.
 
     let validation = validator::validate(&manifest, &extracted);
     if !matches!(validation, ApplyOutcome::Success { .. }) {
@@ -192,54 +189,6 @@ fn check_interactive_abort(ctx: &ApplyContext, prompt: &str) -> Result<bool> {
         return Ok(false);
     }
     Ok(!executor::confirm(prompt)?)
-}
-
-fn apply_patches(
-    blocks: &[Block],
-    extracted: &mut types::ExtractedFiles,
-    ctx: &ApplyContext,
-) -> Result<()> {
-    // Track files that have already been hash-verified
-    let mut verified: HashSet<String> = HashSet::new();
-
-    for block in blocks {
-        if let Block::Patch { path, content } = block {
-            let base = get_base_content(path, extracted, &ctx.repo_root)?;
-
-            // Only verify hash on first patch to each file
-            let skip_hash = verified.contains(path);
-            let new_content = patch::apply_with_options(&base, content, skip_hash)
-                .map_err(|e| anyhow!("Failed to patch {path}: {e}"))?;
-
-            verified.insert(path.clone());
-
-            extracted.insert(
-                path.clone(),
-                FileContent {
-                    line_count: new_content.lines().count(),
-                    content: new_content,
-                },
-            );
-        }
-    }
-    Ok(())
-}
-
-fn get_base_content(
-    path: &str,
-    extracted: &types::ExtractedFiles,
-    repo_root: &Path,
-) -> Result<String> {
-    // 1. Check extracted (previous patches in same payload)
-    if let Some(fc) = extracted.get(path) {
-        return Ok(fc.content.clone());
-    }
-    // 2. Check workspace
-    let p = repo_root.join(path);
-    if p.exists() {
-        return std::fs::read_to_string(p).map_err(|e| anyhow!("Read original {path}: {e}"));
-    }
-    Err(anyhow!("Base file not found for patch: {path}"))
 }
 
 /// Promotes staged changes to the real workspace (standalone command).

@@ -5,7 +5,6 @@ pub mod executor;
 pub mod manifest;
 pub mod messages;
 pub mod parser;
-pub mod patch;
 pub mod process_runner;
 pub mod processor;
 pub mod types;

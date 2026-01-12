@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use anyhow::Result;
 
 use super::{FocusContext, PackOptions};
-use crate::apply::patch::common::compute_sha256;
+use crate::utils::compute_sha256;
 use crate::skeleton;
 
 const SIGIL: &str = "XSC7XSC";

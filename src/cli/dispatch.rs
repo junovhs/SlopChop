@@ -3,7 +3,6 @@
 
 use super::{
     args::{ApplyArgs, Commands},
-    audit::AuditCliOptions,
     handlers::{
         handle_abort, handle_apply, handle_branch, handle_check, handle_map, handle_pack,
         handle_promote, handle_scan, PackArgs,
@@ -21,7 +20,6 @@ pub fn execute(command: Commands) -> Result<SlopChopExit> {
     match command {
         Commands::Check { .. }
         | Commands::Scan { .. }
-        | Commands::Audit { .. }
         | Commands::Map { .. }
         | Commands::Signatures { .. }
         | Commands::Mutate { .. } => handle_analysis(command),
@@ -49,27 +47,6 @@ fn handle_analysis(command: Commands) -> Result<SlopChopExit> {
                 return super::locality::handle_locality();
             }
             handle_scan(verbose, false, json)
-        }
-        Commands::Audit {
-            format,
-            no_dead,
-            no_dups,
-            no_patterns,
-            min_lines,
-            max,
-            verbose,
-        } => {
-            let opts = AuditCliOptions {
-                format: &format,
-                no_dead,
-                no_dups,
-                no_patterns,
-                min_lines,
-                max,
-                verbose,
-            };
-            super::audit::handle(&opts)?;
-            Ok(SlopChopExit::Success)
         }
         Commands::Map { deps } => handle_map(deps),
         Commands::Signatures { copy, stdout } => {
