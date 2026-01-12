@@ -26,6 +26,9 @@ fn detect_l02(source: &str, root: Node, out: &mut Vec<Violation>) {
         if !text.contains(".len()") { continue }
         if !text.contains("<=") && !text.contains(">=") { continue }
 
+        // Ignore simple threshold checks (e.g. `len >= 3`, `len <= 100`)
+        if is_threshold_check(cmp, source) { continue }
+
         out.push(Violation::with_details(
             cmp.start_position().row + 1,
             "Boundary uses `<=`/`>=` with `.len()`".into(),
@@ -37,6 +40,17 @@ fn detect_l02(source: &str, root: Node, out: &mut Vec<Violation>) {
             }
         ));
     }
+}
+
+fn is_threshold_check(node: Node, _source: &str) -> bool {
+    // Check if one side is a literal integer
+    if let Some(left) = node.child_by_field_name("left") {
+        if left.kind() == "integer_literal" { return true; }
+    }
+    if let Some(right) = node.child_by_field_name("right") {
+        if right.kind() == "integer_literal" { return true; }
+    }
+    false
 }
 
 /// L03: Unchecked `[0]` or `.first().unwrap()`
@@ -132,6 +146,12 @@ mod tests {
     fn l02_flag_lte_len() {
         let code = "fn f(v: &[i32], i: usize) -> bool { i <= v.len() }";
         assert!(parse_and_detect(code).iter().any(|v| v.law == "L02"));
+    }
+
+    #[test]
+    fn l02_skip_threshold() {
+        let code = "fn f(v: &[i32]) -> bool { v.len() >= 5 }";
+        assert!(parse_and_detect(code).iter().all(|v| v.law != "L02"));
     }
 
     #[test]
