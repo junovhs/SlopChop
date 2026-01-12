@@ -3,7 +3,8 @@
 
 use crate::types::{Violation, ViolationDetails};
 use std::path::Path;
-use tree_sitter::{Node, Query, QueryCursor, QueryCapture};
+use tree_sitter::{Node, Query, QueryCursor};
+use super::get_capture_node;
 
 #[must_use]
 pub fn detect(source: &str, root: Node, path: &Path) -> Vec<Violation> {
@@ -22,10 +23,6 @@ fn should_skip(path: &Path) -> bool {
         || s.ends_with("main.rs")
 }
 
-fn cap_name<'a>(query: &'a Query, cap: &QueryCapture) -> &'a str {
-    query.capture_names().get(cap.index as usize).map_or("", String::as_str)
-}
-
 fn detect_loops(source: &str, root: Node, out: &mut Vec<Violation>) {
     let q = r"
         (for_expression pattern: (_) @pat body: (block) @body) @loop
@@ -33,6 +30,8 @@ fn detect_loops(source: &str, root: Node, out: &mut Vec<Violation>) {
         (loop_expression body: (block) @body) @loop
     ";
     let Ok(query) = Query::new(tree_sitter_rust::language(), q) else { return };
+    let idx_body = query.capture_index_for_name("body");
+    
     let mut cursor = QueryCursor::new();
 
     for m in cursor.matches(&query, root, source.as_bytes()) {
@@ -40,9 +39,7 @@ fn detect_loops(source: &str, root: Node, out: &mut Vec<Violation>) {
             .and_then(|c| c.node.utf8_text(source.as_bytes()).ok())
             .map(|s| s.split([',', '(']).next().unwrap_or(s).trim().to_string());
 
-        let Some(body) = m.captures.iter()
-            .find(|c| cap_name(&query, c) == "body")
-            .map(|c| c.node) else { continue };
+        let Some(body) = get_capture_node(&m, idx_body) else { continue };
 
         check_p01(source, body, loop_var.as_deref(), out);
         check_p02(source, body, loop_var.as_deref(), out);
@@ -55,12 +52,15 @@ fn check_p01(source: &str, body: Node, loop_var: Option<&str>, out: &mut Vec<Vio
     let q = r#"(call_expression function: (field_expression
         value: (_) @recv field: (field_identifier) @m (#eq? @m "clone"))) @call"#;
     let Ok(query) = Query::new(tree_sitter_rust::language(), q) else { return };
+    let idx_call = query.capture_index_for_name("call");
+    let idx_recv = query.capture_index_for_name("recv");
+    
     let mut cursor = QueryCursor::new();
 
     for m in cursor.matches(&query, body, source.as_bytes()) {
-        let call = m.captures.iter().find(|c| cap_name(&query, c) == "call").map(|c| c.node);
-        let recv = m.captures.iter().find(|c| cap_name(&query, c) == "recv")
-            .and_then(|c| c.node.utf8_text(source.as_bytes()).ok());
+        let call = get_capture_node(&m, idx_call);
+        let recv = get_capture_node(&m, idx_recv)
+            .and_then(|c| c.utf8_text(source.as_bytes()).ok());
 
         let Some(call) = call else { continue };
         if should_skip_clone(source, call, recv, loop_var) { continue }
@@ -109,12 +109,15 @@ fn check_p02(source: &str, body: Node, loop_var: Option<&str>, out: &mut Vec<Vio
         value: (_) @recv field: (field_identifier) @m)
         (#match? @m "^(to_string|to_owned)$")) @call"#;
     let Ok(query) = Query::new(tree_sitter_rust::language(), q) else { return };
+    let idx_call = query.capture_index_for_name("call");
+    let idx_recv = query.capture_index_for_name("recv");
+    
     let mut cursor = QueryCursor::new();
 
     for m in cursor.matches(&query, body, source.as_bytes()) {
-        let call = m.captures.iter().find(|c| cap_name(&query, c) == "call").map(|c| c.node);
-        let recv = m.captures.iter().find(|c| cap_name(&query, c) == "recv")
-            .and_then(|c| c.node.utf8_text(source.as_bytes()).ok());
+        let call = get_capture_node(&m, idx_call);
+        let recv = get_capture_node(&m, idx_recv)
+            .and_then(|c| c.utf8_text(source.as_bytes()).ok());
 
         let Some(call) = call else { continue };
         if is_ownership_sink(source, call) { continue }
@@ -141,7 +144,7 @@ fn check_p04(body: Node, out: &mut Vec<Violation>) {
         if matches!(child.kind(), "for_expression" | "while_expression" | "loop_expression") {
             out.push(Violation::with_details(
                 child.start_position().row + 1,
-                "Nested loop (O(n²))".into(),
+                "Nested loop (O(nA�))".into(),
                 "P04",
                 ViolationDetails {
                     function_name: None,
@@ -173,4 +176,4 @@ fn check_p06(source: &str, body: Node, out: &mut Vec<Violation>) {
             ));
         }
     }
-}
+}
