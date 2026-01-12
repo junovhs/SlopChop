@@ -6,8 +6,8 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-const FRAMES: &[&str] = &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
-const INTERVAL: u64 = 80; // Speed up animation
+const FRAMES: &[&str] = &["∙", "•", "∗", "✻", "✽", "✶", "+"];
+const INTERVAL: u64 = 80;
 
 #[derive(Clone)]
 pub struct Spinner {
@@ -27,24 +27,7 @@ impl Spinner {
         let l_clone = label_mtx.clone();
 
         let handle = thread::spawn(move || {
-            let mut i = 0;
-            while r_clone.load(Ordering::Relaxed) {
-                // Use .get() to be safe, though modulo guarantees bounds
-                let frame = FRAMES.get(i % FRAMES.len()).unwrap_or(&"+");
-
-                // Get label safely
-                let text = l_clone
-                    .lock()
-                    .unwrap_or_else(std::sync::PoisonError::into_inner);
-
-                // Truncate if too long to prevent wrapping weirdness
-                let display_text = if text.len() > 60 { &text[..60] } else { &text };
-
-                print!("\r\x1B[2K   {} {}", frame.cyan(), display_text.dimmed());
-                let _ = io::stdout().flush();
-                thread::sleep(Duration::from_millis(INTERVAL));
-                i += 1;
-            }
+            run_spinner_loop(&r_clone, &l_clone);
         });
 
         Self {
@@ -72,15 +55,40 @@ impl Spinner {
             }
         }
 
-        let icon = if success {
-            "ok".green().bold()
-        } else {
-            "err".red().bold()
-        };
         let text = self
             .label
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        println!("\r\x1B[2K   {} {}", icon, text.dimmed());
+        print_final_status(success, &text);
     }
+}
+
+fn run_spinner_loop(running: &Arc<AtomicBool>, label: &Arc<Mutex<String>>) {
+    let mut i = 0;
+    while running.load(Ordering::Relaxed) {
+        // Use .get() to be safe, though modulo guarantees bounds
+        let frame = FRAMES.get(i % FRAMES.len()).unwrap_or(&"+");
+
+        // Get label safely
+        let text = label
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+
+        // Truncate if too long to prevent wrapping weirdness
+        let display_text = if text.len() > 60 { &text[..60] } else { &text };
+
+        print!("\r\x1B[2K   {} {}", frame.cyan(), display_text.dimmed());
+        let _ = io::stdout().flush();
+        thread::sleep(Duration::from_millis(INTERVAL));
+        i += 1;
+    }
+}
+
+fn print_final_status(success: bool, text: &str) {
+    let icon = if success {
+        "ok".green().bold()
+    } else {
+        "err".red().bold()
+    };
+    println!("\r\x1B[2K   {} {}", icon, text.dimmed());
 }

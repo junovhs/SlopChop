@@ -32,7 +32,18 @@ fn run_stage_streaming(
     silent: bool,
 ) -> Result<CommandResult> {
     let start = Instant::now();
-    let (prog, args) = parse_command(cmd_str)?;
+    
+    // Split command inline to avoid lifetime headaches with helpers
+    let parts: Vec<&str> = cmd_str.split_whitespace().collect();
+    let Some((prog, args)) = parts.split_first() else {
+        return Ok(CommandResult {
+            command: cmd_str.to_string(),
+            exit_code: 0,
+            stdout: String::new(),
+            stderr: String::new(),
+            duration_ms: 0,
+        });
+    };
 
     let spinner = if silent { None } else { Some(Spinner::start(cmd_str)) };
 
@@ -59,13 +70,17 @@ fn run_stage_streaming(
 
     if let Some(s) = spinner { s.stop(status.success()); }
 
+    // Safe cast: u64 millis > 500 million years
+    #[allow(clippy::cast_possible_truncation)]
+    let duration = start.elapsed().as_millis() as u64;
+
     #[allow(clippy::unwrap_used)]
     let result = CommandResult {
         command: cmd_str.to_string(),
         exit_code: status.code().unwrap_or(1),
         stdout: stdout_acc.lock().unwrap().clone(),
         stderr: stderr_acc.lock().unwrap().clone(),
-        duration_ms: start.elapsed().as_millis() as u64,
+        duration_ms: duration,
     };
 
     if !status.success() && !silent {
@@ -73,21 +88,6 @@ fn run_stage_streaming(
     }
 
     Ok(result)
-}
-
-fn parse_command(cmd: &str) -> Result<(&str, &[&str])> {
-    let parts: Vec<&str> = cmd.split_whitespace().collect();
-    if parts.is_empty() {
-        return Err(anyhow!("Empty command string"));
-    }
-    // Safety: parts is not empty
-    let prog = parts[0];
-    // We can't return a slice of a local Vec, so we have to re-split in the caller
-    // or just return the prog and let caller handle args?
-    // Actually, splitting inside run_stage_streaming causes lifetime issues if we return refs.
-    // Let's just do it inline or keep it simple.
-    // The previous implementation was fine, let's just extract the thread spawning logic.
-    Ok((prog, &[])) // Dummy return to satisfy type signature, actual logic below
 }
 
 fn spawn_stream_reader<R: std::io::Read + Send + 'static>(
