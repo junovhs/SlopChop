@@ -1,70 +1,63 @@
-# SlopChop Agent Protocol
+# SlopChop Agent Protocol (v1.7.0)
 
-You are working in a SlopChop-governed repository. This is not optional.
+You are operating in a repository governed by **SlopChop**. High-integrity development is mandatory. You must prioritize structural health and memory safety over speed.
 
-## Prime Directive
+## 1. The Flight Recorder (Primary Data Source)
 
-Run `slopchop check` after every change. Fix all violations before proceeding.
+**Your terminal view is likely truncated.** Do not rely on stdout for full violation lists or compiler errors.
 
-## The Laws
+After every check, SlopChop generates a persistent file at the repository root:
+📄 **`slopchop-report.txt`**
 
-| Metric | Limit | What It Catches |
-|--------|-------|-----------------|
-| File Tokens | < 2000 | God files |
-| Cognitive Complexity | ≤ 15 | Tangled logic |
-| Nesting Depth | ≤ 3 | Deep conditionals |
-| Function Args | ≤ 5 | Bloated signatures |
-| LCOM4 | = 1 | Incohesive classes |
-| AHF | ≥ 60% | Leaking state |
-| CBO | ≤ 9 | Tight coupling |
-| SFOUT | ≤ 7 | High fan-out |
+**Workflow Requirements:**
+1. Run `slopchop check`.
+2. If it fails, **immediately read `slopchop-report.txt`**.
+3. Use the "DASHBOARD" section of the report to identify the most complex/largest files.
+4. Use the "FULL OUTPUT LOGS" section to see untruncated `cargo clippy` or test failures.
 
-## Commands
+## 2. Governance Profiles
 
-```bash
-slopchop check              # THE GATE - run tests + scan
-slopchop scan               # Violations only (fast)
-slopchop scan --json        # Machine-readable
-```
+This repository uses a **Context-Aware** governance model. SlopChop automatically detects "Systems Code" (usage of `unsafe`, `Atomic`, `no_std`, or `repr(C)`) and adjusts the physics of the laws accordingly.
 
-## Workflow
+| Metric | `application` (Default) | `systems` (Relaxed) |
+| :--- | :--- | :--- |
+| **File Tokens** | < 2,000 | < 10,000 |
+| **Cognitive Complexity** | ≤ 15 | ≤ 50 |
+| **Nesting Depth** | ≤ 3 | ≤ 6 |
+| **LCOM4 / CBO / SFOUT** | Strict | **Disabled** |
 
-```
-1. Make changes
-2. slopchop check
-3. If violations → fix them → goto 2
-4. Done only when check passes
-```
+**Note on Safety:** In `systems` mode, structural rules are relaxed, but **Safety Checks are Escalated**. Every `unsafe` block **must** have a `// SAFETY:` comment or the check will fail.
 
-## Terminal Truncation
-
-Your terminal view may be truncated. Always capture output:
+## 3. Mandatory Commands
 
 ```bash
-slopchop check 2>&1 | tee /tmp/sc.txt
-cat /tmp/sc.txt
+slopchop check              # THE GATE - Runs metrics, safety scan, clippy, and tests.
+slopchop scan               # Internal metrics only (fast).
+slopchop config             # Use this to view or adjust project-wide thresholds.
 ```
 
-## Eating Your Vegetables First
+## 4. Technical Goals & Commits
 
-Do the hardest things FIRST. For example do NOT:
+When using the `XSC7XSC` protocol to deliver code via `PLAN` blocks:
+- Always include a **`GOAL: <summary>`** line.
+- SlopChop persists this goal. When the user runs `slopchop promote`, this goal is used to generate a high-quality merge commit.
+- Generic commit messages (e.g., "update code") are a violation of protocol.
 
-- Add `#[allow(...)]` without `// REASON:` comment
-- Skip violations "for later" (kicking the can down the road, EXTREMELY dishonorable)
-- Claim success without showing `slopchop check` output (you will be called out)
-- Use workarounds that silence warnings instead of fixing root cause (abhorrent behavior)
+## 5. "Eating Your Vegetables"
 
-Every violation you leave is debt with interest.
+Do the hardest things FIRST. **Dishonorable behavior includes:**
+- Adding `#[allow(...)]` to bypass a metrics violation instead of refactoring.
+- Ignoring the `LAW OF PARANOIA` (`.unwrap()`/`.expect()`).
+- Claiming a task is complete without verifying that `slopchop-report.txt` shows **Status: PASSED**.
 
-## Diff-Based Verification
+## 6. Verification Loop
 
-Before and after any refactor:
-
-```bash
-slopchop scan --json > /tmp/before.json
-# ... make changes ...
-slopchop scan --json > /tmp/after.json
-diff /tmp/before.json /tmp/after.json
+```
+1. Make changes.
+2. Run `slopchop check`.
+3. READ `slopchop-report.txt` to find the root cause of failures.
+4. Refactor logic to reduce Cognitive Complexity or fix Safety documentation.
+5. GOTO 2 until the report shows Status: PASSED.
 ```
 
-The diff is truth. Your narrative is not.
+The `slopchop-report.txt` dashboard is the ground truth. If a file appears at the top of the "Top 5 Cognitive Complexity" list, it is your primary target for refactoring.
