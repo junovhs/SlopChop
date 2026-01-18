@@ -17,16 +17,30 @@ impl RuleEngine {
     /// Entry point for scanning files.
     #[must_use]
     pub fn scan(&self, files: &[PathBuf]) -> ScanReport {
-        // Default to no progress callback for backward compatibility if needed,
-        // but logic.rs now takes optional.
-        crate::analysis::logic::run_scan(&self.config, files, None::<&fn(&Path)>)
+        crate::analysis::logic::run_scan(
+            &self.config,
+            files,
+            None::<&fn(&Path)>,
+            None::<&fn(&str)>
+        )
     }
 
     /// Entry point for scanning files with progress callback.
-    pub fn scan_with_progress<F>(&self, files: &[PathBuf], on_progress: &F) -> ScanReport
+    pub fn scan_with_progress<F, S>(
+        &self,
+        files: &[PathBuf],
+        on_progress: &F,
+        on_status: &S
+    ) -> ScanReport
     where
         F: Fn(&Path) + Sync,
+        S: Fn(&str) + Sync,
     {
-        crate::analysis::logic::run_scan(&self.config, files, Some(on_progress))
+        crate::analysis::logic::run_scan(
+            &self.config,
+            files,
+            Some(on_progress),
+            Some(on_status)
+        )
     }
 }
