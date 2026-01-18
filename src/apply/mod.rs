@@ -7,6 +7,7 @@ pub mod messages;
 pub mod parser;
 pub mod process_runner;
 pub mod processor;
+pub mod report_writer;
 pub mod types;
 pub mod validator;
 pub mod verification;
