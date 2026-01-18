@@ -78,8 +78,9 @@ fn render_hud(stdout: &mut io::Stdout, snap: &HudSnapshot, frame_idx: usize) {
     
     let macro_text = if let Some((step, total)) = snap.pipeline_step {
         let width = 30;
+        // Integer math for progress bar to avoid precision loss
         let safe_total = if total == 0 { 1 } else { total };
-        // Removed unused pct calculation
+        // We don't display the percentage for Macro, just the step count, but we need filled width
         let filled = (step * width) / safe_total;
         
         let filled_len = filled.min(width);
@@ -108,8 +109,9 @@ fn render_hud(stdout: &mut io::Stdout, snap: &HudSnapshot, frame_idx: usize) {
     
     let micro_display = if let Some((curr, total)) = snap.micro_progress {
         if total > 0 {
+            // Integer math for Micro progress
             let pct = (curr * 100) / total;
-            let bar_width: usize = 40;
+            let bar_width = 40;
             let filled = (curr * bar_width) / total;
             
             let filled_len = filled.min(bar_width);

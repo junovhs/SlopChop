@@ -21,8 +21,8 @@ impl CommandRunner {
         Self { silent }
     }
 
-    pub fn run(&self, cmd_str: &str, cwd: &Path) -> Result<CommandResult> {
-        run_stage_streaming(cmd_str, cwd, self.silent)
+    pub fn run(&self, cmd_str: &str, cwd: &Path, external_spinner: Option<&Spinner>) -> Result<CommandResult> {
+        run_stage_streaming(cmd_str, cwd, self.silent, external_spinner)
     }
 }
 
@@ -30,6 +30,7 @@ fn run_stage_streaming(
     cmd_str: &str,
     cwd: &Path,
     silent: bool,
+    external_spinner: Option<&Spinner>,
 ) -> Result<CommandResult> {
     let start = Instant::now();
     
@@ -50,8 +51,15 @@ fn run_stage_streaming(
         cmd_str.to_string()
     };
 
-    // The spinner now handles the Triptych HUD (Macro/Micro/Atomic)
-    let spinner = if silent { None } else { Some(Spinner::start(display_cmd)) };
+    // Use external spinner if provided, otherwise create local one (if not silent)
+    let local_spinner = if external_spinner.is_none() && !silent {
+        Some(Spinner::start(display_cmd))
+    } else {
+        None
+    };
+
+    // The spinner we will actually feed logs to
+    let active_spinner = external_spinner.or(local_spinner.as_ref());
 
     let mut child = Command::new(prog)
         .args(args)
@@ -68,14 +76,14 @@ fn run_stage_streaming(
     let stderr_acc = Arc::new(Mutex::new(String::new()));
 
     // IO Threads push directly to the HUD
-    let out_thread = spawn_stream_reader(stdout, stdout_acc.clone(), spinner.clone());
-    let err_thread = spawn_stream_reader(stderr, stderr_acc.clone(), spinner.clone());
+    let out_thread = spawn_stream_reader(stdout, stdout_acc.clone(), active_spinner.cloned());
+    let err_thread = spawn_stream_reader(stderr, stderr_acc.clone(), active_spinner.cloned());
 
     let status = child.wait()?;
     let _ = out_thread.join();
     let _ = err_thread.join();
 
-    if let Some(s) = spinner { s.stop(status.success()); }
+    if let Some(s) = local_spinner { s.stop(status.success()); }
 
     #[allow(clippy::cast_possible_truncation)]
     let duration = start.elapsed().as_millis() as u64;

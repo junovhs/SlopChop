@@ -104,7 +104,7 @@ fn run_external_commands(
                 h.set_macro_step(*current_step, total_steps, cmd.clone());
             }
             
-            let result = runner.run(cmd, cwd)?;
+            let result = runner.run(cmd, cwd, hud)?;
             
             if result.exit_code != 0 {
                 passed = false;
