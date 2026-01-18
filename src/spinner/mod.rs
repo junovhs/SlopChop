@@ -13,8 +13,10 @@ use state::HudState;
 pub struct Spinner {
     running: Arc<AtomicBool>,
     /// Shared state for the HUD (title, status, log buffer).
+    /// Protected by Mutex to allow safe updates from the main thread while the render thread reads it.
     state: Arc<Mutex<HudState>>,
     /// Handle to the rendering thread.
+    /// Wrapped in Mutex<Option<_>> to allow `stop` to take ownership and join it.
     handle: Arc<Mutex<Option<thread::JoinHandle<()>>>>,
 }
 
@@ -37,15 +39,27 @@ impl Spinner {
         }
     }
 
-    pub fn push_log(&self, line: &str) {
+    pub fn set_macro_step(&self, current: usize, total: usize, name: impl Into<String>) {
         if let Ok(mut guard) = self.state.lock() {
-            guard.push_log(line);
+            guard.set_macro_step(current, total, name.into());
         }
     }
 
-    pub fn step_progress(&self, current: usize, total: usize, message: String) {
+    pub fn set_micro_status(&self, status: impl Into<String>) {
         if let Ok(mut guard) = self.state.lock() {
-            guard.update_progress(current, total, message);
+            guard.set_micro_status(status.into());
+        }
+    }
+
+    pub fn step_micro_progress(&self, current: usize, total: usize, status: impl Into<String>) {
+        if let Ok(mut guard) = self.state.lock() {
+            guard.step_micro_progress(current, total, status.into());
+        }
+    }
+
+    pub fn push_log(&self, line: &str) {
+        if let Ok(mut guard) = self.state.lock() {
+            guard.push_log(line);
         }
     }
 

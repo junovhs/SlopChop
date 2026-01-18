@@ -1,23 +1,24 @@
 // src/spinner/render.rs
-use super::state::{HudState, ATOMIC_LINES};
+use super::state::{HudSnapshot, ATOMIC_LINES};
 use crossterm::{cursor, execute, terminal::{Clear, ClearType}};
 use std::{
-    collections::VecDeque,
     io::{self, Write},
     sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}},
     thread,
-    time::{Duration, Instant},
+    time::Duration,
 };
 
 const FRAMES: &[&str] = &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 const INTERVAL: u64 = 80;
 
+#[allow(dead_code)]
 trait SimpleColor {
     fn cyan(&self) -> String;
     fn yellow(&self) -> String;
     fn green(&self) -> String;
     fn red(&self) -> String;
     fn white(&self) -> String;
+    fn blue(&self) -> String;
     fn bold(&self) -> String;
     fn dimmed(&self) -> String;
 }
@@ -28,21 +29,21 @@ impl SimpleColor for str {
     fn green(&self) -> String { format!("\x1b[32m{self}\x1b[0m") }
     fn red(&self) -> String { format!("\x1b[31m{self}\x1b[0m") }
     fn white(&self) -> String { format!("\x1b[37m{self}\x1b[0m") }
+    fn blue(&self) -> String { format!("\x1b[34m{self}\x1b[0m") }
     fn bold(&self) -> String { format!("\x1b[1m{self}\x1b[0m") }
     fn dimmed(&self) -> String { format!("\x1b[2m{self}\x1b[0m") }
 }
 
-pub fn run_hud_loop(running: &Arc<AtomicBool>, state: &Arc<Mutex<HudState>>) {
+pub fn run_hud_loop(running: &Arc<AtomicBool>, state: &Arc<Mutex<super::state::HudState>>) {
     let mut frame_idx = 0;
     let mut stdout = io::stdout();
 
     let _ = execute!(stdout, cursor::Hide);
 
-    let _ = writeln!(stdout); 
-    let _ = writeln!(stdout); 
-    for _ in 0..ATOMIC_LINES { let _ = writeln!(stdout); }
+    let total_lines = 4 + ATOMIC_LINES;
     
-    let height = u16::try_from(ATOMIC_LINES + 2).unwrap_or(5);
+    for _ in 0..total_lines { let _ = writeln!(stdout); }
+    let height = u16::try_from(total_lines).unwrap_or(10);
     let _ = execute!(stdout, cursor::MoveUp(height));
 
     while running.load(Ordering::Relaxed) {
@@ -52,8 +53,8 @@ pub fn run_hud_loop(running: &Arc<AtomicBool>, state: &Arc<Mutex<HudState>>) {
             None
         };
 
-        if let Some((title, micro, atomic, start, progress)) = snapshot {
-            render_frame(&mut stdout, &title, &micro, &atomic, start, progress, frame_idx);
+        if let Some(snap) = snapshot {
+            render_hud(&mut stdout, &snap, frame_idx);
         }
         
         thread::sleep(Duration::from_millis(INTERVAL));
@@ -63,79 +64,103 @@ pub fn run_hud_loop(running: &Arc<AtomicBool>, state: &Arc<Mutex<HudState>>) {
     let _ = execute!(stdout, cursor::Show);
     
     if let Ok(guard) = state.lock() {
-        let _ = clear_lines(ATOMIC_LINES + 2);
+        let _ = clear_lines(total_lines);
         let (success, title, start) = guard.completion_info();
         print_final_status(success, title, start.elapsed());
     }
 }
 
-fn render_frame(
-    stdout: &mut io::Stdout,
-    title: &str,
-    micro: &str,
-    atomic: &VecDeque<String>,
-    start: Instant,
-    progress: Option<(usize, usize)>,
-    frame_idx: usize
-) {
+fn render_hud(stdout: &mut io::Stdout, snap: &HudSnapshot, frame_idx: usize) {
     let spinner = FRAMES.get(frame_idx % FRAMES.len()).unwrap_or(&"+");
-    let elapsed = start.elapsed().as_secs();
+    let elapsed = snap.start_time.elapsed().as_secs();
     
     let _ = execute!(stdout, Clear(ClearType::CurrentLine));
-    let title_line = format!(
-        "{spinner} {} ({elapsed}s)",
-        title.cyan().bold()
-    );
-    let _ = writeln!(stdout, "{title_line}");
+    
+    let macro_text = if let Some((step, total)) = snap.pipeline_step {
+        let width = 30;
+        let safe_total = if total == 0 { 1 } else { total };
+        // Removed unused pct calculation
+        let filled = (step * width) / safe_total;
+        
+        let filled_len = filled.min(width);
+        let empty_len = width.saturating_sub(filled_len);
+        
+        let bar = format!("{}{}", "━".repeat(filled_len).blue().bold(), "━".repeat(empty_len).dimmed());
+        
+        format!(
+            "{} [{bar}] Step {step}/{total}: {}",
+            "SLOPCHOP".blue().bold(),
+            snap.pipeline_name.bold()
+        )
+    } else {
+        format!(
+            "{} {spinner} {} ({elapsed}s)",
+            "SLOPCHOP".blue().bold(),
+            snap.pipeline_name
+        )
+    };
+    let _ = writeln!(stdout, "{macro_text}");
+
+    let _ = execute!(stdout, Clear(ClearType::CurrentLine));
+    let _ = writeln!(stdout, "{}", "  │".dimmed());
 
     let _ = execute!(stdout, Clear(ClearType::CurrentLine));
     
-    let status_text = if let Some((curr, total)) = progress {
+    let micro_display = if let Some((curr, total)) = snap.micro_progress {
         if total > 0 {
-            #[allow(clippy::cast_precision_loss)]
-            let pct = (curr as f64 / total as f64) * 100.0;
-            let bar_width: usize = 20;
+            let pct = (curr * 100) / total;
+            let bar_width: usize = 40;
+            let filled = (curr * bar_width) / total;
             
-            #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-            let filled = ((pct / 100.0) * (bar_width as f64)) as usize;
+            let filled_len = filled.min(bar_width);
+            let empty_len = bar_width.saturating_sub(filled_len);
             
-            let empty = bar_width.saturating_sub(filled);
-            let bar = format!("{}{}", "█".repeat(filled).cyan(), "░".repeat(empty).dimmed());
-            format!("{bar} {pct:.0}% - {micro}")
+            let bar = format!("{}{}", "█".repeat(filled_len).yellow(), "░".repeat(empty_len).dimmed());
+            format!("  └─ {bar} {pct}%  {}", snap.micro_status)
         } else {
-            micro.to_string()
+            format!("  └─ {} {}", spinner.yellow(), snap.micro_status)
         }
     } else {
-        micro.to_string()
+        format!("  └─ {} {}", spinner.yellow(), snap.micro_status)
     };
+    let _ = writeln!(stdout, "{micro_display}");
 
-    let micro_line = format!(
-        "   {} {}",
-        "›".yellow().bold(),
-        status_text.white()
-    );
-    let _ = writeln!(stdout, "{micro_line}");
+    let _ = execute!(stdout, Clear(ClearType::CurrentLine));
+    let _ = writeln!(stdout, "{}", "     TYPE STREAM ::".dimmed());
 
     for i in 0..ATOMIC_LINES {
         let _ = execute!(stdout, Clear(ClearType::CurrentLine));
-        let content = atomic.get(i).map_or("", String::as_str);
         
-        let trunc_len = 80;
-        let safe_content = if content.len() > trunc_len {
-            let mut end = trunc_len;
-            while !content.is_char_boundary(end) {
-                end = end.saturating_sub(1);
-            }
-            &content[..end]
+        let idx_in_buf = if snap.atomic_buffer.len() < ATOMIC_LINES {
+             if i < (ATOMIC_LINES - snap.atomic_buffer.len()) {
+                 None
+             } else {
+                 Some(i - (ATOMIC_LINES - snap.atomic_buffer.len()))
+             }
         } else {
-            content
+             Some(i)
         };
-        
-        let _ = writeln!(stdout, "     {}", safe_content.dimmed());
+
+        if let Some(idx) = idx_in_buf {
+            let content = snap.atomic_buffer.get(idx).map_or("", String::as_str);
+            let safe_content = truncate_safe(content, 90);
+            let _ = writeln!(stdout, "     {}", safe_content.dimmed());
+        } else {
+            let _ = writeln!(stdout);
+        }
     }
 
-    let height = u16::try_from(ATOMIC_LINES + 2).unwrap_or(5);
+    let height = u16::try_from(4 + ATOMIC_LINES).unwrap_or(10);
     let _ = execute!(stdout, cursor::MoveUp(height));
+}
+
+fn truncate_safe(s: &str, max: usize) -> &str {
+    if s.len() <= max { return s; }
+    let mut end = max;
+    while !s.is_char_boundary(end) {
+        end = end.saturating_sub(1);
+    }
+    &s[..end]
 }
 
 fn clear_lines(count: usize) -> io::Result<()> {
@@ -150,7 +175,7 @@ fn clear_lines(count: usize) -> io::Result<()> {
 }
 
 fn print_final_status(success: bool, title: &str, duration: Duration) {
-    let icon = if success { "ok".green() } else { "err".red() };
+    let icon = if success { "ok".green().bold() } else { "err".red().bold() };
     let time = format!("{}s", duration.as_secs()).dimmed();
-    println!("   {icon} {title} ({time})");
+    println!("{icon} {title} ({time})");
 }

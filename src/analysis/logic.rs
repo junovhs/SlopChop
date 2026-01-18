@@ -7,9 +7,15 @@ use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::path::{Path, PathBuf};
 
 #[must_use]
-pub fn run_scan<F>(config: &Config, files: &[PathBuf], on_progress: Option<&F>) -> ScanReport
+pub fn run_scan<F, S>(
+    config: &Config,
+    files: &[PathBuf],
+    on_progress: Option<&F>,
+    on_status: Option<&S>
+) -> ScanReport
 where
     F: Fn(&Path) + Sync,
+    S: Fn(&str) + Sync,
 {
     let start = std::time::Instant::now();
     
@@ -22,6 +28,11 @@ where
         })
         .map(|path| file_analysis::analyze_file(path, config))
         .collect();
+
+    // Fix the "hang": Notify that we are moving to the deep analysis phase
+    if let Some(cb) = on_status {
+        cb("Running Deep Analysis (LCOM4/CBO)...");
+    }
 
     let v2_engine = v2::ScanEngineV2::new(config.clone());
     let deep_violations = v2_engine.run(files);
