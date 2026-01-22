@@ -41,9 +41,19 @@ src/graph/locality/types.rs         — 14 caught, ~5 missed
 src/graph/imports.rs                — 14 caught, ~5 missed
 src/graph/tsconfig.rs               — 10 caught, ~8 missed
 src/apply/blocks.rs                 — 10 caught, ~5 missed
-src/apply/parser.rs                 — 1 caught, ~40 missed (CRITICAL GAP)
+src/apply/parser.rs                 — Tests Extended (Phase 1)
 src/lang.rs                         — 10 caught, ~5 missed
 src/map.rs                          — 10 caught, ~15 missed
+
+### Recently Covered (Phase 1)
+src/tokens.rs
+src/skeleton.rs
+src/pack/focus.rs
+src/graph/rank/pagerank.rs
+src/graph/locality/distance.rs
+src/graph/locality/cycles.rs
+src/apply/validator.rs
+src/apply/parser.rs (Extended)
 ```
 
 ### Where Tests DON'T Exist (Zero Catches)
@@ -52,13 +62,7 @@ These modules have NO unit test coverage:
 
 ```
 CRITICAL (Core Features):
-  src/tokens.rs                     — ~8 missed, 0 caught
-  src/skeleton.rs                   — ~15 missed, 0 caught
-  src/pack/focus.rs                 — ~20 missed, 0 caught
-  src/graph/rank/pagerank.rs        — ~15 missed, 0 caught
-  src/graph/locality/distance.rs    — ~10 missed, 0 caught
-  src/graph/locality/cycles.rs      — ~15 missed, 0 caught
-  src/apply/validator.rs            — ~40 missed, 0 caught
+  (None - All Phase 1 Modules Covered)
 
 HIGH (Pattern Detectors):
   src/analysis/v2/patterns/state.rs       — ~20 missed
@@ -798,6 +802,12 @@ After each phase, record in this document:
 
 ### Phase 0 - [DATE]
 - Baseline after exclusions: X mutants, Y% kill rate
+
+### Phase 1 - 2026-01-22
+- Status: **Complete**
+- Accomplishment: Implemented unit tests for 8 zero-coverage modules.
+- Verification: All tests passed. `slopchop check` Green.
+- Note: Phase 0 baseline run deferred.
 - Commit: [SHA]
 
 ### Phase 1 - [DATE]  
