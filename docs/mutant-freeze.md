@@ -141,13 +141,13 @@ These are the highest-ROI targets — core features with no tests at all.
 
 **Test cases:**
 ```
-TC-TOK-01: Empty string returns 0 tokens
-TC-TOK-02: Single word returns 1 token
-TC-TOK-03: Known string returns expected count (use tiktoken reference)
-TC-TOK-04: Unicode text tokenizes correctly
-TC-TOK-05: exceeds_limit returns false when under
-TC-TOK-06: exceeds_limit returns true when over
-TC-TOK-07: exceeds_limit boundary case (exactly at limit)
+TC-TOK-01: Empty string returns 0 tokens {done}
+TC-TOK-02: Single word returns 1 token {done}
+TC-TOK-03: Known string returns expected count (use tiktoken reference) {done}
+TC-TOK-04: Unicode text tokenizes correctly {done}
+TC-TOK-05: exceeds_limit returns false when under {done}
+TC-TOK-06: exceeds_limit returns true when over {done}
+TC-TOK-07: exceeds_limit boundary case (exactly at limit) {done}
 TC-TOK-08: Large text performance (sanity check, not assertion)
 ```
 
@@ -160,16 +160,16 @@ TC-TOK-08: Large text performance (sanity check, not assertion)
 
 **Test cases:**
 ```
-TC-SKEL-01: Rust function body replaced with { ... }
-TC-SKEL-02: Rust impl block bodies replaced
-TC-SKEL-03: Python function body replaced with ...
-TC-SKEL-04: TypeScript function body replaced
-TC-SKEL-05: Nested functions handled correctly
-TC-SKEL-06: Struct/class definitions preserved
+TC-SKEL-01: Rust function body replaced with { ... } {done}
+TC-SKEL-02: Rust impl block bodies replaced {done}
+TC-SKEL-03: Python function body replaced with ... {done}
+TC-SKEL-04: TypeScript function body replaced {done}
+TC-SKEL-05: Nested functions handled correctly {done}
+TC-SKEL-06: Struct/class definitions preserved {done}
 TC-SKEL-07: Comments and attributes preserved
-TC-SKEL-08: Empty function stays empty (edge case)
+TC-SKEL-08: Empty function stays empty (edge case) {done}
 TC-SKEL-09: Multiline signatures preserved
-TC-SKEL-10: Invalid syntax returns original (graceful degradation)
+TC-SKEL-10: Invalid syntax returns original (graceful degradation) {done}
 ```
 
 ### 1.3 pack/focus.rs (~20 mutants)
@@ -182,11 +182,11 @@ TC-SKEL-10: Invalid syntax returns original (graceful degradation)
 
 **Test cases:**
 ```
-TC-FOCUS-01: Single focal file gets full content
-TC-FOCUS-02: Neighbors get skeleton treatment
-TC-FOCUS-03: Token budget respected
-TC-FOCUS-04: Depth=0 returns only focal file
-TC-FOCUS-05: Depth=1 includes direct dependencies
+TC-FOCUS-01: Single focal file gets full content {done}
+TC-FOCUS-02: Neighbors get skeleton treatment {done}
+TC-FOCUS-03: Token budget respected {done}
+TC-FOCUS-04: Depth=0 returns only focal file {done}
+TC-FOCUS-05: Depth=1 includes direct dependencies {done}
 TC-FOCUS-06: Depth=2 includes transitive dependencies
 TC-FOCUS-07: Circular dependencies don't infinite loop
 TC-FOCUS-08: Missing files handled gracefully
@@ -204,12 +204,12 @@ TC-FOCUS-10: Empty graph returns just focal file
 
 **Test cases:**
 ```
-TC-PR-01: Single node graph returns 1.0
-TC-PR-02: Two nodes, one edge: source < target rank
-TC-PR-03: Cycle of 3 nodes: equal ranks
-TC-PR-04: Star topology: center has highest rank
-TC-PR-05: Damping factor affects distribution
-TC-PR-06: More iterations = more convergence
+TC-PR-01: Single node graph returns 1.0 {done}
+TC-PR-02: Two nodes, one edge: source < target rank {done}
+TC-PR-03: Cycle of 3 nodes: equal ranks {done}
+TC-PR-04: Star topology: center has highest rank {done}
+TC-PR-05: Damping factor affects distribution {done}
+TC-PR-06: More iterations = more convergence {done}
 TC-PR-07: Disconnected components handled
 TC-PR-08: Personalization boosts anchor's neighbors
 TC-PR-09: Empty graph returns empty map
@@ -225,13 +225,13 @@ TC-PR-10: Self-loops handled correctly
 
 **Test cases:**
 ```
-TC-DIST-01: Same file = distance 0
+TC-DIST-01: Same file = distance 0 {done}
 TC-DIST-02: Sibling files = distance 2
-TC-DIST-03: Parent-child = distance 1
+TC-DIST-03: Parent-child = distance 1 {done}
 TC-DIST-04: Cousin files (shared grandparent) = distance 4
 TC-DIST-05: Deeply nested vs root = correct count
-TC-DIST-06: Different path separators normalized
-TC-DIST-07: Relative vs absolute paths handled
+TC-DIST-06: Different path separators normalized {done}
+TC-DIST-07: Relative vs absolute paths handled {done}
 TC-DIST-08: Non-existent paths don't panic
 ```
 
@@ -244,10 +244,10 @@ TC-DIST-08: Non-existent paths don't panic
 
 **Test cases:**
 ```
-TC-CYC-01: No edges = no cycles
-TC-CYC-02: Linear chain = no cycles
-TC-CYC-03: Self-loop detected
-TC-CYC-04: Two-node cycle detected
+TC-CYC-01: No edges = no cycles {done}
+TC-CYC-02: Linear chain = no cycles {done}
+TC-CYC-03: Self-loop detected {done}
+TC-CYC-04: Two-node cycle detected {done}
 TC-CYC-05: Three-node cycle detected
 TC-CYC-06: Multiple disjoint cycles all found
 TC-CYC-07: Figure-8 (two cycles sharing node) handled
@@ -267,15 +267,15 @@ TC-CYC-10: Cycle membership is complete (all nodes listed)
 
 **Test cases:**
 ```
-TC-VAL-01: Valid manifest passes
-TC-VAL-02: Empty manifest rejected
-TC-VAL-03: Duplicate paths rejected
-TC-VAL-04: Path traversal (../) rejected
-TC-VAL-05: Absolute paths rejected (security)
-TC-VAL-06: Reserved keywords rejected (PLAN, MANIFEST, etc.)
-TC-VAL-07: Missing required files flagged
-TC-VAL-08: SHA mismatch detected
-TC-VAL-09: NEW operation on existing file = warning
+TC-VAL-01: Valid manifest passes {done}
+TC-VAL-02: Empty manifest rejected {done}
+TC-VAL-03: Duplicate paths rejected {done}
+TC-VAL-04: Path traversal (../) rejected {done}
+TC-VAL-05: Absolute paths rejected (security) {done}
+TC-VAL-06: Reserved keywords rejected (PLAN, MANIFEST, etc.) {done}
+TC-VAL-07: Missing required files flagged {done}
+TC-VAL-08: SHA mismatch detected {done}
+TC-VAL-09: NEW operation on existing file = warning {done}
 TC-VAL-10: DELETE operation on missing file = warning
 TC-VAL-11: UPDATE operation validates original exists
 TC-VAL-12: Whitespace-only paths rejected
@@ -296,18 +296,18 @@ TC-VAL-15: Case sensitivity respected (or not, per OS)
 
 **Test cases:**
 ```
-TC-PARSE-01: Empty input returns empty vec
-TC-PARSE-02: Single FILE block parsed correctly
-TC-PARSE-03: Single PLAN block parsed correctly
-TC-PARSE-04: Single MANIFEST block parsed correctly
-TC-PARSE-05: Multiple blocks in sequence
-TC-PARSE-06: Block with SHA256 hash extracted
-TC-PARSE-07: Markdown fence stripping (```rust)
-TC-PARSE-08: Blockquote prefix stripping (> )
-TC-PARSE-09: Nested sigils in content don't confuse parser
-TC-PARSE-10: Unclosed block returns error
-TC-PARSE-11: Missing END marker returns error
-TC-PARSE-12: Wrong END marker returns error
+TC-PARSE-01: Empty input returns empty vec {done}
+TC-PARSE-02: Single FILE block parsed correctly {done}
+TC-PARSE-03: Single PLAN block parsed correctly {done}
+TC-PARSE-04: Single MANIFEST block parsed correctly {done}
+TC-PARSE-05: Multiple blocks in sequence {done}
+TC-PARSE-06: Block with SHA256 hash extracted {done}
+TC-PARSE-07: Markdown fence stripping (```rust) {done}
+TC-PARSE-08: Blockquote prefix stripping (> ) {done}
+TC-PARSE-09: Nested sigils in content don't confuse parser {done}
+TC-PARSE-10: Unclosed block returns error {done}
+TC-PARSE-11: Missing END marker returns error {done}
+TC-PARSE-12: Wrong END marker returns error {done}
 TC-PARSE-13: Path extraction from FILE header
 TC-PARSE-14: Whitespace handling in content
 TC-PARSE-15: Very large block (100KB) handled
