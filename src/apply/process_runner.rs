@@ -29,7 +29,7 @@ impl CommandRunner {
     /// Runs a command and returns the result.
     ///
     /// # Errors
-    /// Returns error if command spawning or execution fails.
+    /// Returns error if command execution fails.
     pub fn run(
         &self,
         cmd: &str,

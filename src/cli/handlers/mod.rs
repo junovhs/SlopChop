@@ -42,7 +42,7 @@ pub struct PackArgs {
 /// Handles the scan command.
 ///
 /// # Errors
-/// Returns error if scan fails.
+/// Returns error if scan execution fails.
 pub fn handle_scan(verbose: bool, locality: bool, json: bool) -> Result<SlopChopExit> {
     if locality {
         return super::locality::handle_locality();
@@ -102,7 +102,7 @@ pub fn handle_scan(verbose: bool, locality: bool, json: bool) -> Result<SlopChop
 /// Handles the check command.
 ///
 /// # Errors
-/// Returns error if check fails.
+/// Returns error if validation pipeline fails.
 pub fn handle_check(json: bool) -> Result<SlopChopExit> {
     let config = Config::load();
     let repo_root = get_repo_root();
@@ -127,7 +127,7 @@ pub fn handle_check(json: bool) -> Result<SlopChopExit> {
 /// Handles the pack command.
 ///
 /// # Errors
-/// Returns error if pack fails.
+/// Returns error if packing process fails.
 pub fn handle_pack(args: PackArgs) -> Result<SlopChopExit> {
     let opts = PackOptions {
         stdout: args.stdout,

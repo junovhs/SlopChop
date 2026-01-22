@@ -94,7 +94,8 @@ fn project_defaults(project: ProjectType) -> HashMap<String, Vec<String>> {
             m.insert(
                 "check".into(),
                 vec![
-                    "cargo clippy --all-targets -- -D warnings -W clippy::pedantic".into(),
+                    // Updated to match the user's preferred "Strict but Sane" defaults
+                    "cargo clippy --all-targets -- -D warnings -W clippy::pedantic -W clippy::unwrap_used -W clippy::expect_used -W clippy::indexing_slicing -A clippy::struct_excessive_bools -A clippy::module_name_repetitions -A clippy::missing_errors_doc -A clippy::must_use_candidate".into(),
                     "cargo test".into(),
                 ],
             );

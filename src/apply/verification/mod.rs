@@ -21,7 +21,7 @@ pub mod report_display;
 /// Runs the full verification pipeline.
 ///
 /// # Errors
-/// Returns error if validation fails.
+/// Returns error if checks fail or file IO errors occur.
 pub fn run_verification_pipeline<P: AsRef<Path>>(
     ctx: &ApplyContext,
     cwd: P,
