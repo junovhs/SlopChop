@@ -60,21 +60,21 @@ Parser for tsconfig.json / jsconfig.json path mappings. Centralizes project conf
 ## Layer 1 -- Core
 
 `src/analysis/mod.rs`
-Core analysis logic (The "Rule Engine"). Provides application entry point.
+Core analysis logic (The "Rule Engine"). Supports application functionality.
 
 `src/analysis/v2/mod.rs`
-Module definitions for mod. Provides application entry point.
+Module definitions for mod. Supports application functionality.
 
 `src/analysis/v2/patterns/mod.rs`
-AST pattern detection for violations. Provides application entry point.
+AST pattern detection for violations. Supports application functionality.
 → Exports: detect_all, get_capture_node
 
 `src/apply/mod.rs`
-Executes the apply operation based on user input. Provides application entry point.
+Executes the apply operation based on user input. Supports application functionality.
 → Exports: print_result, process_input, run_apply, run_promote
 
 `src/apply/verification/mod.rs`
-Verification pipeline orchestration. Provides application entry point.
+Verification pipeline orchestration. Supports application functionality.
 → Exports: run_verification_pipeline
 
 `src/bin/slopchop.rs`
@@ -85,31 +85,31 @@ Run structural checks on the codebase. Defines command-line interface.
 → Exports: ApplyArgs, Cli, Commands
 
 `src/cli/handlers/mod.rs`
-Core analysis command handlers. Provides application entry point.
+Core analysis command handlers. Supports application functionality.
 → Exports: PackArgs, get_repo_root, handle_check, handle_map, handle_pack, handle_scan, handle_signatures
 
 `src/cli/mod.rs`
-CLI command handlers. Provides application entry point.
+CLI command handlers. Supports application functionality.
 
 `src/clipboard/mod.rs`
-Smartly copies text or file handles based on size. Provides application entry point.
+Smartly copies text or file handles based on size. Supports application functionality.
 → Exports: copy_file_path, copy_to_clipboard, read_clipboard, smart_copy
 
 `src/graph/defs/mod.rs`
-Extracts symbol DEFINITIONS from source files using tree-sitter. Provides application entry point.
+Extracts symbol DEFINITIONS from source files using tree-sitter. Supports application functionality.
 
 `src/graph/locality/analysis/mod.rs`
-Deep topology analysis: categorize violations, find patterns, suggest fixes. Provides application entry point.
+Deep topology analysis: categorize violations, find patterns, suggest fixes. Supports application functionality.
 → Exports: TopologyAnalysis, analyze
 
 `src/graph/locality/mod.rs`
-Law of Locality enforcement for topological integrity. Provides application entry point.
+Law of Locality enforcement for topological integrity. Supports application functionality.
 
 `src/graph/mod.rs`
-Module definitions for mod. Provides application entry point.
+Module definitions for mod. Supports application functionality.
 
 `src/graph/rank/mod.rs`
-Orchestrates graph construction and ranking. Provides application entry point.
+Orchestrates graph construction and ranking. Supports application functionality.
 → Exports: GraphEngine, build, focus_on
 
 `src/lib.rs`
@@ -119,19 +119,19 @@ Library root and public exports. Provides application entry point.
 Application entry point. Provides application entry point.
 
 `src/mutate/mod.rs`
-Cross-language mutation testing [EXPERIMENTAL]. Provides application entry point.
+Cross-language mutation testing [EXPERIMENTAL]. Supports application functionality.
 → Exports: MutateOptions, MutateReport, run
 
 `src/pack/mod.rs`
-Markdown specification generated from doc comments. Provides application entry point.
+Markdown specification generated from doc comments. Defines command-line interface.
 → Exports: FocusContext, OutputFormat, PackOptions, generate_content, run, run_with_progress
 
 `src/signatures/mod.rs`
-Holographic signature map generator. Provides application entry point.
+Holographic signature map generator. Supports application functionality.
 → Exports: SignatureOptions, run
 
 `src/spinner/mod.rs`
-Triptych HUD (Head-Up Display) for process execution feedback. Provides application entry point.
+Triptych HUD (Head-Up Display) for process execution feedback. Supports application functionality.
 → Exports: start
 
 ## Layer 2 -- Domain
