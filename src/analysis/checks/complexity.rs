@@ -1,4 +1,3 @@
-// src/analysis/checks/complexity.rs
 //! Complexity metrics checks (Law of Complexity).
 
 use tree_sitter::{Node, Query, QueryCursor, QueryMatch};
@@ -9,8 +8,8 @@ use crate::types::{Violation, ViolationDetails};
 use super::CheckContext;
 
 /// Checks for complexity metrics (arity, depth).
-/// Note: Cognitive Complexity is calculated in `ast.rs` using `v2/cognitive.rs`.
-/// This module now focuses on Arity and Nesting Depth.
+/// Note: Cognitive Complexity is calculated in `ast.rs` using the `cognitive` module.
+/// This module focuses on Arity and Nesting Depth.
 pub fn check_metrics(
     ctx: &CheckContext,
     func_query: &Query,
@@ -23,7 +22,7 @@ pub fn check_metrics(
     for m in matches {
         process_match(&m, ctx, out);
     }
-    0 // Return 0 as max complexity is now tracked via cognitive score in AST analyzer
+    0 // Return 0 as max complexity is tracked via cognitive score in AST analyzer
 }
 
 fn process_match(
@@ -59,7 +58,7 @@ fn analyze_function(
 
     // Check Arity
     check_arity(node, ctx.config, ctx.source, row, out);
-    
+
     // Check Nesting
     check_nesting(node, ctx.config, ctx.source, row, out);
 }
@@ -160,4 +159,4 @@ fn is_nesting_node(kind: &str) -> bool {
             | "for_in_statement" | "while_expression" | "while_statement"
             | "loop_expression" | "match_expression" | "switch_statement" | "try_statement"
     )
-}
+}

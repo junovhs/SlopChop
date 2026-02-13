@@ -1,7 +1,6 @@
-// src/cli/handlers/mod.rs
 //! Core analysis command handlers.
 
-use crate::analysis::RuleEngine;
+use crate::analysis::Engine; // Changed from RuleEngine
 use crate::apply;
 use crate::apply::types::ApplyContext;
 use crate::config::Config;
@@ -53,7 +52,7 @@ pub fn handle_scan(verbose: bool, locality: bool, json: bool) -> Result<SlopChop
 
     if json {
         let files = discovery::discover(&config)?;
-        let engine = RuleEngine::new(config);
+        let engine = Engine::new(config);
         let report = engine.scan(&files);
         reporting::print_json(&report)?;
         return Ok(if report.has_errors() {
@@ -68,7 +67,7 @@ pub fn handle_scan(verbose: bool, locality: bool, json: bool) -> Result<SlopChop
 
     let files = discovery::discover(&config)?;
     let total = files.len();
-    let engine = RuleEngine::new(config);
+    let engine = Engine::new(config);
     let counter = AtomicUsize::new(0);
 
     let report = engine.scan_with_progress(

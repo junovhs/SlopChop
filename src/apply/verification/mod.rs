@@ -1,7 +1,6 @@
-// src/apply/verification.rs
 //! Verification pipeline orchestration.
 
-use crate::analysis::RuleEngine;
+use crate::analysis::Engine;
 use crate::apply::process_runner::CommandRunner;
 use crate::apply::types::ApplyContext;
 use crate::cli::locality;
@@ -152,7 +151,7 @@ fn run_internal_scan(cwd: &Path, client: Option<&SpinnerClient>) -> Result<ScanR
 
     let config = Config::load();
     let files = discovery::discover(&config)?;
-    let engine = RuleEngine::new(config);
+    let engine = Engine::new(config);
     let total = files.len();
     let counter = AtomicUsize::new(0);
 

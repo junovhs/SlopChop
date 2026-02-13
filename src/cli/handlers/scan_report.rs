@@ -2,7 +2,7 @@
 //! Scan report display formatting.
 
 use crate::types::ScanReport;
-use crate::analysis::v2::{is_small_codebase, small_codebase_threshold};
+use crate::analysis::Engine;
 use colored::Colorize;
 use std::cmp::Reverse;
 use std::collections::HashMap;
@@ -34,12 +34,12 @@ fn print_header(report: &ScanReport) {
 }
 
 fn print_small_codebase_note(report: &ScanReport) {
-    if is_small_codebase(report.files.len()) {
+    if report.files.len() < Engine::small_codebase_threshold() {
         println!(
             "{}",
             format!(
                 "  ℹ Small codebase (<{} files): structural metrics skipped",
-                small_codebase_threshold()
+                Engine::small_codebase_threshold()
             )
             .dimmed()
         );

@@ -1,5 +1,5 @@
-// src/analysis/v2/metrics.rs
-//! Metrics calculation for V2 Scopes (LCOM4, CBO, SFOUT, AHF).
+//! Structural metrics calculation (LCOM4, CBO, SFOUT, AHF).
+//! Renamed from v2/metrics.rs to avoid collision with root metrics.rs (complexity/nesting).
 
 use super::scope::{Scope, Method};
 use std::collections::{HashMap, HashSet};

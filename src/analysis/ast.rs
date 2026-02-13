@@ -1,6 +1,5 @@
-// src/analysis/ast.rs
 use super::checks::{self, CheckContext};
-use super::v2::cognitive::CognitiveAnalyzer;
+use super::cognitive::CognitiveAnalyzer; // FIXED: Removed v2 namespace
 use crate::config::RuleConfig;
 use crate::lang::{Lang, QueryKind};
 use crate::types::{Violation, ViolationDetails};
@@ -102,10 +101,9 @@ impl Analyzer {
         if !matches!(kind, "function_item" | "function_definition" | "method_definition" | "function_declaration") {
             return 0;
         }
-        
+
         let score = CognitiveAnalyzer::calculate(node, ctx.source);
 
-        // UPDATED: Use max_cognitive_complexity from config
         if score > ctx.config.max_cognitive_complexity {
             let name = node.child_by_field_name("name")
                 .and_then(|n| n.utf8_text(ctx.source.as_bytes()).ok())
@@ -135,7 +133,7 @@ impl Analyzer {
             checks::check_banned(ctx, &q, out);
         }
 
-        // Safety check (using empty query for now if not implemented, but ctx is passed)
+        // Safety check
         if let Ok(q) = compile_query(lang.grammar(), "") {
             super::safety::check_safety(ctx, &q, out);
         }
@@ -144,4 +142,4 @@ impl Analyzer {
 
 fn compile_query(lang: Language, pattern: &str) -> Result<Query> {
     Query::new(lang, pattern).map_err(|e| anyhow!("Invalid tree-sitter query: {e}"))
-}
+}

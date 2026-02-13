@@ -1,7 +1,6 @@
-// src/analysis/v2/inspector.rs
 //! Inspection logic for scopes (Metrics application).
 
-use super::metrics;
+use super::structural; // Updated import
 use super::scope;
 use crate::config::RuleConfig;
 use crate::types::{Violation, ViolationDetails};
@@ -40,7 +39,7 @@ impl<'a> Inspector<'a> {
             return;
         }
 
-        let lcom4 = metrics::ScopeMetrics::calculate_lcom4(scope);
+        let lcom4 = structural::ScopeMetrics::calculate_lcom4(scope); // Updated module
         if lcom4 > self.config.max_lcom4 {
             out.push(build_lcom4_violation(scope, lcom4));
         }
@@ -63,15 +62,15 @@ impl<'a> Inspector<'a> {
             return;
         }
 
-        let ahf = metrics::ScopeMetrics::calculate_ahf(scope);
+        let ahf = structural::ScopeMetrics::calculate_ahf(scope); // Updated module
         if ahf < self.config.min_ahf {
             out.push(build_ahf_violation(scope, ahf, self.config.min_ahf));
         }
     }
 
     fn check_coupling(&self, scope: &scope::Scope, out: &mut Vec<Violation>) {
-        let cbo = metrics::ScopeMetrics::calculate_cbo(scope);
-        let sfout = metrics::ScopeMetrics::calculate_max_sfout(scope);
+        let cbo = structural::ScopeMetrics::calculate_cbo(scope); // Updated module
+        let sfout = structural::ScopeMetrics::calculate_max_sfout(scope); // Updated module
 
         if cbo > self.config.max_cbo {
             out.push(build_cbo_violation(scope, cbo));

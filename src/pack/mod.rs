@@ -13,7 +13,7 @@ use anyhow::Result;
 use clap::ValueEnum;
 use colored::Colorize;
 
-use crate::analysis::RuleEngine;
+use crate::analysis::Engine;
 use crate::clipboard;
 use crate::config::Config;
 use crate::discovery;
@@ -166,7 +166,7 @@ where
 }
 
 fn inject_violations(ctx: &mut String, files: &[PathBuf], config: &Config) -> Result<()> {
-    let engine = RuleEngine::new(config.clone());
+    let engine = Engine::new(config.clone());
     let report = engine.scan(files);
     if !report.has_errors() { return Ok(()); }
 
