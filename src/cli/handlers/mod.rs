@@ -1,15 +1,13 @@
 //! Core analysis command handlers.
 
-use crate::analysis::Engine; // Changed from RuleEngine
-use crate::apply;
-use crate::apply::types::ApplyContext;
+use crate::analysis::Engine;
 use crate::config::Config;
 use crate::discovery;
 use crate::exit::SlopChopExit;
-use crate::map;
 use crate::reporting;
 use crate::signatures::{self, SignatureOptions};
 use crate::spinner;
+use crate::verification;
 use anyhow::Result;
 use colored::Colorize;
 use std::path::PathBuf;
@@ -85,19 +83,29 @@ pub fn handle_scan(verbose: bool, locality: bool, json: bool) -> Result<SlopChop
 /// Handles the check command.
 ///
 /// # Errors
-/// Returns error if validation pipeline fails.
+/// Returns error if report file cannot be written.
 pub fn handle_check(json: bool) -> Result<SlopChopExit> {
-    let config = Config::load();
     let repo_root = get_repo_root();
-    let mut ctx = ApplyContext::new(&config, repo_root.clone());
-    ctx.silent = json;
+    let report = verification::run(&repo_root);
 
-    let report = apply::verification::run_verification_pipeline(&ctx, &repo_root)?;
+    // Write report to file
+    std::fs::write("slopchop-report.txt", &report.output)?;
 
     if json {
-        reporting::print_json(&report)?;
+        println!(
+            "{}",
+            serde_json::json!({
+                "passed": report.passed,
+                "output": report.output
+            })
+        );
     } else if report.passed {
         println!("{}", "✓ All checks passed.".green().bold());
+    } else {
+        println!(
+            "{}",
+            "✗ Checks failed. See slopchop-report.txt".red().bold()
+        );
     }
 
     Ok(if report.passed {
@@ -105,16 +113,6 @@ pub fn handle_check(json: bool) -> Result<SlopChopExit> {
     } else {
         SlopChopExit::CheckFailed
     })
-}
-
-/// Handles the map command.
-///
-/// # Errors
-/// Returns error if map generation fails.
-pub fn handle_map(deps: bool) -> Result<SlopChopExit> {
-    let output = map::generate(deps)?;
-    println!("{output}");
-    Ok(SlopChopExit::Success)
 }
 
 /// Handles the signatures command.

@@ -1,5 +1,4 @@
 use clap::{Parser, Subcommand};
-use std::path::PathBuf;
 
 #[derive(Parser)]
 #[command(name = "slopchop", version, about = "AI Code Quality Guardian")]
@@ -29,26 +28,6 @@ pub enum Commands {
         json: bool,
     },
 
-    /// Apply AI-generated changes
-    Apply {
-        #[arg(long, short)]
-        force: bool,
-        #[arg(long)]
-        dry_run: bool,
-        #[arg(long)]
-        stdin: bool,
-        #[arg(long, short)]
-        check: bool,
-        #[arg(long, value_name = "FILE")]
-        file: Option<PathBuf>,
-        #[arg(long)]
-        promote: bool,
-        #[arg(long)]
-        sanitize: bool,
-        #[arg(long, conflicts_with = "sanitize")]
-        strict: bool,
-    },
-
     /// Create or reset the work branch
     Branch {
         #[arg(long, short)]
@@ -68,13 +47,6 @@ pub enum Commands {
     Clean {
         #[arg(long, short)]
         commit: bool,
-    },
-
-    /// Show repository structure [EXPERIMENTAL]
-    Map {
-        /// Show dependencies for each file
-        #[arg(long, short)]
-        deps: bool,
     },
 
     /// Generate type-surface signatures [EXPERIMENTAL]
@@ -103,19 +75,4 @@ pub enum Commands {
         #[arg(long, short)]
         filter: Option<String>,
     },
-}
-
-#[allow(clippy::struct_excessive_bools)]
-#[derive(Debug, Clone, Default)]
-pub struct ApplyArgs {
-    pub force: bool,
-    pub dry_run: bool,
-    pub stdin: bool,
-    pub check: bool,
-    pub file: Option<PathBuf>,
-    pub reset: bool,
-    pub promote: bool,
-    pub sync: bool,
-    pub sanitize: bool,
-    pub strict: bool,
 }

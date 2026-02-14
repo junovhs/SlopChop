@@ -29,7 +29,7 @@ Track A should be completed first where items directly affect Track B (e.g., cut
 ---
 
 ## [1] Reframe v2 analysis engine as THE analysis engine
-**Status:** OPEN
+**Status:** DONE
 **Files:** `src/analysis/v2/` (all), `src/analysis/mod.rs`, `src/analysis/ast.rs`, `src/analysis/engine.rs`, `src/analysis/logic.rs`, `src/analysis/file_analysis.rs`, `src/analysis/checks.rs`, `src/analysis/metrics.rs`, `src/analysis/safety.rs`
 **Blocking:** [9], [10], [11]
 
@@ -42,14 +42,13 @@ Tasks:
 - Update the scan spec doc to remove "v2" language
 - Run `slopchop check` against self to verify nothing broke
 
-**Resolution:**
+**Resolution:** The `src/analysis/v2/` directory does not exist — consolidation was already complete. Remaining "v2" references are only historical comments noting file origin (e.g., `// src/analysis/v2/cognitive.rs`). These are not blocking. No code changes required.
 
 ---
 
 ## [2] Cut packing functionality
-**Status:** OPEN
+**Status:** DONE
 **Files:** `src/pack/mod.rs`, `src/pack/docs.rs`, `src/pack/focus.rs`, `src/pack/formats.rs`, `src/pack/xml_format.rs`, `src/cli/handlers/mod.rs` (handle_pack), `src/cli/args.rs` (pack command definition)
-**Blocking:** [3]
 
 SEMMAP replaces packing. Remove all pack-related code:
 - Delete `src/pack/` module entirely
@@ -58,14 +57,13 @@ SEMMAP replaces packing. Remove all pack-related code:
 - Remove pack-related exports from `src/lib.rs`
 - Clean up any `FocusContext`, `OutputFormat`, `PackOptions` references elsewhere
 
-**Resolution:**
+**Resolution:** Deleted `src/pack/` directory. Removed `Pack` command from `args.rs`, removed `PackArgs` struct and `handle_pack` function from `handlers/mod.rs`, removed pack import from `dispatch.rs`, removed `pub mod pack;` from `lib.rs`. Build green.
 
 ---
 
 ## [3] Cut slopchop map and map --deps
-**Status:** OPEN
+**Status:** DONE
 **Files:** `src/map.rs`, `src/cli/handlers/mod.rs` (handle_map), `src/cli/args.rs` (map command definition)
-**Depends on:** [2]
 
 Separate app handles this better now. Remove:
 - Delete `src/map.rs`
@@ -74,14 +72,13 @@ Separate app handles this better now. Remove:
 - Remove map-related exports from `src/lib.rs`
 - Clean up `src/discovery.rs` if it was only used by map (check — it may still be used by scan/analysis)
 
-**Resolution:**
+**Resolution:** Deleted `src/map.rs`. Removed `Map` command from `args.rs`, removed `handle_map` function and `use crate::map;` from `handlers/mod.rs`, removed `handle_map` import and `Commands::Map` match arms from `dispatch.rs`, removed `pub mod map;` from `lib.rs`. `src/discovery.rs` retained — still used by scan/analysis. Build green.
 
 ---
 
 ## [4] Evaluate prompt mechanisms post-pack removal
-**Status:** OPEN
+**Status:** DONE
 **Files:** `src/prompt.rs`, `AGENT-README.md`
-**Depends on:** [2], [3]
 
 With pack and map cut, the prompt generation system (`src/prompt.rs`) may have dead code paths or references to removed features. Evaluate:
 - Is `src/prompt.rs` still needed at all, or does `AGENT-README.md` in root fully replace it?
@@ -89,13 +86,13 @@ With pack and map cut, the prompt generation system (`src/prompt.rs`) may have d
 - If the autonomous protocol markdown (AGENT-README.md) is the primary interface, ensure it's the source of truth and prompt.rs just generates/updates it
 - Update prompt content for Nim support (see Nim spec Section 6)
 
-**Resolution:**
+**Resolution:** Deleted `src/prompt.rs` entirely as part of apply system removal. Updated `AGENT-README.md` to remove `slopchop map` references. SlopChop is now a pure governance tool — AI ingestion is handled externally. Build green.
 
 ---
 
 ## [5] Smart clippy/compiler output compression
 **Status:** OPEN
-**Files:** `src/cli/handlers/scan_report.rs`, `src/apply/report_writer.rs`, potentially new `src/reporting/compression.rs`
+**Files:** `src/cli/handlers/scan_report.rs`, `src/verification/runner.rs`, potentially new `src/reporting/compression.rs`
 
 The problem: clippy (and soon `nim check`) can output 10,000 lines for what amounts to 2 distinct issues repeated across many call sites. AI agents waste context window on this noise. `slopchop-report.txt` should be maximally informative but succinct.
 
@@ -122,43 +119,31 @@ Approach:
 ---
 
 ## [6] Clipboard character encoding issues
-**Status:** OPEN
+**Status:** DESCOPED
 **Files:** `src/clipboard/mod.rs`, `src/clipboard/linux.rs`, `src/clipboard/macos.rs`, `src/clipboard/windows.rs`, `src/clipboard/utils.rs`, `src/apply/parser.rs`, `src/apply/blocks.rs`
 
 Recurring issue: clipboard transfers corrupt trailing characters, especially in `Cargo.toml` files. Last character often becomes `#`, carriage return errors appear.
 
-Investigation needed:
-- Audit the clipboard pipeline: copy → clipboard buffer → paste → parser
-- Check for `\r\n` vs `\n` normalization issues (especially Windows → Linux clipboard)
-- Check for null byte / EOF marker injection by clipboard tools
-- Check if `xclip`/`xsel`/`pbcopy` append trailing newlines or characters
-- Add explicit trailing-whitespace/character sanitization in `src/apply/parser.rs` before content is processed
-- Add a test that round-trips a known `Cargo.toml` through the clipboard pipeline and asserts byte-identical output
-
-Note: If the apply system is eventually separated ([7]), this fix still applies to whatever module owns clipboard I/O.
-
-**Resolution:**
+**Resolution:** The entire clipboard module (`src/clipboard/`) and apply system have been deleted. SlopChop no longer handles clipboard operations. Issue is no longer relevant.
 
 ---
 
 ## [7] Evaluate apply/check separation
-**Status:** OPEN
+**Status:** DONE
 **Files:** Architectural decision — no immediate code changes
 
 Question: should `slopchop apply` and `slopchop check` be separate binaries, separate crates in a workspace, or remain unified?
 
-Considerations:
-- Apply is about receiving AI output, parsing protocol, writing files, managing branches
-- Check is about scanning, analysis, running commands, reporting
-- They share: config, project detection, exit codes, reporting format
-- Chat-based users (you) want them tightly coupled — apply then auto-checks
-- Agentic users want check standalone — agent writes files directly, then runs check
-- CI users only need check
-- Recommendation: keep as one binary with clean internal module boundaries. The apply system is the "ingest" layer, check is the "verify" layer. They compose but don't depend on each other's internals. This is already mostly true architecturally.
+**Resolution:** **Apply system deleted entirely.** SlopChop is now a pure governance/verification tool. The AI ingestion layer (apply, clipboard, XSC7XSC protocol parsing) has been removed as it was causing recurring issues (clipboard corruption, file corruption) and wasn't necessary for human-in-the-loop workflows. 
 
-Decision to make: keep unified or split. Document rationale either way.
+**Current SlopChop scope:**
+- `slopchop scan` — Violation detection
+- `slopchop check` — External command verification (clippy, tests, etc.)
+- `slopchop branch/promote/abort` — Git sandbox workflow for AI agents
+- `slopchop signatures` — Type surface extraction
+- `slopchop config`, `clean`, `mutate` — Utilities
 
-**Resolution:**
+**New module:** `src/verification/` — minimal command runner that executes `[commands]` from config and writes to `slopchop-report.txt`.
 
 ---
 
@@ -183,7 +168,6 @@ Recommendation: integrate locality results into the standard scan report format.
 ## [9] Nim: Grammar validation and node discovery (GATE)
 **Status:** OPEN
 **Files:** `Cargo.toml`, `tests/nim_grammar.rs` (new)
-**Depends on:** [1]
 **Blocking:** [10], [11], [12], [13], [14], [15]
 **Spec ref:** Nim Spec Phase 1
 
@@ -206,7 +190,7 @@ Tasks:
 ## [10] Nim: Language integration
 **Status:** OPEN
 **Files:** `src/lang.rs`, `src/constants.rs`, `src/project.rs`, `src/config/types.rs`
-**Depends on:** [1], [9]
+**Depends on:** [9]
 **Spec ref:** Nim Spec Sections 3.1, 5
 
 Tasks:
@@ -229,7 +213,7 @@ Tasks:
 ## [11] Nim: Paranoia checks
 **Status:** OPEN
 **Files:** `src/analysis/checks/nim_checks.rs` (new), `src/analysis/ast.rs`
-**Depends on:** [1], [9], [10]
+**Depends on:** [9], [10]
 **Spec ref:** Nim Spec Section 4
 
 Create `nim_checks.rs` with detection for all 10+ unsafe constructs:
@@ -304,11 +288,10 @@ Implement `slopchop init --nim`:
 
 ## [15] Nim: Autonomous protocol and prompt updates
 **Status:** OPEN
-**Files:** `src/prompt.rs`, `AGENT-README.md`
-**Depends on:** [4], [11]
+**Files:** `AGENT-README.md`
+**Depends on:** [11]
 **Spec ref:** Nim Spec Sections 6, 10
 
-- Update prompt Law of Paranoia section with Nim rules
 - Add Nim-specific guidance to autonomous protocol / AGENT-README.md
 - Include: no `cast[]` without `# SAFETY:`, no `{.emit.}`, no disabled runtime checks, prefer `ref` over `ptr`, respect `nim.cfg` as governance
 
@@ -318,8 +301,8 @@ Implement `slopchop init --nim`:
 
 ## [16] Nim: V2 metrics exclusion guard
 **Status:** OPEN
-**Files:** `src/analysis/v2/worker.rs` (or wherever it lives after [1] rename)
-**Depends on:** [1], [10]
+**Files:** `src/analysis/worker.rs`
+**Depends on:** [10]
 **Spec ref:** Nim Spec Section 7
 
 Ensure the analysis engine guard clause excludes Nim from LCOM4/CBO/AHF/SFOUT scope extraction. Nim scope extraction (mapping `type Foo = object` + procs-with-Foo-first-param to cohesion scopes) is a future Phase 2 item.
@@ -352,21 +335,33 @@ This enables the law of locality graph to work with Nim projects. The edge colle
 ## Dependency Graph
 
 ```
-[1] Reframe v2 engine ─────────┬──→ [9] Grammar validation (GATE)
-                                │         │
-[2] Cut packing ──→ [3] Cut map │         ├──→ [10] Language integration
-         │                      │         │         │
-         └──→ [4] Prompt eval ──┘         │         ├──→ [11] Paranoia checks ──→ [14] Tests
-                    │                     │         │         │
-                    └─────────────────────┼─────────┼──→ [15] Protocol updates
-                                          │         │
-[5] Output compression (independent)      │         ├──→ [12] Naming conventions
-                                          │         │
-[6] Clipboard fix (independent)           │         ├──→ [13] Strict config gen
-                                          │         │
-[7] Apply/check eval (independent)        │         └──→ [16] V2 metrics guard
-                                          │
-[8] Locality revisit ────────────────────────────→ [17] Nim import resolver
+Track A (Consolidation) ───────────────────────────────────── DONE
+[1] Reframe v2 engine ──────────── DONE
+[2] Cut packing ────────────────── DONE
+[3] Cut map ────────────────────── DONE
+[4] Prompt eval ────────────────── DONE (prompt.rs deleted)
+[6] Clipboard issues ───────────── DESCOPED (clipboard deleted)
+[7] Apply/check separation ─────── DONE (apply deleted)
+
+Track B (Nim Integration)
+[9] Grammar validation (GATE)
+         │
+         ├──→ [10] Language integration
+         │         │
+         │         ├──→ [11] Paranoia checks ──→ [14] Tests
+         │         │         │
+         │         │         └──→ [15] Protocol updates
+         │         │
+         │         ├──→ [12] Naming conventions
+         │         │
+         │         ├──→ [13] Strict config gen
+         │         │
+         │         └──→ [16] Metrics guard
+         │
+[8] Locality revisit ────────────→ [17] Nim import resolver
+
+Independent:
+[5] Output compression
 ```
 
-Items [5], [6], [7] are independent and can be worked in parallel with everything else.
+**Track A is complete.** Ready to proceed with Track B (Nim Integration) starting with [9].

@@ -24,8 +24,6 @@ Execute this exact loop for every task.
 1.  **Modify the code directly.** Edit files, add features, refactor.
 2.  **Use your tools**:
     *   `slopchop scan` -> Check token counts/complexity quickly.
-    *   `slopchop map` -> See the repo structure.
-    *   `slopchop map --deps` -> See the repo structure with dependancies.
 
 ### PHASE 3: VERIFY
 1.  Run the gatekeeper:
@@ -66,7 +64,7 @@ SlopChop enforces strict structural metrics. `slopchop check` will fail if you v
 
 | Metric | Limit | Fix |
 | :--- | :--- | :--- |
-| **File Tokens** | < 2,000 | **Split the file.** Create submodules. |
+| **File Tokens** | < 1,500 | **Split the file.** Create submodules. |
 | **Cognitive Complexity** | ≤ 15 | **Extract methods.** Simplify branching. |
 | **Nesting Depth** | ≤ 3 | **Use guard clauses** (return early). |
 | **LCOM4** | = 1 | **Split the struct.** It lacks cohesion. |

@@ -1,4 +1,3 @@
-// src/signatures/mod.rs
 //! Holographic signature map generator.
 //! Uses dependency graph for topological ordering and `PageRank` for importance.
 
@@ -7,12 +6,11 @@ mod ordering;
 
 use crate::config::Config;
 use crate::discovery;
-use crate::graph::rank::{RepoGraph, GraphEngine};
+use crate::graph::rank::{GraphEngine, RepoGraph};
 use crate::lang::Lang;
-use crate::prompt::PromptGenerator;
 use crate::skeleton;
 use crate::tokens::Tokenizer;
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use colored::Colorize;
 use std::collections::HashMap;
 use std::fmt::Write;
@@ -34,7 +32,7 @@ pub struct SignatureOptions {
 pub fn run(opts: &SignatureOptions) -> Result<()> {
     let config = Config::load();
 
-    println!("{}", "?? Scanning type surface...".cyan());
+    println!("{}", "🔍 Scanning type surface...".cyan());
 
     let files = discovery::discover(&config)?;
     let contents = read_all_files(&files);
@@ -48,11 +46,11 @@ pub fn run(opts: &SignatureOptions) -> Result<()> {
         .filter_map(|p| process_file(p, ranks.get(p)))
         .collect();
 
-    let output = format_output(&signatures, &config.rules)?;
+    let output = format_output(&signatures)?;
     let tokens = Tokenizer::count(&output);
 
     println!(
-        "? Extracted {} signatures (~{} tokens)",
+        "✓ Extracted {} signatures (~{} tokens)",
         signatures.len(),
         tokens
     );
@@ -60,9 +58,16 @@ pub fn run(opts: &SignatureOptions) -> Result<()> {
     if opts.stdout {
         println!("{output}");
     } else {
-        let msg = crate::clipboard::smart_copy(&output)?;
-        println!("{}", "? Copied to clipboard".green());
-        println!("  ({msg})");
+        // Write to file instead of clipboard
+        fs::write("slopchop-signatures.txt", &output)?;
+        println!("{}", "✓ Written to slopchop-signatures.txt".green());
+    }
+
+    if opts.copy {
+        println!(
+            "{}",
+            "⚠ Clipboard copy removed - use slopchop-signatures.txt".yellow()
+        );
     }
 
     Ok(())
@@ -188,26 +193,31 @@ fn merge_and_extract(source: &str, mut ranges: Vec<Range<usize>>) -> String {
     result
 }
 
-fn format_output(signatures: &[String], rules: &crate::config::RuleConfig) -> Result<String> {
+fn format_output(signatures: &[String]) -> Result<String> {
     let mut out = String::new();
-    let gen = PromptGenerator::new(rules.clone());
 
-    writeln!(out, "{}", gen.wrap_header()?)?;
-    writeln!(out, "\n// >>> CONTEXT: TYPE MAP (ARCHITECT MODE) <<<")?;
-    writeln!(out, "// Files ordered: Base Dependencies  Top-Level Consumers")?;
-    writeln!(out, "// Tier Key: [CORE] = high PageRank, [LOW] = leaf node")?;
-    writeln!(out, "// Request implementation: slopchop pack --focus src/foo.rs")?;
-    writeln!(out, "// ======================================================\n")?;
+    writeln!(out, "// SLOPCHOP TYPE SIGNATURES")?;
+    writeln!(
+        out,
+        "// Files ordered: Base Dependencies → Top-Level Consumers"
+    )?;
+    writeln!(
+        out,
+        "// Tier Key: [CORE] = high PageRank, [LOW] = leaf node"
+    )?;
+    writeln!(
+        out,
+        "// ======================================================\n"
+    )?;
 
     for sig in signatures {
         out.push_str(sig);
         out.push('\n');
     }
 
-    writeln!(out, "\n{}", gen.generate_reminder()?)?;
     Ok(out)
 }
 
 fn compile_query(lang: tree_sitter::Language, pattern: &str) -> Result<Query> {
-    Query::new(lang, pattern).map_err(|e| anyhow!("Invalid tree-sitter query: {e}"))
+    Query::new(lang, pattern).map_err(|e| anyhow::anyhow!("Invalid tree-sitter query: {e}"))
 }

@@ -1,10 +1,9 @@
 //! Command dispatch logic extracted from binary to reduce main function size.
 
 use super::{
-    apply_handler::handle_apply,
-    args::{ApplyArgs, Commands},
+    args::Commands,
     git_ops::{handle_abort, handle_branch, handle_promote},
-    handlers::{handle_check, handle_map, handle_scan, handle_signatures},
+    handlers::{handle_check, handle_scan, handle_signatures},
 };
 use crate::exit::SlopChopExit;
 use crate::signatures::SignatureOptions;
@@ -18,7 +17,6 @@ pub fn execute(command: Commands) -> Result<SlopChopExit> {
     match command {
         Commands::Check { .. }
         | Commands::Scan { .. }
-        | Commands::Map { .. }
         | Commands::Signatures { .. }
         | Commands::Mutate { .. } => handle_analysis(command),
 
@@ -26,9 +24,7 @@ pub fn execute(command: Commands) -> Result<SlopChopExit> {
             handle_git_ops(&command)
         }
 
-        Commands::Apply { .. } | Commands::Clean { .. } | Commands::Config => {
-            handle_core_ops(command)
-        }
+        Commands::Clean { .. } | Commands::Config => handle_core_ops(&command),
     }
 }
 
@@ -45,7 +41,6 @@ fn handle_analysis(command: Commands) -> Result<SlopChopExit> {
             }
             handle_scan(verbose, false, json)
         }
-        Commands::Map { deps } => handle_map(deps),
         Commands::Signatures { copy, stdout } => {
             let opts = SignatureOptions { copy, stdout };
             handle_signatures(opts)
@@ -69,34 +64,10 @@ fn handle_git_ops(command: &Commands) -> Result<SlopChopExit> {
     }
 }
 
-fn handle_core_ops(command: Commands) -> Result<SlopChopExit> {
+fn handle_core_ops(command: &Commands) -> Result<SlopChopExit> {
     match command {
-        Commands::Apply {
-            force,
-            dry_run,
-            stdin,
-            check,
-            file,
-            promote,
-            sanitize,
-            strict,
-        } => {
-            let args = ApplyArgs {
-                force,
-                dry_run,
-                stdin,
-                check,
-                file,
-                promote,
-                sanitize,
-                strict,
-                reset: false,
-                sync: false,
-            };
-            handle_apply(&args)
-        }
         Commands::Clean { commit } => {
-            crate::clean::run(commit)?;
+            crate::clean::run(*commit)?;
             Ok(SlopChopExit::Success)
         }
         Commands::Config => {
