@@ -14,7 +14,6 @@ pub mod lang;
 pub mod mutate;
 pub mod project;
 pub mod reporting;
-pub mod signatures;
 pub mod skeleton;
 pub mod spinner;
 pub mod tokens;

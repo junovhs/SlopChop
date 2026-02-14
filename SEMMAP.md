@@ -1,7 +1,5 @@
 # project -- Semantic Map
 
-**Purpose:** Architectural linter and context engineering
-
 ## Legend
 
 `[ENTRY]` Application entry point
@@ -68,31 +66,19 @@ Core analysis logic (The "Rule Engine"). Supports application functionality.
 AST pattern detection for violations. Supports application functionality.
 → Exports: detect_all, get_capture_node
 
-`src/apply/mod.rs`
-Executes the apply operation based on user input. Supports application functionality.
-→ Exports: print_result, process_input, run_apply, run_promote
-
-`src/apply/verification/mod.rs`
-Verification pipeline orchestration. Supports application functionality.
-→ Exports: run_verification_pipeline
-
 `src/bin/slopchop.rs`
 Orchestrates `clap`, `colored`, `slopchop_core`. Defines command-line interface.
 
 `src/cli/args.rs`
 Run structural checks on the codebase. Defines command-line interface.
-→ Exports: ApplyArgs, Cli, Commands
+→ Exports: Cli, Commands
 
 `src/cli/handlers/mod.rs`
 Core analysis command handlers. Supports application functionality.
-→ Exports: PackArgs, get_repo_root, handle_check, handle_map, handle_pack, handle_scan, handle_signatures
+→ Exports: get_repo_root, handle_check, handle_scan
 
 `src/cli/mod.rs`
 CLI command handlers. Supports application functionality.
-
-`src/clipboard/mod.rs`
-Smartly copies text or file handles based on size. Supports application functionality.
-→ Exports: copy_file_path, copy_to_clipboard, read_clipboard, smart_copy
 
 `src/graph/defs/mod.rs`
 Extracts symbol DEFINITIONS from source files using tree-sitter. Supports application functionality.
@@ -121,17 +107,13 @@ Application entry point. Provides application entry point.
 Cross-language mutation testing [EXPERIMENTAL]. Supports application functionality.
 → Exports: MutateOptions, MutateReport, run
 
-`src/pack/mod.rs`
-Markdown specification generated from doc comments. Defines command-line interface.
-→ Exports: FocusContext, OutputFormat, PackOptions, generate_content, run, run_with_progress
-
-`src/signatures/mod.rs`
-Holographic signature map generator. Supports application functionality.
-→ Exports: SignatureOptions, run
-
 `src/spinner/mod.rs`
 Triptych HUD (Head-Up Display) for process execution feedback. Supports application functionality.
 → Exports: start
+
+`src/verification/mod.rs`
+External command verification pipeline. Supports application functionality.
+→ Exports: VerificationReport, new, run
 
 ## Layer 2 -- Domain
 
@@ -255,66 +237,6 @@ AST Visitor for analysis. Supports application functionality.
 Worker module for file parsing and analysis. Supports application functionality.
 → Exports: is_ignored, scan_file
 
-`src/apply/advisory.rs`
-Threshold for triggering the high edit volume advisory. Supports application functionality.
-→ Exports: maybe_print_edit_advisory
-
-`src/apply/backup.rs`
-Creates a backup of the files listed in the manifest. Supports application functionality.
-→ Exports: cleanup_old_backups, create_backup, perform_rollback
-
-`src/apply/blocks.rs`
-Block creation and content sanitization for the XSC7XSC protocol. Supports application functionality.
-→ Exports: clean_block_content, create_block, validate_path_keyword
-
-`src/apply/executor.rs`
-Handles the execution of apply actions with automatic branch management. Supports application functionality.
-→ Exports: apply_to_stage_transaction, confirm, run_promote_standalone
-
-`src/apply/manifest.rs`
-Parses the delivery manifest body lines. Parses input into structured data.
-→ Exports: parse_manifest, parse_manifest_body
-
-`src/apply/messages.rs`
-Finds the largest valid char boundary <= idx. Supports application functionality.
-→ Exports: format_ai_rejection, generate_ai_feedback, print_ai_feedback, print_outcome
-
-`src/apply/parser.rs`
-Strict parser for the `SlopChop` XSC7XSC protocol. Parses input into structured data.
-→ Exports: parse
-
-`src/apply/patch.rs`
-Surgical patch application logic. Supports application functionality.
-→ Exports: apply, apply_with_options
-
-`src/apply/process_runner.rs`
-External command execution with streaming output. Supports application functionality.
-→ Exports: CommandRunner, new, run
-
-`src/apply/processor.rs`
-Validates and applies a string payload containing a plan, manifest and files. Supports application functionality.
-→ Exports: process_input, run_promote_standalone
-
-`src/apply/report_writer.rs`
-Logic for generating the verification report file. Supports application functionality.
-→ Exports: write_check_report
-
-`src/apply/types.rs`
-Types for the apply module. Defines domain data structures.
-→ Exports: ApplyContext, ApplyInput, ApplyOutcome, Block, CheckReport, CommandResult, FileContent, FileReport, ManifestEntry, Operation, ScanReport, Violation, ViolationDetails, clean_file_count, has_errors, is_clean, is_small_codebase, new, simple, violation_count, with_details
-
-`src/apply/validator.rs`
-Module providing `validate`. Supports application functionality.
-→ Exports: validate
-
-`src/apply/verification/report_display.rs`
-Verification report display formatting. Supports application functionality.
-→ Exports: print_report
-
-`src/apply/writer.rs`
-Writes changes (updates, new files, deletes) to disk atomically. Supports application functionality.
-→ Exports: write_files
-
 `src/branch.rs`
 Git branch workflow for AI agents. Supports application functionality.
 → Exports: BranchResult, PromoteResult, abort, count_modified_files, init_branch, on_work_branch, promote, work_branch_name
@@ -322,10 +244,6 @@ Git branch workflow for AI agents. Supports application functionality.
 `src/clean.rs`
 Runs the clean command: removes context.txt and ensures gitignore. Supports application functionality.
 → Exports: run
-
-`src/cli/apply_handler.rs`
-Handler for the apply command. Supports application functionality.
-→ Exports: handle_apply
 
 `src/cli/audit.rs`
 CLI handlers for the consolidation audit command. Supports application functionality.
@@ -350,25 +268,6 @@ Handler for locality scanning. Supports application functionality.
 `src/cli/mutate_handler.rs`
 Handles the mutate command. Supports application functionality.
 → Exports: handle_mutate
-
-`src/clipboard/linux.rs`
-Copies the file at the given path to the clipboard. Supports application functionality.
-→ Exports: copy_file_handle, perform_copy, perform_read
-
-`src/clipboard/macos.rs`
-Copies the file at the given path to the clipboard. Supports application functionality.
-→ Exports: copy_file_handle, perform_copy, perform_read
-
-`src/clipboard/platform.rs`
-Platform-specific clipboard operations. Supports application functionality.
-
-`src/clipboard/temp.rs`
-Writes content to a temporary file. Supports application functionality.
-→ Exports: cleanup_temp_files, write_to_temp
-
-`src/clipboard/windows.rs`
-Copies the file at the given path to the clipboard. Supports application functionality.
-→ Exports: copy_file_handle, perform_copy, perform_read
 
 `src/constants.rs`
 Shared constants for file filtering and pattern matching. Supports application functionality.
@@ -481,10 +380,6 @@ Resolves an import string to a likely file path on disk. Supports application fu
 Module providing `Lang`, `QueryKind`, `from_ext`. Supports application functionality.
 → Exports: Lang, QueryKind, from_ext, grammar, q_complexity, q_defs, q_exports, q_imports, q_naming, q_skeleton, query, skeleton_replacement
 
-`src/map.rs`
-Repository map generation with tree-style visualization. Supports application functionality.
-→ Exports: generate
-
 `src/mutate/discovery.rs`
 Discovers mutation points in source files using tree-sitter. Supports application functionality.
 → Exports: discover_mutations
@@ -501,41 +396,13 @@ Report formatting for mutation test results. Supports application functionality.
 Parallel mutation test runner. Supports application functionality.
 → Exports: MutationResult, MutationSummary, RunnerConfig, python, run_mutations, rust, summarize, typescript
 
-`src/pack/docs.rs`
-Logic for extracting documentation from source code. Supports application functionality.
-→ Exports: extract_from_path
-
-`src/pack/focus.rs`
-Focus mode computation for foveal/peripheral packing. Supports application functionality.
-→ Exports: compute_sets
-
-`src/pack/formats.rs`
-Packs files into the `SlopChop` format with focus awareness. Formats data for output.
-→ Exports: pack_slopchop_focus, pack_spec
-
-`src/pack/xml_format.rs`
-XML output format logic. Formats data for output.
-→ Exports: pack_xml_focus
-
 `src/project.rs`
 Detects project type from current directory. Supports application functionality.
 → Exports: ProjectType, Strictness, detect, detect_in, generate_toml, is_typescript, npx_cmd
 
-`src/prompt.rs`
-Current protocol version for AI compatibility tracking. Supports application functionality.
-→ Exports: PromptGenerator, generate, generate_reminder, generate_short, new, wrap_header
-
 `src/reporting.rs`
 Console output formatting for scan results. Supports application functionality.
 → Exports: format_report_string, print_json, print_report
-
-`src/signatures/docs.rs`
-Doc comment extraction for holographic signatures. Supports application functionality.
-→ Exports: expand_ranges_for_docs
-
-`src/signatures/ordering.rs`
-Topological ordering for holographic signatures. Supports application functionality.
-→ Exports: topological_order
 
 `src/skeleton.rs`
 Reduces code to its structural skeleton (signatures only). Supports application functionality.
@@ -573,11 +440,11 @@ The tokenizer encoding (`cl100k_base`, used by GPT-4/3.5-turbo). Supports applic
 A single violation detected during analysis. Defines domain data structures.
 → Exports: CheckReport, CommandResult, FileReport, ScanReport, Violation, ViolationDetails, clean_file_count, has_errors, is_clean, is_small_codebase, simple, violation_count, with_details
 
-## Layer 3 -- Utilities
+`src/verification/runner.rs`
+Command execution and output capture. Supports application functionality.
+→ Exports: run_commands
 
-`src/clipboard/utils.rs`
-Pipes input text to a command's stdin. Provides reusable helper functions.
-→ Exports: pipe_to_cmd
+## Layer 3 -- Utilities
 
 `src/utils.rs`
 Computes SHA256 hash of content with normalized line endings. Provides reusable helper functions.
@@ -588,9 +455,6 @@ Computes SHA256 hash of content with normalized line endings. Provides reusable 
 `src/analysis/inspector.rs`
 Inspection logic for scopes (Metrics application). Verifies correctness.
 → Exports: Inspector, inspect, new
-
-`src/apply/validator_tests.rs`
-Orchestrates `super`. Verifies correctness.
 
 `src/graph/locality/tests.rs`
 Integration tests for locality analysis. Verifies correctness.

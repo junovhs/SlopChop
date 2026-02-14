@@ -49,14 +49,6 @@ pub enum Commands {
         commit: bool,
     },
 
-    /// Generate type-surface signatures [EXPERIMENTAL]
-    Signatures {
-        #[arg(long, short)]
-        copy: bool,
-        #[arg(long, short)]
-        stdout: bool,
-    },
-
     /// Interactive configuration editor
     Config,
 

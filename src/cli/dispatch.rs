@@ -3,10 +3,9 @@
 use super::{
     args::Commands,
     git_ops::{handle_abort, handle_branch, handle_promote},
-    handlers::{handle_check, handle_scan, handle_signatures},
+    handlers::{handle_check, handle_scan},
 };
 use crate::exit::SlopChopExit;
-use crate::signatures::SignatureOptions;
 use anyhow::{anyhow, Result};
 
 /// Executes the parsed command.
@@ -15,10 +14,9 @@ use anyhow::{anyhow, Result};
 /// Returns error if the command handler fails.
 pub fn execute(command: Commands) -> Result<SlopChopExit> {
     match command {
-        Commands::Check { .. }
-        | Commands::Scan { .. }
-        | Commands::Signatures { .. }
-        | Commands::Mutate { .. } => handle_analysis(command),
+        Commands::Check { .. } | Commands::Scan { .. } | Commands::Mutate { .. } => {
+            handle_analysis(command)
+        }
 
         Commands::Branch { .. } | Commands::Promote { .. } | Commands::Abort => {
             handle_git_ops(&command)
@@ -40,10 +38,6 @@ fn handle_analysis(command: Commands) -> Result<SlopChopExit> {
                 return super::locality::handle_locality();
             }
             handle_scan(verbose, false, json)
-        }
-        Commands::Signatures { copy, stdout } => {
-            let opts = SignatureOptions { copy, stdout };
-            handle_signatures(opts)
         }
         Commands::Mutate {
             workers,

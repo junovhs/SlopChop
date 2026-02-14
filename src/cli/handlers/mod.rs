@@ -5,7 +5,6 @@ use crate::config::Config;
 use crate::discovery;
 use crate::exit::SlopChopExit;
 use crate::reporting;
-use crate::signatures::{self, SignatureOptions};
 use crate::spinner;
 use crate::verification;
 use anyhow::Result;
@@ -113,13 +112,4 @@ pub fn handle_check(json: bool) -> Result<SlopChopExit> {
     } else {
         SlopChopExit::CheckFailed
     })
-}
-
-/// Handles the signatures command.
-///
-/// # Errors
-/// Returns error if signature generation fails.
-pub fn handle_signatures(opts: SignatureOptions) -> Result<SlopChopExit> {
-    signatures::run(&opts)?;
-    Ok(SlopChopExit::Success)
 }
